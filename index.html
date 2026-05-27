@@ -133,6 +133,18 @@
     .form-row{grid-template-columns:1fr;}
     .grid2{grid-template-columns:1fr;}
   }
+  .smart-select-wrap{position:relative;width:100%;}
+  .smart-select-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:inherit;font-size:14px;outline:none;cursor:pointer;}
+  .smart-select-input:focus{border-color:var(--accent);}
+  .smart-select-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:999;max-height:240px;overflow-y:auto;display:none;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+  .smart-select-dropdown.open{display:block;}
+  .smart-select-search{width:100%;background:var(--bg3);border:none;border-bottom:1px solid var(--border);padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;position:sticky;top:0;}
+  .smart-select-option{padding:9px 14px;cursor:pointer;font-size:13px;color:var(--text);transition:background .1s;}
+  .smart-select-option:hover{background:var(--bg3);}
+  .smart-select-option.selected{background:rgba(59,130,246,.15);color:var(--accent);}
+  .smart-select-add{padding:9px 14px;cursor:pointer;font-size:13px;color:var(--green);border-top:1px solid var(--border);display:flex;align-items:center;gap:6px;font-weight:500;}
+  .smart-select-add:hover{background:rgba(16,185,129,.1);}
+  .smart-select-empty{padding:12px 14px;font-size:12px;color:var(--text3);text-align:center;}
 </style>
 </head>
 <body>
@@ -143,6 +155,153 @@ const SKEY='sb_publishable_iqs1Q7TrS4j28CWqv3TUJQ_57WHtgB9';
 const {createClient}=supabase;
 const db=createClient(SURL,SKEY);
 let page='dashboard',user=null,profile=null,modal=null;
+
+// ── SMART SEARCHABLE SELECT ──
+// Usage: smartSelect(containerId, options, selectedId, onSelect, onAddNew)
+// options = [{id, label}]
+function smartSelect(containerId, options, selectedId, onSelect, onAddNew){
+  const wrap=document.getElementById(containerId);
+  if(!wrap) return;
+  const selected=options.find(o=>o.id==selectedId);
+  wrap.innerHTML=`
+    <div class="smart-select-wrap" id="ssw-${containerId}">
+      <input class="smart-select-input" id="ssi-${containerId}" 
+        placeholder="Search or select..." 
+        value="${selected?.label||''}" 
+        readonly
+        onclick="toggleSmartSelect('${containerId}')"/>
+      <div class="smart-select-dropdown" id="ssd-${containerId}">
+        <input class="smart-select-search" id="sss-${containerId}" 
+          placeholder="Type to search..." 
+          oninput="filterSmartSelect('${containerId}')"
+          onclick="event.stopPropagation()"/>
+        <div id="sslist-${containerId}"></div>
+        ${onAddNew?`<div class="smart-select-add" onclick="handleSmartAddNew('${containerId}')">+ Add New</div>`:''}
+      </div>
+    </div>`;
+  
+  // Store data on element
+  wrap._ssData={options,selectedId,onSelect,onAddNew};
+  renderSmartOptions(containerId, options, selectedId, onSelect);
+  
+  // Close on outside click
+  document.addEventListener('click', function closeDD(e){
+    const dd=document.getElementById('ssd-'+containerId);
+    const inp=document.getElementById('ssi-'+containerId);
+    if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp){
+      dd.classList.remove('open');
+      document.removeEventListener('click',closeDD);
+    }
+  });
+}
+
+function toggleSmartSelect(id){
+  const dd=document.getElementById('ssd-'+id);
+  const search=document.getElementById('sss-'+id);
+  if(!dd) return;
+  dd.classList.toggle('open');
+  if(dd.classList.contains('open')&&search){
+    search.value='';
+    filterSmartSelect(id);
+    setTimeout(()=>search.focus(),50);
+  }
+}
+
+function filterSmartSelect(id){
+  const wrap=document.getElementById(id);
+  if(!wrap||!wrap._ssData) return;
+  const q=document.getElementById('sss-'+id)?.value?.toLowerCase()||'';
+  const filtered=wrap._ssData.options.filter(o=>o.label.toLowerCase().includes(q));
+  renderSmartOptions(id, filtered, wrap._ssData.selectedId, wrap._ssData.onSelect);
+}
+
+function renderSmartOptions(id, options, selectedId, onSelect){
+  const list=document.getElementById('sslist-'+id);
+  if(!list) return;
+  if(!options.length){
+    list.innerHTML='<div class="smart-select-empty">Koi result nahi</div>';
+    return;
+  }
+  list.innerHTML=options.map(o=>`
+    <div class="smart-select-option ${o.id==selectedId?'selected':''}" 
+      onclick="selectSmartOption('${id}','${o.id}',${JSON.stringify(o.label).replace(/"/g,'&quot;')})">
+      ${o.label}
+    </div>`).join('');
+}
+
+function selectSmartOption(id, optId, label){
+  const wrap=document.getElementById(id);
+  if(!wrap) return;
+  wrap._ssData.selectedId=optId;
+  document.getElementById('ssi-'+id).value=label;
+  document.getElementById('ssd-'+id)?.classList.remove('open');
+  if(wrap._ssData.onSelect) wrap._ssData.onSelect(optId, label);
+}
+
+function handleSmartAddNew(id){
+  const wrap=document.getElementById(id);
+  document.getElementById('ssd-'+id)?.classList.remove('open');
+  if(wrap?._ssData?.onAddNew) wrap._ssData.onAddNew(id);
+}
+
+// Quick add customer inline
+async function quickAddCustomer(targetSelectId){
+  const name=prompt('Customer ka naam daalo:');
+  if(!name?.trim()) return;
+  const gstin=prompt('GSTIN (optional, Enter skip karo):');
+  const phone=prompt('Phone (optional):');
+  const code='CUS-'+Date.now().toString().slice(-6);
+  const{data,error}=await db.from('customers').insert({code,name:name.trim(),gstin:gstin||null,phone:phone||null,is_active:true}).select().single();
+  if(error){alert('Error: '+error.message);return;}
+  // Refresh the dropdown if smartSelect
+  const wrap=document.getElementById(targetSelectId);
+  if(wrap?._ssData){
+    wrap._ssData.options.push({id:data.id,label:data.name});
+    selectSmartOption(targetSelectId,data.id,data.name);
+  }
+  showToast('✓ Customer added: '+data.name);
+}
+
+// Quick add supplier inline  
+async function quickAddSupplier(targetSelectId){
+  const name=prompt('Supplier ka naam daalo:');
+  if(!name?.trim()) return;
+  const gstin=prompt('GSTIN (optional):');
+  const phone=prompt('Phone (optional):');
+  const code='SUP-'+Date.now().toString().slice(-6);
+  const{data,error}=await db.from('suppliers').insert({code,name:name.trim(),gstin:gstin||null,phone:phone||null,is_active:true}).select().single();
+  if(error){alert('Error: '+error.message);return;}
+  const wrap=document.getElementById(targetSelectId);
+  if(wrap?._ssData){
+    wrap._ssData.options.push({id:data.id,label:data.name});
+    selectSmartOption(targetSelectId,data.id,data.name);
+  }
+  showToast('✓ Supplier added: '+data.name);
+}
+
+// Quick add item inline
+async function quickAddItem(targetSelectId){
+  const code=prompt('Item code (e.g. RM-050):');
+  if(!code?.trim()) return;
+  const name=prompt('Item naam:');
+  if(!name?.trim()) return;
+  const type=prompt('Type (RM/SFG/FG):') || 'RM';
+  const{data,error}=await db.from('items').insert({code:code.trim().toUpperCase(),name:name.trim(),type:type.toUpperCase(),uom:'PCS',category_id:1}).select().single();
+  if(error){alert('Error: '+error.message);return;}
+  const wrap=document.getElementById(targetSelectId);
+  if(wrap?._ssData){
+    wrap._ssData.options.push({id:data.id,label:data.code+' — '+data.name});
+    selectSmartOption(targetSelectId,data.id,data.code+' — '+data.name);
+  }
+  showToast('✓ Item added: '+data.name);
+}
+
+function showToast(msg){
+  let t=document.getElementById('cfc-toast');
+  if(!t){t=document.createElement('div');t.id='cfc-toast';t.style.cssText='position:fixed;bottom:20px;right:20px;background:#10b981;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:9999;display:none';document.body.appendChild(t);}
+  t.textContent=msg;t.style.display='block';
+  clearTimeout(t._timer);t._timer=setTimeout(()=>t.style.display='none',3000);
+}
 
 const ICONS={
   dashboard:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
@@ -678,9 +837,7 @@ async function showPOModal(){
         </div>
       </div>
       <div class="form-group"><label class="form-label">Item to Produce *</label>
-        <select class="form-select" id="po-item"><option value="">-- Select Item --</option>
-          ${(items||[]).map(i=>`<option value="${i.id}">${i.code} — ${i.name} (${i.type})</option>`).join('')}
-        </select>
+        <div id="po-item-wrap"></div>
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Planned Qty *</label><input class="form-input" id="po-qty" type="number" value="100"/></div>
@@ -693,11 +850,13 @@ async function showPOModal(){
     <div class="modal-footer"><button class="btn btn-ghost btn-sm" id="cm2">Cancel</button><button class="btn btn-primary btn-sm" id="save-po">Create Order</button></div>
   </div></div>`;
   render();
+  smartSelect('po-item-wrap',(items||[]).map(i=>({id:i.id,label:i.code+' — '+i.name+' ('+i.type+')'})),null,(id)=>{},()=>quickAddItem('po-item-wrap'));
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',closeModal);
   document.getElementById('save-po').addEventListener('click',async()=>{
-    const item_id=document.getElementById('po-item').value;
-    if(!item_id){document.getElementById('po-err').textContent='Select an item.';return;}
+    const wrap=document.getElementById('po-item-wrap');
+    const item_id=wrap?._ssData?.selectedId||'';
+    if(!item_id){document.getElementById('po-err').textContent='Item select karo.';return;}
     const{error}=await db.from('production_orders').insert({order_no:document.getElementById('po-no').value,order_type:document.getElementById('po-type').value,item_id,planned_qty:parseFloat(document.getElementById('po-qty').value)||0,planned_date:document.getElementById('po-date').value,customer_ref:document.getElementById('po-cref').value,notes:document.getElementById('po-notes').value,status:'Planned'});
     if(error){document.getElementById('po-err').textContent=error.message;return;}
     closeModal();
@@ -981,35 +1140,97 @@ async function loadPurchase(el,acts){
 }
 
 async function showPurchaseModal(){
-  const{data:sups}=await db.from('suppliers').select('*').eq('is_active',true);
+  const[{data:sups},{data:rmItems}]=await Promise.all([
+    db.from('suppliers').select('*').eq('is_active',true),
+    db.from('items').select('id,code,name,uom').in('type',['RM','SFG']).order('code')
+  ]);
   const now=new Date().toISOString().split('T')[0];
-  modal=`<div class="modal-overlay"><div class="modal">
+  let poLines=[{itemId:'',itemLabel:'',qty:0,uom:'KG',rate:0,gst:18}];
+
+  function renderPOLines(){
+    const el=document.getElementById('po-lines');
+    if(!el) return;
+    el.innerHTML=poLines.map((line,idx)=>`
+      <div style="display:grid;grid-template-columns:2fr 80px 60px 90px 60px 30px;gap:6px;align-items:center;margin-bottom:6px">
+        <div id="po-line-item-${idx}"></div>
+        <input type="number" class="form-input" style="padding:6px 8px;font-size:12px" placeholder="Qty" value="${line.qty}" onchange="poLines[${idx}].qty=parseFloat(this.value)||0"/>
+        <input class="form-input" style="padding:6px 8px;font-size:12px" placeholder="UOM" value="${line.uom}" onchange="poLines[${idx}].uom=this.value"/>
+        <input type="number" class="form-input" style="padding:6px 8px;font-size:12px" placeholder="Rate ₹" value="${line.rate}" onchange="poLines[${idx}].rate=parseFloat(this.value)||0;updatePOTotal()"/>
+        <input type="number" class="form-input" style="padding:6px 8px;font-size:12px" placeholder="GST%" value="${line.gst}" onchange="poLines[${idx}].gst=parseFloat(this.value)||0"/>
+        <button onclick="poLines.splice(${idx},1);renderPOLines()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px">×</button>
+      </div>`).join('');
+    poLines.forEach((line,i)=>{
+      setTimeout(()=>{
+        smartSelect('po-line-item-'+i,(rmItems||[]).map(it=>({id:it.id,label:it.code+' — '+it.name})),line.itemId||null,(id,label)=>{poLines[i].itemId=id;poLines[i].itemLabel=label;// Auto-fill UOM
+          const item=rmItems?.find(it=>it.id==id);if(item?.uom){poLines[i].uom=item.uom;}},()=>quickAddItem('po-line-item-'+i));
+      },50);
+    });
+    updatePOTotal();
+  }
+
+  function updatePOTotal(){
+    let sub=0;
+    poLines.forEach(l=>{sub+=l.qty*l.rate;});
+    const gst=poLines.reduce((s,l)=>s+(l.qty*l.rate*l.gst/100),0);
+    const el=document.getElementById('po-total');
+    if(el) el.innerHTML=`<span style="color:var(--text2)">Subtotal: </span><strong>₹${sub.toLocaleString('en-IN')}</strong> + GST <strong>₹${gst.toLocaleString('en-IN',{maximumFractionDigits:0})}</strong> = <strong style="color:var(--green)">₹${(sub+gst).toLocaleString('en-IN',{maximumFractionDigits:0})}</strong>`;
+  }
+
+  modal=`<div class="modal-overlay"><div class="modal" style="max-width:700px">
     <div class="modal-head"><span class="modal-title">New Purchase Order</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body">
       <div class="form-row">
         <div class="form-group"><label class="form-label">PO Number</label><input class="form-input" id="pur-no" value="PUR-${Date.now().toString().slice(-6)}"/></div>
         <div class="form-group"><label class="form-label">Supplier *</label>
-          <select class="form-select" id="pur-sup"><option value="">-- Select --</option>${(sups||[]).map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
+          <div id="pur-sup-wrap"></div>
         </div>
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Order Date</label><input class="form-input" id="pur-date" type="date" value="${now}"/></div>
         <div class="form-group"><label class="form-label">Expected Date</label><input class="form-input" id="pur-exp" type="date"/></div>
       </div>
-      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="pur-notes"></textarea></div>
-      ${!sups?.length?'<div class="alert alert-warning">No suppliers found. Add suppliers first.</div>':''}
+      <div class="form-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <label class="form-label" style="margin:0">Materials *</label>
+          <button type="button" class="btn btn-green btn-sm" onclick="poLines.push({itemId:'',itemLabel:'',qty:0,uom:'KG',rate:0,gst:18});renderPOLines()">+ Add Material</button>
+        </div>
+        <div id="po-lines" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px"></div>
+        <div id="po-total" style="margin-top:8px;font-size:13px;text-align:right;padding:6px 10px;background:var(--bg3);border-radius:6px"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="pur-notes" style="min-height:50px"></textarea></div>
       <div id="pur-err" class="err-msg"></div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost btn-sm" id="cm2">Cancel</button><button class="btn btn-primary btn-sm" id="save-pur">Create PO</button></div>
   </div></div>`;
   render();
+  smartSelect('pur-sup-wrap',(sups||[]).map(s=>({id:s.id,label:s.name})),null,(id)=>{},()=>quickAddSupplier('pur-sup-wrap'));
+  renderPOLines();
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',closeModal);
   document.getElementById('save-pur').addEventListener('click',async()=>{
-    const sup=document.getElementById('pur-sup').value;
-    if(!sup){document.getElementById('pur-err').textContent='Select a supplier.';return;}
-    await db.from('purchase_orders').insert({po_no:document.getElementById('pur-no').value,supplier_id:sup,order_date:document.getElementById('pur-date').value,expected_date:document.getElementById('pur-exp').value||null,notes:document.getElementById('pur-notes').value});
+    const wrap=document.getElementById('pur-sup-wrap');
+    const sup=wrap?._ssData?.selectedId||'';
+    if(!sup){document.getElementById('pur-err').textContent='Supplier select karo.';return;}
+    const validLines=poLines.filter(l=>l.itemId&&l.qty>0);
+    if(!validLines.length){document.getElementById('pur-err').textContent='Kam se kam 1 item add karo.';return;}
+    const subtotal=validLines.reduce((s,l)=>s+l.qty*l.rate,0);
+    const gstAmt=validLines.reduce((s,l)=>s+(l.qty*l.rate*l.gst/100),0);
+    const{data:po,error}=await db.from('purchase_orders').insert({
+      po_no:document.getElementById('pur-no').value,
+      supplier_id:sup,
+      order_date:document.getElementById('pur-date').value,
+      expected_date:document.getElementById('pur-exp').value||null,
+      notes:document.getElementById('pur-notes').value,
+      total_amount:subtotal+gstAmt,
+      status:'Ordered'
+    }).select().single();
+    if(error){document.getElementById('pur-err').textContent=error.message;return;}
+    await db.from('purchase_order_lines').insert(validLines.map(l=>({
+      po_id:po.id,item_id:l.itemId,qty:l.qty,uom:l.uom,
+      unit_price:l.rate,gst_percent:l.gst
+    })));
     closeModal();
+    showToast('✓ Purchase Order created — '+po.po_no);
   });
 }
 
@@ -1033,35 +1254,103 @@ async function loadSales(el,acts){
 }
 
 async function showSalesModal(){
-  const{data:custs}=await db.from('customers').select('*').eq('is_active',true);
+  const[{data:custs},{data:fgItems}]=await Promise.all([
+    db.from('customers').select('*').eq('is_active',true),
+    db.from('items').select('id,code,name,type').in('type',['FG','SFG']).order('code')
+  ]);
   const now=new Date().toISOString().split('T')[0];
-  modal=`<div class="modal-overlay"><div class="modal">
+  let soLines=[{itemId:'',itemLabel:'',qty:1,uom:'SET',rate:0,gst:18}];
+
+  function renderSOLines(){
+    const el=document.getElementById('so-lines');
+    if(!el) return;
+    el.innerHTML=soLines.map((line,idx)=>`
+      <div style="display:grid;grid-template-columns:2fr 80px 60px 90px 60px 30px;gap:6px;align-items:center;margin-bottom:6px">
+        <div id="so-line-item-${idx}"></div>
+        <input type="number" class="form-input" style="padding:6px 8px;font-size:12px" placeholder="Qty" value="${line.qty}" onchange="soLines[${idx}].qty=parseFloat(this.value)||0"/>
+        <input class="form-input" style="padding:6px 8px;font-size:12px" placeholder="UOM" value="${line.uom}" onchange="soLines[${idx}].uom=this.value"/>
+        <input type="number" class="form-input" style="padding:6px 8px;font-size:12px" placeholder="Rate ₹" value="${line.rate}" onchange="soLines[${idx}].rate=parseFloat(this.value)||0;updateSOTotal()"/>
+        <input type="number" class="form-input" style="padding:6px 8px;font-size:12px" placeholder="GST%" value="${line.gst}" onchange="soLines[${idx}].gst=parseFloat(this.value)||0"/>
+        <button onclick="soLines.splice(${idx},1);renderSOLines()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px">×</button>
+      </div>`).join('')+
+      `<div style="font-size:11px;color:var(--text3);display:grid;grid-template-columns:2fr 80px 60px 90px 60px 30px;gap:6px;padding:0 0 4px">
+        <span>Item</span><span>Qty</span><span>UOM</span><span>Rate ₹</span><span>GST%</span><span></span>
+      </div>`;
+    // Initialize smartSelect for each line item
+    soLines.forEach((line,i)=>{
+      setTimeout(()=>{
+        smartSelect('so-line-item-'+i,(fgItems||[]).map(it=>({id:it.id,label:it.code+' — '+it.name})),line.itemId||null,(id,label)=>{soLines[i].itemId=id;soLines[i].itemLabel=label;},()=>quickAddItem('so-line-item-'+i));
+      },50);
+    });
+    updateSOTotal();
+  }
+
+  function updateSOTotal(){
+    let sub=0;
+    soLines.forEach(l=>{sub+=l.qty*l.rate;});
+    const gst=soLines.reduce((s,l)=>s+(l.qty*l.rate*l.gst/100),0);
+    const el=document.getElementById('so-total');
+    if(el) el.innerHTML=`<span style="color:var(--text2)">Subtotal: </span><strong>₹${sub.toLocaleString('en-IN')}</strong> + GST <strong>₹${gst.toLocaleString('en-IN',{maximumFractionDigits:0})}</strong> = <strong style="color:var(--green)">₹${(sub+gst).toLocaleString('en-IN',{maximumFractionDigits:0})}</strong>`;
+  }
+
+  modal=`<div class="modal-overlay"><div class="modal" style="max-width:700px">
     <div class="modal-head"><span class="modal-title">New Sales Order</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body">
       <div class="form-row">
         <div class="form-group"><label class="form-label">SO Number</label><input class="form-input" id="so-no" value="SO-${Date.now().toString().slice(-6)}"/></div>
         <div class="form-group"><label class="form-label">Customer *</label>
-          <select class="form-select" id="so-cust"><option value="">-- Select --</option>${(custs||[]).map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}</select>
+          <div id="so-cust-wrap"></div>
         </div>
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Order Date</label><input class="form-input" id="so-date" type="date" value="${now}"/></div>
         <div class="form-group"><label class="form-label">Delivery Date</label><input class="form-input" id="so-del" type="date"/></div>
       </div>
-      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="so-notes"></textarea></div>
-      ${!custs?.length?'<div class="alert alert-warning">No customers found. Add customers first.</div>':''}
+      <div class="form-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <label class="form-label" style="margin:0">Order Items *</label>
+          <button type="button" class="btn btn-green btn-sm" onclick="soLines.push({itemId:'',itemLabel:'',qty:1,uom:'SET',rate:0,gst:18});renderSOLines()">+ Add Item</button>
+        </div>
+        <div id="so-lines" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px"></div>
+        <div id="so-total" style="margin-top:8px;font-size:13px;text-align:right;padding:6px 10px;background:var(--bg3);border-radius:6px"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="so-notes" style="min-height:50px"></textarea></div>
       <div id="so-err" class="err-msg"></div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost btn-sm" id="cm2">Cancel</button><button class="btn btn-primary btn-sm" id="save-so">Create SO</button></div>
   </div></div>`;
   render();
+  smartSelect('so-cust-wrap',(custs||[]).map(c=>({id:c.id,label:c.name})),null,(id)=>{},()=>quickAddCustomer('so-cust-wrap'));
+  renderSOLines();
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',closeModal);
   document.getElementById('save-so').addEventListener('click',async()=>{
-    const cust=document.getElementById('so-cust').value;
-    if(!cust){document.getElementById('so-err').textContent='Select a customer.';return;}
-    await db.from('sales_orders').insert({so_no:document.getElementById('so-no').value,customer_id:cust,order_date:document.getElementById('so-date').value,delivery_date:document.getElementById('so-del').value||null,notes:document.getElementById('so-notes').value});
+    const wrap=document.getElementById('so-cust-wrap');
+    const cust=wrap?._ssData?.selectedId||'';
+    if(!cust){document.getElementById('so-err').textContent='Customer select karo.';return;}
+    const validLines=soLines.filter(l=>l.itemId&&l.qty>0);
+    if(!validLines.length){document.getElementById('so-err').textContent='Kam se kam 1 item add karo.';return;}
+    const subtotal=validLines.reduce((s,l)=>s+l.qty*l.rate,0);
+    const gstAmt=validLines.reduce((s,l)=>s+(l.qty*l.rate*l.gst/100),0);
+    const total=subtotal+gstAmt;
+    const{data:so,error}=await db.from('sales_orders').insert({
+      so_no:document.getElementById('so-no').value,
+      customer_id:cust,
+      order_date:document.getElementById('so-date').value,
+      delivery_date:document.getElementById('so-del').value||null,
+      notes:document.getElementById('so-notes').value,
+      total_amount:total,
+      status:'Confirmed'
+    }).select().single();
+    if(error){document.getElementById('so-err').textContent=error.message;return;}
+    // Save lines
+    await db.from('sales_order_lines').insert(validLines.map(l=>({
+      so_id:so.id,item_id:l.itemId,qty:l.qty,uom:l.uom,
+      unit_price:l.rate,gst_percent:l.gst,
+      total_amount:l.qty*l.rate*(1+l.gst/100)
+    })));
     closeModal();
+    showToast('✓ Sales Order created — '+so.so_no);
   });
 }
 
