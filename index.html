@@ -357,6 +357,31 @@ function appHTML(){
     ${navItem('sales','sales','Sales')}
     ${navItem('suppliers','suppliers','Suppliers')}
     ${navItem('customers','customers','Customers')}
+    <div class="sidebar-section">Tools</div>
+    <a href="/dashboard" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Command Center
+    </a>
+    <a href="/mrp" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      MRP / MES
+    </a>
+    <a href="/planner" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Production Planner
+    </a>
+    <a href="/oven" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+      Oven Planning
+    </a>
+    <a href="/invoice" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      GST Invoice
+    </a>
+    <a href="/operator" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Operator View
+    </a>
     <div class="sidebar-footer">
       <div class="user-name">${name}</div>
       <div class="user-info">${role}</div>
@@ -444,35 +469,158 @@ function flowRow(t,s){return`<div style="display:flex;gap:10px;align-items:cente
 
 // ── DASHBOARD ──
 async function loadDashboard(el){
-  const[items,orders,qc]=await Promise.all([
-    db.from('items').select('id'),
-    db.from('production_orders').select('id,status,order_type'),
-    db.from('qc_records').select('id,status')
+  const today=new Date().toISOString().split('T')[0];
+  const hour=new Date().getHours();
+  const greeting=hour<12?'Good Morning':hour<17?'Good Afternoon':'Good Evening';
+
+  const[
+    {data:items},{data:orders},{data:ops},
+    {data:inv},{data:machines},{data:halts},
+    {data:sos},{data:workers},{data:att}
+  ]=await Promise.all([
+    db.from('items').select('id',{count:'exact'}),
+    db.from('production_orders').select('id,order_no,order_type,status,items(code)').in('status',['Planned','In Progress']).order('created_at',{ascending:false}).limit(5),
+    db.from('production_order_operations').select('status').eq('status','In Progress'),
+    db.from('inventory').select('current_stock,items(code,name,type,reorder_level)'),
+    db.from('machines').select('*').eq('is_active',true),
+    db.from('machine_halts').select('machine_id').is('halt_end',null),
+    db.from('sales_orders').select('so_no,status,total_amount,customers(name)').in('status',['Confirmed']).order('created_at',{ascending:false}).limit(3),
+    db.from('workers').select('id').eq('is_active',true),
+    db.from('attendance').select('status').eq('att_date',today)
   ]);
-  const active=(orders.data||[]).filter(o=>['Planned','In Progress'].includes(o.status)).length;
-  const mto=(orders.data||[]).filter(o=>o.order_type==='MTO'&&o.status!=='Completed').length;
-  const fails=(qc.data||[]).filter(q=>q.status==='Fail').length;
+
+  const running=(ops||[]).length;
+  const haltedIds=new Set((halts||[]).map(h=>h.machine_id));
+  const lowRM=(inv||[]).filter(i=>i.items?.type==='RM'&&(i.current_stock||0)<=(i.items?.reorder_level||0));
+  const lowSFG=(inv||[]).filter(i=>i.items?.type==='SFG'&&(i.current_stock||0)<=(i.items?.reorder_level||0)&&(i.items?.reorder_level||0)>0);
+  const present=(att||[]).filter(a=>a.status==='Present').length;
+  const totalWorkers=workers?.length||0;
+
   el.innerHTML=`
-  <div class="page-header"><h2>Good ${greeting()}</h2><p>Here's what's happening at Ceratech today.</p></div>
-  <div class="stats-grid">
-    <div class="stat-card blue"><div class="stat-label">Total Items</div><div class="stat-value">${items.data?.length||0}</div><div class="stat-sub">In item master</div></div>
-    <div class="stat-card amber"><div class="stat-label">Active Orders</div><div class="stat-value">${active}</div><div class="stat-sub">In production</div></div>
-    <div class="stat-card green"><div class="stat-label">MTO Pending</div><div class="stat-value">${mto}</div><div class="stat-sub">Make to order</div></div>
-    <div class="stat-card red"><div class="stat-label">QC Failures</div><div class="stat-value">${fails}</div><div class="stat-sub">Needs attention</div></div>
+  <div style="margin-bottom:20px">
+    <div style="font-size:22px;font-weight:600;margin-bottom:4px">${greeting} 👋</div>
+    <div style="font-size:13px;color:var(--text2)">Here's what's happening at Ceratech today.</div>
   </div>
-  <div class="grid2">
-    <div class="card"><div class="card-title">Production Flow</div>
-      ${flowRow('Mixing → Preforming','RM to Preform')}
-      ${flowRow('Moulding','Preform + Back Plate')}
-      ${flowRow('Grinding → Coating → Curing','Finishing')}
-      ${flowRow('Stacking','MTS stops here')}
-      ${flowRow('Packing → Dispatch','MTO continues')}
+
+  <div class="grid2" style="margin-bottom:16px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div class="stat-card ${running>0?'green':'amber'}">
+        <div class="stat-label">Running Now</div>
+        <div class="stat-value">${running}</div>
+        <div class="stat-sub">Operations active</div>
+      </div>
+      <div class="stat-card ${haltedIds.size>0?'red':'green'}">
+        <div class="stat-label">Halted</div>
+        <div class="stat-value">${haltedIds.size}</div>
+        <div class="stat-sub">Machines stopped</div>
+      </div>
+      <div class="stat-card ${lowRM.length>0?'red':'green'}">
+        <div class="stat-label">RM Alerts</div>
+        <div class="stat-value">${lowRM.length+lowSFG.length}</div>
+        <div class="stat-sub">${lowRM.length} RM, ${lowSFG.length} SFG low</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">Active Orders</div>
+        <div class="stat-value">${orders?.length||0}</div>
+        <div class="stat-sub">In production</div>
+      </div>
+      <div class="stat-card ${present<totalWorkers*0.7?'red':'green'}">
+        <div class="stat-label">Workers</div>
+        <div class="stat-value">${present||'—'}</div>
+        <div class="stat-sub">Present today</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-label">Pending SO</div>
+        <div class="stat-value">${sos?.length||0}</div>
+        <div class="stat-sub">To dispatch</div>
+      </div>
     </div>
-    <div class="card"><div class="card-title">Recent Orders</div><div id="rec-ord"><div class="loader" style="padding:16px"><div class="spinner"></div></div></div></div>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <!-- Quick Links -->
+      <div class="table-wrap" style="padding:12px 16px">
+        <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Quick Access</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <a href="/dashboard" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📊 Command Center</a>
+          <a href="/mrp" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⚙ MRP / MES</a>
+          <a href="/planner" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">🎯 Planner</a>
+          <a href="/oven" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--amber)'" onmouseout="this.style.borderColor='var(--border)'">🔥 Oven</a>
+          <a href="/invoice" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--purple)'" onmouseout="this.style.borderColor='var(--border)'">🧾 Invoice</a>
+          <a href="/operator" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">👷 Operator</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <!-- Machine Status -->
+    <div class="table-wrap">
+      <div class="table-header"><span class="table-title">Machine Status</span></div>
+      ${(machines||[]).slice(0,8).map(m=>{
+        const isHalted=haltedIds.has(m.id);
+        const statusColor=isHalted?'var(--red)':m.operation==='Moulding'?'var(--amber)':'var(--text3)';
+        const dot=isHalted?'🔴':m.operation==='Moulding'?'🟡':'⚫';
+        return`<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border)">
+          <span>${dot}</span>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:500">${m.name}</div>
+            <div style="font-size:11px;color:var(--text3)">${m.operation}</div>
+          </div>
+          <span style="font-size:11px;color:${statusColor};font-weight:500">${isHalted?'HALTED':m.operation==='Moulding'?'BOTTLENECK':'—'}</span>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Stock Alerts + Pending SO -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="table-wrap">
+        <div class="table-header"><span class="table-title">Stock Alerts</span><span style="font-size:12px;color:var(--text3)">${lowRM.length+lowSFG.length} items</span></div>
+        ${[...lowRM,...lowSFG].slice(0,5).map(i=>`
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border)">
+            <span>${(i.current_stock||0)<=0?'🔴':'🟡'}</span>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:500">${i.items?.code}</div>
+              <div style="font-size:11px;color:var(--text3)">${i.items?.name}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:12px;font-family:monospace;color:${(i.current_stock||0)<=0?'var(--red)':'var(--amber)'}">${i.current_stock||0}</div>
+              <div style="font-size:10px;color:var(--text3)">Min: ${i.items?.reorder_level||0}</div>
+            </div>
+          </div>`).join('')||'<div style="padding:12px;color:var(--green);font-size:13px">✓ Sab stock OK</div>'}
+      </div>
+      <div class="table-wrap">
+        <div class="table-header"><span class="table-title">Pending Sales Orders</span></div>
+        ${(sos||[]).map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border)">
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:500;font-family:monospace">${s.so_no}</div>
+            <div style="font-size:11px;color:var(--text3)">${s.customers?.name||'—'}</div>
+          </div>
+          <div style="font-size:12px;font-family:monospace">₹${(s.total_amount||0).toLocaleString('en-IN')}</div>
+        </div>`).join('')||'<div style="padding:12px;color:var(--text3);font-size:13px">No pending orders</div>'}
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="table-wrap">
+      <div class="table-header"><span class="table-title">Recent Production Orders</span></div>
+      <table><thead><tr><th>Order No</th><th>Type</th><th>Item</th><th>Status</th></tr></thead>
+      <tbody>${(orders||[]).map(o=>`<tr>
+        <td style="font-family:'DM Mono',monospace;font-size:12px">${o.order_no}</td>
+        <td><span class="badge badge-${o.order_type.toLowerCase()}">${o.order_type}</span></td>
+        <td>${o.items?.code||'—'}</td>
+        <td><span class="badge badge-${sc(o.status)}">${o.status}</span></td>
+      </tr>`).join('')||'<tr class="empty-row"><td colspan="4">No active orders</td></tr>'}</tbody></table>
+    </div>
+    <div class="table-wrap">
+      <div class="table-header"><span class="table-title">Production Flow</span></div>
+      ${['Mixing → Preforming','Shot Blast → Adhesive','Moulding ⚠ BOTTLENECK','Grinding → Powder Coating','Oven Curing','Stacking (MTS ends)','Packing → Dispatch (MTO)'].map((step,i)=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border)">
+          <div style="width:20px;height:20px;border-radius:50%;background:${i===2?'var(--amber)':'var(--accent)'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0">${i+1}</div>
+          <div style="font-size:13px;color:${i===2?'var(--amber)':'var(--text)'}">${step}</div>
+        </div>`).join('')}
+    </div>
   </div>`;
-  const{data:ro}=await db.from('production_orders').select('order_no,order_type,status').order('created_at',{ascending:false}).limit(6);
-  const re=document.getElementById('rec-ord');
-  if(re)re.innerHTML=ro?.length?ro.map(o=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)"><span style="font-size:13px;font-family:'DM Mono',monospace">${o.order_no}</span><span class="badge badge-${o.order_type.toLowerCase()}">${o.order_type}</span><span class="badge badge-${sc(o.status)}">${o.status}</span></div>`).join(''):'<p style="color:var(--text3);font-size:13px">No orders yet.</p>';
 }
 
 // ── ITEMS ──
