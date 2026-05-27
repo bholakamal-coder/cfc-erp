@@ -296,6 +296,19 @@ async function quickAddItem(targetSelectId){
   showToast('✓ Item added: '+data.name);
 }
 
+function setBtnState(btn,loading,loadText='Saving...',orig=null){
+  if(!btn) return;
+  if(loading){btn._orig=orig||btn.textContent;btn.disabled=true;btn.innerHTML='<span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin .6s linear infinite"></span>'+loadText+'</span>';btn.style.opacity='.8';}
+  else{btn.disabled=false;btn.textContent=btn._orig||orig||'Save';btn.style.opacity='1';}
+}
+function showSavedPopup(msg='✓ Saved!'){
+  const p=document.createElement('div');
+  p.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.8);background:var(--bg2);border:1px solid var(--green);border-radius:12px;padding:18px 28px;font-size:15px;font-weight:600;color:var(--green);z-index:9999;box-shadow:0 8px 40px rgba(0,0,0,.6);display:flex;align-items:center;gap:10px;animation:popIn .2s ease forwards';
+  p.innerHTML='<span style="font-size:22px">✅</span><span>'+msg+'</span>';
+  const s=document.createElement('style');s.textContent='@keyframes popIn{from{opacity:0;transform:translate(-50%,-50%) scale(.8)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}';
+  document.head.appendChild(s);document.body.appendChild(p);
+  setTimeout(()=>{p.style.animation='popIn .2s ease reverse';setTimeout(()=>p.remove(),200);},1500);
+}
 function showToast(msg){
   let t=document.getElementById('cfc-toast');
   if(!t){t=document.createElement('div');t.id='cfc-toast';t.style.cssText='position:fixed;bottom:20px;right:20px;background:#10b981;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:9999;display:none';document.body.appendChild(t);}

@@ -412,6 +412,8 @@ async function saveRMBatch(){
   const supId=getSSValue('rb-sup-wrap');
   const qty=parseFloat(document.getElementById('rb-qty').value)||0;
   if(!itemId||!supId||qty<=0){document.getElementById('rb-err').textContent='Item, Supplier aur Qty required.';return;}
+  const saveBtn=document.querySelector('[onclick="saveRMBatch()"]');
+  setBtnState(saveBtn,true,'Saving...');
   const{error}=await db.from('rm_batches').insert({
     batch_no:document.getElementById('rb-no').value,
     item_id:itemId,supplier_id:supId,
@@ -427,7 +429,11 @@ async function saveRMBatch(){
     qc_status:document.getElementById('rb-qc').value,
     notes:document.getElementById('rb-notes').value
   });
-  if(error){document.getElementById('rb-err').textContent=error.message;return;}
+  if(error){
+    document.getElementById('rb-err').textContent=error.message;
+    setBtnState(saveBtn,false,'','Create RM Batch');
+    return;
+  }
   // Update inventory
   const{data:item}=await db.from('items').select('uom').eq('id',itemId).single();
   const{data:ex}=await db.from('inventory').select('*').eq('item_id',itemId).single().catch(()=>({data:null}));
@@ -623,6 +629,8 @@ async function saveMixBatch(){
   const mixId=document.getElementById('mb-mix').value;
   const qty=parseFloat(document.getElementById('mb-qty').value)||0;
   if(!mixId||qty<=0){document.getElementById('mb-err').textContent='Mix formula aur qty required.';return;}
+  const mixSaveBtn=document.querySelector('[onclick="saveMixBatch()"]');
+  setBtnState(mixSaveBtn,true,'Creating Mix Batch...');
 
   // Collect RM lines
   const lines=[];
@@ -661,7 +669,8 @@ async function saveMixBatch(){
   if(ex) await db.from('inventory').update({current_stock:(ex.current_stock||0)+qty,last_updated:new Date().toISOString()}).eq('item_id',mixId);
   else await db.from('inventory').insert({item_id:mixId,current_stock:qty,uom:'KG'});
 
-  closeModal();showToast('✓ Mix batch created! RM deducted.');loadMixBatches();
+  setBtnState(mixSaveBtn,false,'','Create Mix Batch');
+  closeModal();showSavedPopup('Mix Batch Created!');loadMixBatches();
 }
 
 // ═══ PROCESS BATCH ═══
@@ -762,6 +771,8 @@ async function saveProcessBatch(){
   const inputQty=parseFloat(document.getElementById('pb-input').value)||0;
   const outputQty=parseFloat(document.getElementById('pb-output').value)||0;
   if(!op||!itemId){document.getElementById('pb-err').textContent='Operation aur item required.';return;}
+  const procSaveBtn=document.querySelector('[onclick="saveProcessBatch()"]');
+  setBtnState(procSaveBtn,true,'Creating Batch...');
 
   const{data:batch,error}=await db.from('process_batches').insert({
     batch_no:document.getElementById('pb-no').value,
@@ -792,7 +803,8 @@ async function saveProcessBatch(){
     else await db.from('inventory').insert({item_id:itemId,current_stock:outputQty,uom:'PCS'});
   }
 
-  closeModal();showToast('✓ Process batch created!');loadProcessBatches();
+  setBtnState(procSaveBtn,false,'','Create Batch');
+  closeModal();showSavedPopup('Process Batch Created!');loadProcessBatches();
 }
 
 async function completeBatch(id){
@@ -878,6 +890,8 @@ async function saveFGBatch(){
   const itemId=document.getElementById('fg-item').value;
   const sets=parseFloat(document.getElementById('fg-sets').value)||0;
   if(!itemId||sets<=0){document.getElementById('fg-err').textContent='Item aur qty required.';return;}
+  const fgSaveBtn=document.querySelector('[onclick="saveFGBatch()"]');
+  setBtnState(fgSaveBtn,true,'Creating FG Batch...');
   const pcs=parseFloat(document.getElementById('fg-pcs').value)||sets*4;
   const{error}=await db.from('fg_batches').insert({
     batch_no:document.getElementById('fg-no').value,
@@ -892,7 +906,8 @@ async function saveFGBatch(){
   const{data:ex}=await db.from('inventory').select('*').eq('item_id',itemId).single().catch(()=>({data:null}));
   if(ex) await db.from('inventory').update({current_stock:(ex.current_stock||0)+sets,last_updated:new Date().toISOString()}).eq('item_id',itemId);
   else await db.from('inventory').insert({item_id:itemId,current_stock:sets,uom:'SET'});
-  closeModal();showToast('✓ FG Batch created!');loadFGBatches();
+  setBtnState(fgSaveBtn,false,'','Create FG Batch');
+  closeModal();showSavedPopup('FG Batch Created! ✅');loadFGBatches();
 }
 
 async function dispatchFG(id){
@@ -1004,6 +1019,49 @@ async function getNextBatch(prefix){
 function showModal(html){document.getElementById('modal-area').innerHTML=`<div class="modal-overlay"><div class="modal">${html}</div></div>`;}
 function closeModal(){document.getElementById('modal-area').innerHTML='';}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3500);}
+
+// ═══ BUTTON STATE HELPER ═══
+function setBtnState(selector, loading, loadText='Saving...', originalText=null){
+  const btn = typeof selector === 'string' 
+    ? document.querySelector(selector) 
+    : selector;
+  if(!btn) return;
+  if(loading){
+    btn._originalText = originalText || btn.textContent;
+    btn.disabled = true;
+    btn.innerHTML = `<span style="display:flex;align-items:center;gap:6px">
+      <span style="width:12px;height:12px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin .6s linear infinite"></span>
+      ${loadText}
+    </span>`;
+    btn.style.opacity = '.85';
+  } else {
+    btn.disabled = false;
+    btn.textContent = btn._originalText || originalText || 'Save';
+    btn.style.opacity = '1';
+  }
+}
+
+function showSavedPopup(msg='✓ Saved!'){
+  const popup = document.createElement('div');
+  popup.style.cssText = `
+    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.8);
+    background:var(--bg2);border:1px solid var(--green);border-radius:12px;
+    padding:20px 32px;font-size:15px;font-weight:600;color:var(--green);
+    z-index:9999;box-shadow:0 8px 40px rgba(0,0,0,.6);
+    display:flex;align-items:center;gap:10px;
+    animation:popIn .2s ease forwards;
+  `;
+  popup.innerHTML = `<span style="font-size:24px">✅</span><span>${msg}</span>`;
+  
+  const style = document.createElement('style');
+  style.textContent = '@keyframes popIn{from{opacity:0;transform:translate(-50%,-50%) scale(.8)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}';
+  document.head.appendChild(style);
+  document.body.appendChild(popup);
+  setTimeout(()=>{
+    popup.style.animation='popIn .2s ease reverse';
+    setTimeout(()=>popup.remove(),200);
+  },1500);
+}
 
 // ═══ SMART SELECT ═══
 function smartSel(containerId, options, onSelect, onAdd){
