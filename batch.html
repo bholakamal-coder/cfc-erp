@@ -97,6 +97,18 @@ tr:hover td{background:rgba(255,255,255,.02);}
 .alert-success{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:#34d399;}
 #toast{display:none;position:fixed;bottom:20px;right:20px;background:var(--green);color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:999;}
 @media(max-width:768px){.grid2,.frow,.frow3{grid-template-columns:1fr;}}
+/* Smart Select */
+.ss-wrap{position:relative;width:100%;}
+.ss-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;cursor:pointer;}
+.ss-input:focus{border-color:var(--accent);}
+.ss-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--border);border-radius:6px;z-index:999;max-height:220px;overflow-y:auto;display:none;box-shadow:0 4px 20px rgba(0,0,0,.5);margin-top:2px;}
+.ss-dropdown.open{display:block;}
+.ss-search{width:100%;background:var(--bg3);border:none;border-bottom:1px solid var(--border);padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;position:sticky;top:0;}
+.ss-opt{padding:9px 12px;cursor:pointer;font-size:13px;color:var(--text);}
+.ss-opt:hover,.ss-opt.selected{background:var(--bg3);}
+.ss-add{padding:9px 12px;cursor:pointer;font-size:13px;color:var(--green);border-top:1px solid var(--border);font-weight:500;}
+.ss-add:hover{background:rgba(16,185,129,.1);}
+.ss-empty{padding:10px 12px;font-size:12px;color:var(--text3);text-align:center;}
 </style>
 </head>
 <body>
@@ -335,16 +347,10 @@ async function showRMReceiveModal(){
     </div>
     <div class="frow">
       <div class="fgroup"><label class="flabel">Item *</label>
-        <select class="finput" id="rb-item" onchange="autoFillUOM()">
-          <option value="">-- Select RM --</option>
-          ${(items||[]).map(i=>`<option value="${i.id}" data-uom="${i.uom}">${i.code} — ${i.name}</option>`).join('')}
-        </select>
+        <div id="rb-item-wrap"></div>
       </div>
       <div class="fgroup"><label class="flabel">Supplier *</label>
-        <select class="finput" id="rb-sup">
-          <option value="">-- Select --</option>
-          ${(suppliers||[]).map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}
-        </select>
+        <div id="rb-sup-wrap"></div>
       </div>
     </div>
     <div class="frow">
@@ -381,6 +387,18 @@ async function showRMReceiveModal(){
     <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancel</button>
     <button class="btn btn-amber btn-sm" onclick="saveRMBatch()">Create RM Batch</button>
   </div>`);
+
+  // Initialize smart selects
+  smartSel('rb-item-wrap',
+    (items||[]).map(i=>({id:i.id.toString(),label:i.code+' — '+i.name+' ('+i.uom+')'})),
+    (id)=>{const item=(items||[]).find(it=>it.id.toString()===id);if(item?.uom)document.getElementById('rb-uom').value=item.uom;},
+    ()=>quickAddRMItem('rb-item-wrap')
+  );
+  smartSel('rb-sup-wrap',
+    (suppliers||[]).map(s=>({id:s.id.toString(),label:s.name})),
+    null,
+    ()=>quickAddSupplierBatch('rb-sup-wrap')
+  );
 }
 
 function autoFillUOM(){
@@ -390,8 +408,8 @@ function autoFillUOM(){
 }
 
 async function saveRMBatch(){
-  const itemId=document.getElementById('rb-item').value;
-  const supId=document.getElementById('rb-sup').value;
+  const itemId=getSSValue('rb-item-wrap');
+  const supId=getSSValue('rb-sup-wrap');
   const qty=parseFloat(document.getElementById('rb-qty').value)||0;
   if(!itemId||!supId||qty<=0){document.getElementById('rb-err').textContent='Item, Supplier aur Qty required.';return;}
   const{error}=await db.from('rm_batches').insert({
@@ -986,6 +1004,116 @@ async function getNextBatch(prefix){
 function showModal(html){document.getElementById('modal-area').innerHTML=`<div class="modal-overlay"><div class="modal">${html}</div></div>`;}
 function closeModal(){document.getElementById('modal-area').innerHTML='';}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3500);}
+
+// ═══ SMART SELECT ═══
+function smartSel(containerId, options, onSelect, onAdd){
+  const wrap=document.getElementById(containerId);
+  if(!wrap) return;
+  wrap._ssData={options,onSelect,onAdd,selectedId:null};
+  wrap.innerHTML=`
+    <div class="ss-wrap" id="ssw-${containerId}">
+      <input class="ss-input" id="ssi-${containerId}" placeholder="Search or select..." readonly
+        onclick="toggleSS('${containerId}')"/>
+      <div class="ss-dropdown" id="ssd-${containerId}">
+        <input class="ss-search" id="sss-${containerId}" placeholder="Type to search..."
+          oninput="filterSS('${containerId}')" onclick="event.stopPropagation()"/>
+        <div id="sslist-${containerId}"></div>
+        ${onAdd?`<div class="ss-add" onclick="handleSSAdd('${containerId}')">+ Add New</div>`:''}
+      </div>
+    </div>`;
+  renderSSOptions(containerId, options, null);
+  document.addEventListener('click', function cl(e){
+    const dd=document.getElementById('ssd-'+containerId);
+    const inp=document.getElementById('ssi-'+containerId);
+    if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp){
+      dd.classList.remove('open');
+      document.removeEventListener('click',cl);
+    }
+  });
+}
+
+function toggleSS(id){
+  const dd=document.getElementById('ssd-'+id);
+  dd?.classList.toggle('open');
+  if(dd?.classList.contains('open')){
+    const s=document.getElementById('sss-'+id);
+    s?.focus();
+    filterSS(id);
+  }
+}
+
+function filterSS(id){
+  const wrap=document.getElementById(id);
+  if(!wrap?._ssData) return;
+  const q=document.getElementById('sss-'+id)?.value?.toLowerCase()||'';
+  const filtered=wrap._ssData.options.filter(o=>o.label.toLowerCase().includes(q));
+  renderSSOptions(id,filtered,wrap._ssData.selectedId);
+}
+
+function renderSSOptions(id,options,selectedId){
+  const list=document.getElementById('sslist-'+id);
+  if(!list) return;
+  if(!options.length){list.innerHTML='<div class="ss-empty">Koi result nahi</div>';return;}
+  list.innerHTML=options.map(o=>`<div class="ss-opt ${o.id==selectedId?'selected':''}"
+    onclick="selectSSOpt('${id}','${o.id}',${JSON.stringify(o.label).replace(/"/g,'&quot;')})">${o.label}</div>`).join('');
+}
+
+function selectSSOpt(id,optId,label){
+  const wrap=document.getElementById(id);
+  if(!wrap?._ssData) return;
+  wrap._ssData.selectedId=optId;
+  document.getElementById('ssi-'+id).value=label;
+  document.getElementById('ssd-'+id)?.classList.remove('open');
+  if(wrap._ssData.onSelect) wrap._ssData.onSelect(optId,label);
+}
+
+function handleSSAdd(id){
+  const wrap=document.getElementById(id);
+  document.getElementById('ssd-'+id)?.classList.remove('open');
+  if(wrap?._ssData?.onAdd) wrap._ssData.onAdd(id);
+}
+
+function getSSValue(id){
+  const wrap=document.getElementById(id);
+  return wrap?._ssData?.selectedId||null;
+}
+
+// Quick add supplier
+async function quickAddSupplierBatch(containerId){
+  const name=prompt('Supplier naam daalo:');
+  if(!name?.trim()) return;
+  const gstin=prompt('GSTIN (optional):');
+  const phone=prompt('Phone (optional):');
+  const code='SUP-'+Date.now().toString().slice(-6);
+  const{data,error}=await db.from('suppliers').insert({code,name:name.trim(),gstin:gstin||null,phone:phone||null,is_active:true}).select().single();
+  if(error){alert('Error: '+error.message);return;}
+  const wrap=document.getElementById(containerId);
+  if(wrap?._ssData){
+    wrap._ssData.options.push({id:data.id.toString(),label:data.name});
+    selectSSOpt(containerId,data.id.toString(),data.name);
+  }
+  showToast('✓ Supplier added: '+data.name);
+}
+
+// Quick add RM item
+async function quickAddRMItem(containerId){
+  const code=prompt('Item code (e.g. RM-013):')?.trim().toUpperCase();
+  if(!code) return;
+  const name=prompt('Item naam:')?.trim();
+  if(!name) return;
+  const uom=prompt('UOM (KG/PCS/LTR):') || 'KG';
+  const{data,error}=await db.from('items').insert({code,name,type:'RM',uom,category_id:1}).select().single();
+  if(error){alert('Error: '+error.message);return;}
+  const wrap=document.getElementById(containerId);
+  if(wrap?._ssData){
+    const label=data.code+' — '+data.name+' ('+data.uom+')';
+    wrap._ssData.options.push({id:data.id.toString(),label});
+    selectSSOpt(containerId,data.id.toString(),label);
+    // Auto fill UOM
+    document.getElementById('rb-uom').value=data.uom;
+  }
+  showToast('✓ Item added: '+data.name);
+}
 
 // Init
 loadRMBatches();
