@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CFC ERP — Oven & Production Planning</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#0f1117;--bg2:#181c27;--bg3:#1e2333;--border:#2a3045;--text:#e8eaf0;--text2:#8892a4;--text3:#5a6478;--accent:#3b82f6;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--radius:10px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+.logo{font-size:15px;font-weight:600;}.logo span{color:var(--accent);}
+.nav a{color:var(--text2);font-size:13px;text-decoration:none;margin-left:16px;}.nav a:hover{color:var(--accent);}
+.content{padding:20px 24px;max-width:1200px;margin:0 auto;}
+.page-title{font-size:18px;font-weight:500;margin-bottom:3px;}
+.page-sub{font-size:13px;color:var(--text2);margin-bottom:18px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px;}
+.card-title{font-size:12px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;}
+.btn{padding:9px 18px;border-radius:6px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;}
+.btn-primary{background:var(--accent);color:#fff;}.btn-primary:hover{opacity:.9;}
+.btn-green{background:var(--green);color:#fff;}.btn-green:hover{opacity:.9;}
+.btn-amber{background:var(--amber);color:#000;}.btn-amber:hover{opacity:.9;}
+.btn-red{background:var(--red);color:#fff;}.btn-red:hover{opacity:.9;}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2);}.btn-ghost:hover{color:var(--text);background:var(--bg3);}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.btn-xs{padding:3px 8px;font-size:11px;}
+.finput{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;}
+.finput:focus{border-color:var(--accent);}
+.flabel{font-size:11px;color:var(--text2);margin-bottom:5px;display:block;font-weight:500;text-transform:uppercase;letter-spacing:.04em;}
+.form-group{margin-bottom:12px;}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:500;}
+.badge-ok{background:rgba(16,185,129,.15);color:#34d399;}
+.badge-warn{background:rgba(245,158,11,.15);color:#fbbf24;}
+.badge-info{background:rgba(59,130,246,.15);color:#60a5fa;}
+.badge-red{background:rgba(239,68,68,.15);color:#f87171;}
+.table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:14px;}
+.table-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.table-title{font-size:14px;font-weight:500;}
+table{width:100%;border-collapse:collapse;}
+th{padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);background:var(--bg3);}
+td{padding:9px 12px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,.02);}
+.empty td{text-align:center;color:var(--text3);padding:28px;}
+.alert{padding:10px 14px;border-radius:6px;margin-bottom:12px;font-size:13px;}
+.alert-warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#fbbf24;}
+.alert-success{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:#34d399;}
+.alert-info{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:#60a5fa;}
+/* OVEN VISUAL */
+.oven-card{background:var(--bg2);border:2px solid var(--border);border-radius:14px;padding:20px;margin-bottom:14px;}
+.oven-card.full{border-color:var(--green);}
+.oven-card.loading{border-color:var(--amber);}
+.oven-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.oven-name{font-size:16px;font-weight:600;}
+.oven-status{font-size:12px;padding:4px 12px;border-radius:20px;font-weight:500;}
+.oven-status.loading{background:rgba(245,158,11,.2);color:#fbbf24;}
+.oven-status.full{background:rgba(16,185,129,.2);color:#34d399;}
+.oven-status.curing{background:rgba(59,130,246,.2);color:#60a5fa;}
+.oven-status.complete{background:rgba(90,100,120,.2);color:var(--text2);}
+/* TRAY GRID */
+.tray-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;margin-bottom:14px;}
+.tray{height:16px;border-radius:2px;background:var(--bg3);border:1px solid var(--border);}
+.tray.used{background:var(--green);border-color:var(--green);}
+.tray.partial{background:var(--amber);border-color:var(--amber);}
+.tray-info{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.tray-count{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;}
+.tray-pct{font-size:13px;color:var(--text2);}
+.pbar{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-bottom:6px;}
+.pfill{height:100%;border-radius:4px;transition:width .4s;}
+.pfill.green{background:var(--green);}
+.pfill.amber{background:var(--amber);}
+/* SKU ITEMS IN OVEN */
+.oven-items{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+.oven-item{display:flex;align-items:center;gap:10px;background:var(--bg3);border-radius:8px;padding:8px 12px;}
+.oi-color{width:12px;height:12px;border-radius:3px;flex-shrink:0;}
+.oi-sku{font-size:12px;font-weight:600;font-family:'DM Mono',monospace;}
+.oi-name{font-size:12px;color:var(--text2);flex:1;}
+.oi-trays{font-size:12px;font-family:'DM Mono',monospace;color:var(--text);}
+.oi-pcs{font-size:11px;color:var(--text3);}
+/* TIME CARDS */
+.time-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;}
+.time-card{background:var(--bg3);border-radius:8px;padding:10px 12px;text-align:center;}
+.tc-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
+.tc-val{font-size:15px;font-weight:600;color:var(--text);}
+.tc-val.green{color:var(--green);}
+.tc-val.amber{color:var(--amber);}
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;}
+.mhead{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.mtitle{font-size:14px;font-weight:500;}
+.mclose{background:none;border:none;color:var(--text3);cursor:pointer;font-size:20px;line-height:1;}
+.mbody{padding:18px;}
+.mfoot{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;}
+.loader{display:flex;align-items:center;justify-content:center;padding:36px;gap:10px;color:var(--text3);}
+.spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.mono{font-family:'DM Mono',monospace;}
+.info-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.info-row:last-child{border-bottom:none;}
+.info-label{color:var(--text2);}
+.info-val{color:var(--text);font-weight:500;}
+#toast{display:none;position:fixed;bottom:20px;right:20px;background:var(--green);color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:999;}
+.tabs{display:flex;gap:2px;background:var(--bg3);padding:3px;border-radius:8px;margin-bottom:16px;width:fit-content;}
+.tab{padding:7px 16px;border-radius:6px;font-size:13px;cursor:pointer;color:var(--text2);border:none;background:transparent;font-family:inherit;transition:all .15s;}
+.tab.active{background:var(--bg2);color:var(--text);font-weight:500;border:1px solid var(--border);}
+.panel{display:none;}.panel.active{display:block;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="logo">CFC <span>ERP</span></div>
+    <div class="nav">
+      <a href="/">ERP</a>
+      <a href="/mrp">MRP/MES</a>
+      <a href="/tracker">Tracker</a>
+      <a href="/planner">Planner</a>
+      <a href="/operator">Operator</a>
+    </div>
+  </div>
+  <div style="font-size:12px;color:var(--text3)" id="today"></div>
+</div>
+
+<div class="content">
+  <div class="page-title">Oven & Production Planning</div>
+  <div class="page-sub">Oven load manage karo — alag alag SKU ek saath, 72 trays full hone pe curing start</div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('oven')">Oven Manager</button>
+    <button class="tab" onclick="showTab('routing')">SKU Routing</button>
+    <button class="tab" onclick="showTab('workorder')">Work Order Auto-Create</button>
+  </div>
+
+  <!-- OVEN TAB -->
+  <div id="oven" class="panel active">
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="showNewOvenLoad()">+ New Oven Load</button>
+      <button class="btn btn-ghost btn-sm" onclick="loadOven()">↻ Refresh</button>
+    </div>
+    <div id="oven-board"><div class="loader"><div class="spinner"></div> Loading...</div></div>
+  </div>
+
+  <!-- ROUTING TAB -->
+  <div id="routing" class="panel">
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="btn btn-primary btn-sm" onclick="showAddSKU()">+ Add SKU Parameters</button>
+    </div>
+    <div id="sku-list"><div class="loader"><div class="spinner"></div> Loading...</div></div>
+  </div>
+
+  <!-- WORK ORDER TAB -->
+  <div id="workorder" class="panel">
+    <div class="page-sub" style="margin-bottom:16px">Production order select karo → system automatically routing se sab operations assign karega</div>
+    <div id="wo-pending"><div class="loader"><div class="spinner"></div> Loading...</div></div>
+  </div>
+
+</div>
+
+<div id="modal-area"></div>
+<div id="toast"></div>
+
+<script>
+const SURL='https://hfufhcsvbrzygoykvtah.supabase.co';
+const SKEY='sb_publishable_iqs1Q7TrS4j28CWqv3TUJQ_57WHtgB9';
+const{createClient}=supabase;
+const db=createClient(SURL,SKEY);
+
+const COLORS=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316'];
+document.getElementById('today').textContent=new Date().toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+
+function showTab(t){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById(t).classList.add('active');
+  event.target.classList.add('active');
+  if(t==='oven')loadOven();
+  if(t==='routing')loadSKURouting();
+  if(t==='workorder')loadPendingOrders();
+}
+
+// ═══════════════════════════════════
+// OVEN MANAGER
+// ═══════════════════════════════════
+async function loadOven(){
+  const el=document.getElementById('oven-board');
+  const{data:loads}=await db.from('oven_loads').select('*,machines(name)').order('created_at',{ascending:false}).limit(10);
+  if(!loads?.length){
+    el.innerHTML=`<div class="alert alert-info">Koi oven load nahi hai. "+ New Oven Load" dabao aur SKUs add karo.</div>`;
+    return;
+  }
+  let html='';
+  for(const load of loads){
+    const{data:items}=await db.from('oven_load_items').select('*,items(code,name),production_orders(order_no)').eq('oven_load_id',load.id);
+    const usedTrays=items?.reduce((s,i)=>s+(i.trays_used||0),0)||0;
+    const pct=Math.round(usedTrays/load.max_trays*100);
+    const isFull=usedTrays>=load.max_trays;
+    html+=renderOvenCard(load,items||[],usedTrays,pct,isFull);
+  }
+  el.innerHTML=html;
+}
+
+function renderOvenCard(load,items,usedTrays,pct,isFull){
+  const statusCls=load.status==='Loading'?'loading':load.status==='Full'||load.status==='Curing'?'full':'';
+  const trays=Array.from({length:load.max_trays},(_, i)=>{
+    let used=0;
+    let col='';
+    let running=0;
+    for(let idx=0;idx<items.length;idx++){
+      running+=items[idx].trays_used||0;
+      if(i<running){col=COLORS[idx%COLORS.length];break;}
+    }
+    return`<div class="tray ${i<usedTrays?'used':''}" style="${col?`background:${col};border-color:${col}`:''}" title="${col?items[Math.min(idx||0,items.length-1)]?.items?.code||'':'Empty'}"></div>`;
+  }).join('');
+
+  return`<div class="oven-card ${isFull?'full':'loading'}">
+  <div class="oven-header">
+    <div>
+      <div class="oven-name">🔥 ${load.machines?.name||'Curing Oven'}</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px">${load.load_date} · Load #${load.id}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="oven-status ${load.status.toLowerCase()}">${load.status}</div>
+      ${load.status==='Loading'&&!isFull?`<button class="btn btn-xs btn-ghost" onclick="showAddToOven(${load.id},${load.max_trays-usedTrays})">+ Add SKU</button>`:''}
+      ${isFull&&load.status==='Loading'?`<button class="btn btn-xs btn-amber" onclick="startOvenPreheat(${load.id})">🔥 Start Preheat</button>`:''}
+      ${load.status==='Preheating'?`<button class="btn btn-xs btn-primary" onclick="startOvenCuring(${load.id})">Start Curing</button>`:''}
+      ${load.status==='Curing'?`<button class="btn btn-xs btn-green" onclick="completeOven(${load.id})">✓ Complete</button>`:''}
+    </div>
+  </div>
+
+  <div class="tray-info">
+    <div>
+      <span class="tray-count" style="color:${isFull?'var(--green)':'var(--amber)'}">${usedTrays}</span>
+      <span style="font-size:14px;color:var(--text3)"> / ${load.max_trays} trays</span>
+    </div>
+    <div class="tray-pct">${pct}% ${isFull?'✅ FULL':'— '+( load.max_trays-usedTrays)+' trays remaining'}</div>
+  </div>
+  <div class="pbar"><div class="pfill ${isFull?'green':'amber'}" style="width:${pct}%"></div></div>
+
+  <div class="tray-grid">${trays}</div>
+
+  ${items.length?`<div class="oven-items">
+    ${items.map((item,idx)=>`<div class="oven-item">
+      <div class="oi-color" style="background:${COLORS[idx%COLORS.length]}"></div>
+      <span class="oi-sku">${item.items?.code||'—'}</span>
+      <span class="oi-name">${item.items?.name||'—'} · ${item.production_orders?.order_no||''}</span>
+      <span class="oi-trays">${item.trays_used} trays</span>
+      <span class="oi-pcs">(${item.pcs_added} pcs)</span>
+    </div>`).join('')}
+  </div>`:'<div style="color:var(--text3);font-size:13px;margin-bottom:12px">Koi SKU add nahi hua abhi.</div>'}
+
+  ${load.status==='Curing'||load.status==='Preheating'?`<div class="time-grid">
+    <div class="time-card"><div class="tc-label">Preheat Start</div><div class="tc-val">${load.preheat_start?new Date(load.preheat_start).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}):'—'}</div></div>
+    <div class="time-card"><div class="tc-label">Curing Start</div><div class="tc-val amber">${load.curing_start?new Date(load.curing_start).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}):'Pending'}</div></div>
+    <div class="time-card"><div class="tc-label">Expected Done</div><div class="tc-val green">${load.curing_start?new Date(new Date(load.curing_start).getTime()+4*3600000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}):'~7hr from preheat'}</div></div>
+  </div>`:''}
+  </div>`;
+}
+
+async function showNewOvenLoad(){
+  const{data:ovens}=await db.from('machines').select('id,name').eq('operation','Oven Curing');
+  showModal(`<div class="mhead"><span class="mtitle">New Oven Load</span><button class="mclose" onclick="closeModal()">×</button></div>
+  <div class="mbody">
+    <div class="form-group"><label class="flabel">Oven Machine *</label>
+      <select class="finput" id="nl-oven"><option value="">-- Select --</option>${(ovens||[]).map(o=>`<option value="${o.id}">${o.name}</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label class="flabel">Max Trays</label><input class="finput" id="nl-trays" type="number" value="72"/></div>
+    <div class="form-group"><label class="flabel">Load Date</label><input class="finput" id="nl-date" type="date" value="${new Date().toISOString().split('T')[0]}"/></div>
+    <div id="nl-err" style="color:var(--red);font-size:12px;margin-top:8px"></div>
+  </div>
+  <div class="mfoot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancel</button><button class="btn btn-primary btn-sm" onclick="createOvenLoad()">Create</button></div>`);
+}
+
+async function createOvenLoad(){
+  const ovenId=document.getElementById('nl-oven').value;
+  const maxTrays=parseInt(document.getElementById('nl-trays').value)||72;
+  const date=document.getElementById('nl-date').value;
+  if(!ovenId){document.getElementById('nl-err').textContent='Oven select karo.';return;}
+  await db.from('oven_loads').insert({oven_machine_id:ovenId,max_trays:maxTrays,load_date:date,status:'Loading'});
+  closeModal();showToast('✓ Oven load created!');loadOven();
+}
+
+async function showAddToOven(loadId,remainingTrays){
+  const{data:orders}=await db.from('production_orders').select('id,order_no,items(id,code,name)').in('status',['Planned','In Progress']).order('order_no');
+  const{data:skus}=await db.from('sku_master').select('*').gt('oven_tray_capacity',0);
+  showModal(`<div class="mhead"><span class="mtitle">Add SKU to Oven Load</span><button class="mclose" onclick="closeModal()">×</button></div>
+  <div class="mbody">
+    <div class="alert alert-info">Remaining trays: <strong>${remainingTrays}</strong></div>
+    <div class="form-group"><label class="flabel">Production Order *</label>
+      <select class="finput" id="ao-order" onchange="calcOvenTrays()"><option value="">-- Select --</option>
+        ${(orders||[]).map(o=>`<option value="${o.id}" data-item="${o.items?.id}" data-code="${o.items?.code}">${o.order_no} — ${o.items?.code}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label class="flabel">Pcs to add</label><input class="finput" id="ao-pcs" type="number" value="0" oninput="calcOvenTrays()"/></div>
+    <div class="form-group"><label class="flabel">Tray Capacity (pcs per tray)</label><input class="finput" id="ao-traycap" type="number" value="12" oninput="calcOvenTrays()"/></div>
+    <div id="ao-calc" style="background:var(--bg3);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text2);margin-top:8px">Pcs aur tray capacity daalo...</div>
+    <div id="ao-err" style="color:var(--red);font-size:12px;margin-top:8px"></div>
+  </div>
+  <div class="mfoot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancel</button><button class="btn btn-primary btn-sm" onclick="addToOven(${loadId},${remainingTrays})">Add to Oven</button></div>`);
+
+  // Auto-fill tray capacity from SKU master
+  document.getElementById('ao-order').addEventListener('change',async(e)=>{
+    const opt=e.target.selectedOptions[0];
+    const itemId=opt?.dataset?.item;
+    if(!itemId) return;
+    const{data:sku}=await db.from('sku_master').select('oven_tray_capacity').eq('fg_item_id',itemId).single()
+      .catch(()=>({data:null}));
+    if(sku?.oven_tray_capacity) document.getElementById('ao-traycap').value=sku.oven_tray_capacity;
+    calcOvenTrays();
+  });
+}
+
+function calcOvenTrays(){
+  const pcs=parseInt(document.getElementById('ao-pcs')?.value)||0;
+  const cap=parseInt(document.getElementById('ao-traycap')?.value)||1;
+  const trays=Math.ceil(pcs/cap);
+  const el=document.getElementById('ao-calc');
+  if(el&&pcs>0) el.innerHTML=`<strong style="color:var(--text)">${pcs} pcs</strong> ÷ <strong style="color:var(--text)">${cap} pcs/tray</strong> = <strong style="color:var(--green)">${trays} trays</strong> needed`;
+}
+
+async function addToOven(loadId,remainingTrays){
+  const orderId=document.getElementById('ao-order').value;
+  const pcs=parseInt(document.getElementById('ao-pcs').value)||0;
+  const trayCap=parseInt(document.getElementById('ao-traycap').value)||1;
+  const traysNeeded=Math.ceil(pcs/trayCap);
+  if(!orderId||pcs<=0){document.getElementById('ao-err').textContent='Order aur pcs daalo.';return;}
+  if(traysNeeded>remainingTrays){document.getElementById('ao-err').textContent=`Sirf ${remainingTrays} trays remaining, ${traysNeeded} chahiye!`;return;}
+
+  const{data:order}=await db.from('production_orders').select('item_id').eq('id',orderId).single();
+  await db.from('oven_load_items').insert({oven_load_id:loadId,production_order_id:orderId,item_id:order?.item_id,pcs_added:pcs,trays_used:traysNeeded,tray_capacity:trayCap});
+
+  // Update total trays
+  const{data:load}=await db.from('oven_loads').select('total_trays,max_trays').eq('id',loadId).single();
+  const newTotal=(load?.total_trays||0)+traysNeeded;
+  const newStatus=newTotal>=(load?.max_trays||72)?'Full':'Loading';
+  await db.from('oven_loads').update({total_trays:newTotal,status:newStatus}).eq('id',loadId);
+
+  closeModal();
+  showToast(`✓ ${pcs} pcs added — ${traysNeeded} trays used!`);
+  if(newStatus==='Full') showToast('🎉 Oven FULL! Preheat shuru karo!');
+  loadOven();
+}
+
+async function startOvenPreheat(loadId){
+  await db.from('oven_loads').update({status:'Preheating',preheat_start:new Date().toISOString()}).eq('id',loadId);
+  showToast('🔥 Preheat started! 3 hours baad curing shuru karo.');loadOven();
+}
+
+async function startOvenCuring(loadId){
+  await db.from('oven_loads').update({status:'Curing',curing_start:new Date().toISOString()}).eq('id',loadId);
+  showToast('✅ Curing started! 4 hours baad complete karo.');loadOven();
+}
+
+async function completeOven(loadId){
+  await db.from('oven_loads').update({status:'Complete',curing_end:new Date().toISOString()}).eq('id',loadId);
+  showToast('✓ Oven complete! Pads ready for stacking.');loadOven();
+}
+
+// ═══════════════════════════════════
+// SKU ROUTING
+// ═══════════════════════════════════
+async function loadSKURouting(){
+  const el=document.getElementById('sku-list');
+  const{data:skus}=await db.from('sku_master').select('*').order('sku_no');
+  if(!skus?.length){el.innerHTML='<div class="alert alert-info">Koi SKU nahi. + Add SKU dabao.</div>';return;}
+  el.innerHTML=`<div class="table-wrap"><div class="table-head"><span class="table-title">SKU Master (${skus.length})</span></div>
+  <table><thead><tr><th>SKU No</th><th>Name</th><th>Vehicle</th><th>BP Weight</th><th>Die Cavity</th><th>Tray Cap</th><th>Preform g</th><th>Shot Blast/batch</th><th>Oven Full Load</th><th>Action</th></tr></thead>
+  <tbody>${skus.map(s=>`<tr>
+    <td class="mono" style="font-weight:600">${s.sku_no}</td>
+    <td>${s.sku_name}</td>
+    <td>${s.vehicle_name||'—'} ${s.vehicle_model||''}</td>
+    <td class="mono">${s.bp_weight_grams}g</td>
+    <td class="mono">${s.die_cavity}</td>
+    <td class="mono">${s.oven_tray_capacity} pcs</td>
+    <td class="mono">${s.preform_weight_grams}g</td>
+    <td class="mono">${s.bp_weight_grams>0?Math.round(60000/s.bp_weight_grams):0} pcs</td>
+    <td class="mono">${s.oven_tray_capacity*72} pcs</td>
+    <td><button class="btn btn-xs btn-ghost" onclick="showEditSKU(${JSON.stringify(s).replace(/"/g,'&quot;')})">Edit</button></td>
+  </tr>`).join('')}</tbody></table></div>`;
+}
+
+async function showAddSKU(sku=null){
+  showModal(`<div class="mhead"><span class="mtitle">${sku?'Edit':'Add'} SKU Parameters</span><button class="mclose" onclick="closeModal()">×</button></div>
+  <div class="mbody">
+    <div class="frow">
+      <div class="form-group"><label class="flabel">SKU No *</label><input class="finput" id="sk-no" value="${sku?.sku_no||''}"/></div>
+      <div class="form-group"><label class="flabel">SKU Name *</label><input class="finput" id="sk-name" value="${sku?.sku_name||''}"/></div>
+    </div>
+    <div class="frow">
+      <div class="form-group"><label class="flabel">Vehicle Name</label><input class="finput" id="sk-veh" value="${sku?.vehicle_name||''}" placeholder="Honda"/></div>
+      <div class="form-group"><label class="flabel">Vehicle Model</label><input class="finput" id="sk-model" value="${sku?.vehicle_model||''}" placeholder="City"/></div>
+    </div>
+    <div class="frow">
+      <div class="form-group"><label class="flabel">BP Weight (grams) *</label><input class="finput" id="sk-bp" type="number" value="${sku?.bp_weight_grams||200}" oninput="calcSKUParams()"/></div>
+      <div class="form-group"><label class="flabel">Die Cavity *</label><input class="finput" id="sk-cav" type="number" value="${sku?.die_cavity||8}" oninput="calcSKUParams()"/></div>
+    </div>
+    <div class="frow">
+      <div class="form-group"><label class="flabel">Oven Tray Capacity (pcs) *</label><input class="finput" id="sk-tray" type="number" value="${sku?.oven_tray_capacity||12}" oninput="calcSKUParams()"/></div>
+      <div class="form-group"><label class="flabel">Preform Weight (grams)</label><input class="finput" id="sk-pf" type="number" value="${sku?.preform_weight_grams||43}"/></div>
+    </div>
+    <div class="frow">
+      <div class="form-group"><label class="flabel">Size Category</label>
+        <select class="finput" id="sk-size">
+          <option value="Small" ${sku?.size_category==='Small'?'selected':''}>Small</option>
+          <option value="Medium" ${sku?.size_category==='Medium'?'selected':''}>Medium</option>
+          <option value="Large" ${sku?.size_category==='Large'?'selected':''}>Large</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="flabel">Pcs per Set</label><input class="finput" id="sk-set" type="number" value="${sku?.pcs_per_set||4}"/></div>
+    </div>
+    <div id="sk-calc" style="background:var(--bg3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2);margin-bottom:8px"></div>
+    <div id="sk-err" style="color:var(--red);font-size:12px"></div>
+  </div>
+  <div class="mfoot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancel</button><button class="btn btn-primary btn-sm" onclick="saveSKU('${sku?.sku_no||''}')">Save</button></div>`);
+  calcSKUParams();
+}
+
+function showEditSKU(sku){showAddSKU(sku);}
+
+function calcSKUParams(){
+  const bp=parseFloat(document.getElementById('sk-bp')?.value)||0;
+  const cav=parseInt(document.getElementById('sk-cav')?.value)||0;
+  const tray=parseInt(document.getElementById('sk-tray')?.value)||0;
+  const el=document.getElementById('sk-calc');
+  if(el&&bp>0&&cav>0&&tray>0){
+    const sbBatch=Math.round(60000/bp);
+    const ovenFull=tray*72;
+    const mouldPerShift=Math.floor(480/8.5)*cav;
+    el.innerHTML=`
+      Shot Blast batch: <strong style="color:var(--text)">${sbBatch} pcs</strong> (60kg ÷ ${bp}g) · 
+      Oven full load: <strong style="color:var(--text)">${ovenFull} pcs</strong> (72×${tray}) · 
+      Moulding/shift: <strong style="color:var(--text)">${mouldPerShift} pcs</strong> (${cav} cav)`;
+  }
+}
+
+async function saveSKU(existingNo){
+  const no=document.getElementById('sk-no').value.trim();
+  const name=document.getElementById('sk-name').value.trim();
+  if(!no||!name){document.getElementById('sk-err').textContent='SKU No aur Name required.';return;}
+  const payload={
+    sku_no:no,sku_name:name,
+    vehicle_name:document.getElementById('sk-veh').value,
+    vehicle_model:document.getElementById('sk-model').value,
+    bp_weight_grams:parseFloat(document.getElementById('sk-bp').value)||0,
+    die_cavity:parseInt(document.getElementById('sk-cav').value)||0,
+    oven_tray_capacity:parseInt(document.getElementById('sk-tray').value)||0,
+    preform_weight_grams:parseFloat(document.getElementById('sk-pf').value)||43,
+    size_category:document.getElementById('sk-size').value,
+    pcs_per_set:parseInt(document.getElementById('sk-set').value)||4
+  };
+  const{error}=existingNo?
+    await db.from('sku_master').update(payload).eq('sku_no',existingNo):
+    await db.from('sku_master').insert(payload);
+  if(error){document.getElementById('sk-err').textContent=error.message;return;}
+  closeModal();showToast('✓ SKU saved!');loadSKURouting();
+}
+
+// ═══════════════════════════════════
+// WORK ORDER AUTO CREATE
+// ═══════════════════════════════════
+async function loadPendingOrders(){
+  const el=document.getElementById('wo-pending');
+  const{data:orders}=await db.from('production_orders').select('*,items(id,code,name)').in('status',['Planned','Draft']).order('created_at',{ascending:false});
+  if(!orders?.length){el.innerHTML='<div class="alert alert-info">Koi pending orders nahi.</div>';return;}
+
+  const{data:templates}=await db.from('routing_templates').select('item_id');
+  const hasRouting=new Set((templates||[]).map(t=>t.item_id));
+
+  el.innerHTML=`<div class="table-wrap"><div class="table-head"><span class="table-title">Pending Orders (${orders.length})</span><span style="font-size:12px;color:var(--text3)">Routing available wale orders auto-assign ho sakte hain</span></div>
+  <table><thead><tr><th>Order No</th><th>Item</th><th>Qty</th><th>Type</th><th>Status</th><th>Routing</th><th>Action</th></tr></thead>
+  <tbody>${orders.map(o=>{
+    const hasR=hasRouting.has(o.item_id);
+    return`<tr>
+      <td class="mono" style="font-weight:600">${o.order_no}</td>
+      <td>${o.items?.code||'—'} — ${o.items?.name||'—'}</td>
+      <td class="mono">${o.planned_qty}</td>
+      <td><span class="badge badge-${o.order_type==='MTS'?'warn':'info'}">${o.order_type}</span></td>
+      <td><span class="badge badge-${o.status==='Planned'?'ok':'warn'}">${o.status}</span></td>
+      <td>${hasR?'<span class="badge badge-ok">✓ Available</span>':'<span class="badge badge-warn">No Routing</span>'}</td>
+      <td>
+        ${hasR?`<button class="btn btn-xs btn-primary" onclick="autoCreateWO(${o.id},'${o.order_no}')">⚡ Auto Create</button>`:'<button class="btn btn-xs btn-ghost" disabled>Add Routing First</button>'}
+      </td>
+    </tr>`;
+  }).join('')}</tbody></table></div>`;
+}
+
+async function autoCreateWO(orderId,orderNo){
+  showToast(`Creating work order for ${orderNo}...`);
+  const{data,error}=await db.rpc('auto_create_work_order',{p_order_id:orderId});
+  if(error){showToast('Error: '+error.message);return;}
+  showToast('✓ '+data);
+  loadPendingOrders();
+}
+
+function showModal(html){document.getElementById('modal-area').innerHTML=`<div class="modal-overlay"><div class="modal">${html}</div></div>`;}
+function closeModal(){document.getElementById('modal-area').innerHTML='';}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',4000);}
+
+// Init
+loadOven();
+</script>
+</body>
+</html>
