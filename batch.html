@@ -1011,9 +1011,11 @@ async function showFGTrace(id,batchNo){
 
 // ═══ HELPERS ═══
 async function getNextBatch(prefix){
-  const{data,error}=await db.rpc('generate_batch_no',{prefix}).single();
-  if(error||!data) return prefix+'-'+new Date().toISOString().split('T')[0].replace(/-/g,'').slice(2)+'-001';
-  return data;
+  // Fast client-side batch number with timestamp
+  const d=new Date();
+  const date=d.toISOString().split('T')[0].replace(/-/g,'').slice(2);
+  const time=d.getHours().toString().padStart(2,'0')+d.getMinutes().toString().padStart(2,'0')+d.getSeconds().toString().padStart(2,'0');
+  return prefix+'-'+date+'-'+time;
 }
 
 function showModal(html){document.getElementById('modal-area').innerHTML=`<div class="modal-overlay"><div class="modal">${html}</div></div>`;}
