@@ -758,25 +758,42 @@ function confirmDelete(table,id,name){
 // ── BOM ──
 async function loadBOM(el,acts){
   if(acts)acts.innerHTML=`<button class="btn btn-primary btn-sm" id="add-bom-btn">+ New BOM</button>`;
-  const{data:boms}=await db.from('bom_headers').select('*,items(code,name,type)').order('id');
+  const{data:boms}=await db.from('bom_headers').select('*,items(code,name,type),dies(die_code),mix:mix_item_id(code)').order('id');
   el.innerHTML=`<div class="table-wrap">
-    <div class="table-header"><span class="table-title">BOM Master (${boms?.length||0})</span></div>
-    <table><thead><tr><th>Item Code</th><th>Item Name</th><th>Type</th><th>Version</th><th>Output</th><th>Status</th><th>Actions</th></tr></thead>
+    <div class="table-header"><span class="table-title">BOM Master (${boms?.length||0})</span><span style="font-size:12px;color:var(--text3)">Manufacturing parameters included</span></div>
+    <div style="overflow-x:auto"><table>
+    <thead><tr>
+      <th>Item Code</th><th>Item Name</th><th>Type</th><th>v</th>
+      <th>BP (g)</th><th>Die</th><th>Cavity</th><th>Tray Cap</th>
+      <th>Preform (g)</th><th>Shot Blast</th><th>Oven Full</th>
+      <th>Status</th><th>Actions</th>
+    </tr></thead>
     <tbody>${(boms||[]).length?(boms||[]).map(b=>`<tr>
-      <td style="font-family:'DM Mono',monospace;font-size:12px">${b.items?.code||'—'}</td>
-      <td>${b.items?.name||'—'}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600">${b.items?.code||'—'}</td>
+      <td style="white-space:nowrap">${b.items?.name||'—'}</td>
       <td><span class="badge badge-${(b.items?.type||'').toLowerCase()}">${b.items?.type||'—'}</span></td>
-      <td>v${b.version}</td>
-      <td style="font-family:'DM Mono',monospace">${b.output_qty} ${b.output_uom}</td>
+      <td style="font-size:11px">v${b.version}</td>
+      <td style="font-family:'DM Mono',monospace">${b.bp_weight_grams||'—'}</td>
+      <td style="font-size:12px">${b.dies?.die_code||'—'}</td>
+      <td style="font-family:'DM Mono',monospace">${b.cavity_count||'—'}</td>
+      <td style="font-family:'DM Mono',monospace">${b.pcs_per_tray||'—'}</td>
+      <td style="font-family:'DM Mono',monospace">${b.preform_weight_grams||'—'}</td>
+      <td style="font-family:'DM Mono',monospace;color:var(--amber)">${b.shot_blast_batch_pcs||'—'}</td>
+      <td style="font-family:'DM Mono',monospace;color:var(--green)">${b.oven_full_load_pcs||'—'}</td>
       <td><span class="badge ${b.is_active?'badge-pass':'badge-cancel'}">${b.is_active?'Active':'Inactive'}</span></td>
       <td><div class="action-btns">
-        <button class="btn btn-ghost btn-sm view-bom" data-id="${b.id}">View/Edit</button>
+        <button class="btn btn-ghost btn-sm view-bom" data-id="${b.id}">Lines</button>
+        <button class="btn btn-amber btn-sm edit-bom" data-id="${b.id}">Edit</button>
         <button class="btn btn-red btn-sm del-bom" data-id="${b.id}" data-name="BOM for ${b.items?.code}">Del</button>
       </div></td>
-    </tr>`).join(''):'<tr class="empty-row"><td colspan="7">No BOMs yet.</td></tr>'}</tbody>
-    </table></div>`;
-  document.getElementById('add-bom-btn')?.addEventListener('click',showBOMModal);
+    </tr>`).join(''):'<tr class="empty-row"><td colspan="13">No BOMs yet.</td></tr>'}</tbody>
+    </table></div></div>`;
+  document.getElementById('add-bom-btn')?.addEventListener('click',()=>showBOMModal());
   document.querySelectorAll('.view-bom').forEach(btn=>btn.addEventListener('click',()=>showBOMDetail(btn.dataset.id)));
+  document.querySelectorAll('.edit-bom').forEach(btn=>btn.addEventListener('click',async()=>{
+    const{data:bom}=await db.from('bom_headers').select('*').eq('id',btn.dataset.id).single();
+    showBOMModal(bom);
+  }));
   document.querySelectorAll('.del-bom').forEach(btn=>btn.addEventListener('click',()=>confirmDelete('bom_headers',btn.dataset.id,btn.dataset.name)));
 }
 
@@ -808,35 +825,172 @@ async function showBOMDetail(bomId){
   document.getElementById('add-line-btn').addEventListener('click',()=>showBOMLineModal(bomId));
 }
 
-async function showBOMModal(){
-  const{data:items}=await db.from('items').select('id,code,name,type').order('code');
-  modal=`<div class="modal-overlay"><div class="modal">
-    <div class="modal-head"><span class="modal-title">New BOM Header</span><button class="modal-close" id="cm">×</button></div>
+async function showBOMModal(bom=null){
+  const[{data:items},{data:dies},{data:mixItems}]=await Promise.all([
+    db.from('items').select('id,code,name,type').order('code'),
+    db.from('dies').select('id,die_code,cavity_count').eq('is_active',true).order('die_code'),
+    db.from('items').select('id,code,name').like('code','MIX-%').order('code')
+  ]);
+
+  const fgSfgItems=(items||[]).filter(i=>['FG','SFG'].includes(i.type));
+  const isEdit=!!bom;
+
+  modal=`<div class="modal-overlay"><div class="modal" style="max-width:680px">
+    <div class="modal-head"><span class="modal-title">${isEdit?'Edit':'New'} BOM — Bill of Materials</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body">
-      <div class="form-group"><label class="form-label">Item (what are you making?) *</label>
-        <select class="form-select" id="b-item"><option value="">-- Select Item --</option>
-          ${(items||[]).map(i=>`<option value="${i.id}">${i.code} — ${i.name} (${i.type})</option>`).join('')}
+      <div class="form-group"><label class="form-label">Item (kya banana hai?) *</label>
+        <select class="form-select" id="b-item">
+          <option value="">-- Select FG/SFG Item --</option>
+          ${fgSfgItems.map(i=>`<option value="${i.id}" ${bom?.item_id===i.id?'selected':''}>${i.code} — ${i.name} (${i.type})</option>`).join('')}
         </select>
       </div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label">Output Qty *</label><input class="form-input" id="b-qty" type="number" value="1"/></div>
-        <div class="form-group"><label class="form-label">Output UOM *</label><input class="form-input" id="b-uom" value="pcs"/></div>
+        <div class="form-group"><label class="form-label">Output Qty *</label><input class="form-input" id="b-qty" type="number" value="${bom?.output_qty||1}"/></div>
+        <div class="form-group"><label class="form-label">Output UOM</label>
+          <select class="form-select" id="b-uom">
+            <option value="PCS" ${bom?.output_uom==='PCS'?'selected':''}>PCS</option>
+            <option value="SET" ${bom?.output_uom==='SET'?'selected':''}>SET</option>
+            <option value="KG" ${bom?.output_uom==='KG'?'selected':''}>KG</option>
+          </select>
+        </div>
       </div>
-      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="b-notes"></textarea></div>
+
+      <div style="background:var(--bg3);border-radius:8px;padding:12px 14px;margin-bottom:12px;border:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Manufacturing Parameters (Planning ke liye)</div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Mix Formula</label>
+            <select class="form-select" id="b-mix" onchange="calcBOMParams()">
+              <option value="">-- Select --</option>
+              ${(mixItems||[]).map(m=>`<option value="${m.id}" ${bom?.mix_item_id===m.id?'selected':''}>${m.code} — ${m.name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Preform Weight (grams)</label>
+            <input class="form-input" id="b-pfw" type="number" placeholder="e.g. 43" value="${bom?.preform_weight_grams||''}" oninput="calcBOMParams()"/>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Back Plate Weight (grams)</label>
+            <input class="form-input" id="b-bpw" type="number" placeholder="e.g. 200" value="${bom?.bp_weight_grams||''}" oninput="calcBOMParams()"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Die</label>
+            <select class="form-select" id="b-die" onchange="calcBOMParams()">
+              <option value="">-- Select Die --</option>
+              ${(dies||[]).map(d=>`<option value="${d.id}" data-cav="${d.cavity_count}" ${bom?.die_id===d.id?'selected':''}>${d.die_code} (${d.cavity_count} cavity)</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Cavity Count</label>
+            <input class="form-input" id="b-cav" type="number" placeholder="e.g. 8" value="${bom?.cavity_count||''}" oninput="calcBOMParams()"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pcs per Oven Tray</label>
+            <input class="form-input" id="b-tray" type="number" placeholder="e.g. 12" value="${bom?.pcs_per_tray||''}" oninput="calcBOMParams()"/>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Pcs per Set</label>
+            <input class="form-input" id="b-set" type="number" value="${bom?.pcs_per_set||4}" oninput="calcBOMParams()"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Version</label>
+            <input class="form-input" id="b-ver" type="number" value="${bom?.version||1}"/>
+          </div>
+        </div>
+
+        <!-- Auto-calculated fields -->
+        <div id="bom-calc" style="margin-top:8px;background:var(--bg2);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--text2);display:none">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Auto Calculated</div>
+          <div id="bom-calc-content"></div>
+        </div>
+      </div>
+
+      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="b-notes" style="min-height:50px">${bom?.notes||''}</textarea></div>
       <div id="b-err" class="err-msg"></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-ghost btn-sm" id="cm2">Cancel</button><button class="btn btn-primary btn-sm" id="save-bom">Create BOM</button></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" id="cm2">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="save-bom">${isEdit?'Update':'Create'} BOM</button>
+    </div>
   </div></div>`;
   render();
+
+  // Die select → auto fill cavity
+  document.getElementById('b-die')?.addEventListener('change',function(){
+    const opt=this.selectedOptions[0];
+    if(opt?.dataset?.cav) document.getElementById('b-cav').value=opt.dataset.cav;
+    calcBOMParams();
+  });
+
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',closeModal);
   document.getElementById('save-bom').addEventListener('click',async()=>{
-    const item_id=document.getElementById('b-item').value;
-    if(!item_id){document.getElementById('b-err').textContent='Select an item.';return;}
-    const{error}=await db.from('bom_headers').insert({item_id,output_qty:parseFloat(document.getElementById('b-qty').value)||1,output_uom:document.getElementById('b-uom').value,notes:document.getElementById('b-notes').value});
+    const itemId=document.getElementById('b-item').value;
+    if(!itemId){document.getElementById('b-err').textContent='Item select karo.';return;}
+    const qty=parseFloat(document.getElementById('b-qty').value)||1;
+    const bpw=parseFloat(document.getElementById('b-bpw').value)||0;
+    const pfw=parseFloat(document.getElementById('b-pfw').value)||0;
+    const cav=parseInt(document.getElementById('b-cav').value)||0;
+    const tray=parseInt(document.getElementById('b-tray').value)||0;
+    const pset=parseInt(document.getElementById('b-set').value)||4;
+
+    const payload={
+      item_id:itemId,
+      output_qty:qty,
+      output_uom:document.getElementById('b-uom').value,
+      version:parseInt(document.getElementById('b-ver').value)||1,
+      is_active:true,
+      notes:document.getElementById('b-notes').value,
+      bp_weight_grams:bpw,
+      preform_weight_grams:pfw,
+      cavity_count:cav,
+      pcs_per_tray:tray,
+      pcs_per_set:pset,
+      die_id:document.getElementById('b-die').value||null,
+      mix_item_id:document.getElementById('b-mix').value||null,
+      shot_blast_batch_pcs:bpw>0?Math.round(60000/bpw):0,
+      oven_full_load_pcs:tray>0?tray*72:0
+    };
+
+    const{error}=isEdit?
+      await db.from('bom_headers').update(payload).eq('id',bom.id):
+      await db.from('bom_headers').insert(payload);
     if(error){document.getElementById('b-err').textContent=error.message;return;}
     closeModal();
   });
+}
+
+function calcBOMParams(){
+  const bpw=parseFloat(document.getElementById('b-bpw')?.value)||0;
+  const pfw=parseFloat(document.getElementById('b-pfw')?.value)||0;
+  const cav=parseInt(document.getElementById('b-cav')?.value)||0;
+  const tray=parseInt(document.getElementById('b-tray')?.value)||0;
+  const el=document.getElementById('bom-calc');
+  const content=document.getElementById('bom-calc-content');
+  if(!el||!content) return;
+
+  const rows=[];
+  if(bpw>0) rows.push(`Shot Blast batch: <strong style="color:var(--text)">${Math.round(60000/bpw)} pcs</strong> (60kg ÷ ${bpw}g)`);
+  if(tray>0) rows.push(`Oven full load: <strong style="color:var(--text)">${tray*72} pcs</strong> (72 trays × ${tray})`);
+  if(cav>0) rows.push(`Moulding per shift: <strong style="color:var(--text)">${Math.floor(480/8.5)*cav} pcs</strong> (${cav} cav × 56 cycles)`);
+  if(pfw>0) rows.push(`Mix per 1000 pcs: <strong style="color:var(--text)">${(pfw*1000/1000).toFixed(1)} kg</strong> MIX needed`);
+
+  if(rows.length){
+    el.style.display='block';
+    content.innerHTML=rows.map(r=>`<div style="margin-bottom:4px">→ ${r}</div>`).join('');
+  } else {
+    el.style.display='none';
+  }
 }
 
 async function showBOMLineModal(bomId){
