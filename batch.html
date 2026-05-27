@@ -434,11 +434,11 @@ async function saveRMBatch(){
     setBtnState(saveBtn,false,'','Create RM Batch');
     return;
   }
-  // Update inventory
-  const{data:item}=await db.from('items').select('uom').eq('id',itemId).single();
-  const{data:ex}=await db.from('inventory').select('*').eq('item_id',itemId).single().catch(()=>({data:null}));
-  if(ex) await db.from('inventory').update({current_stock:(ex.current_stock||0)+qty,last_updated:new Date().toISOString()}).eq('item_id',itemId);
-  else await db.from('inventory').insert({item_id:itemId,current_stock:qty,uom:document.getElementById('rb-uom').value});
+  // Update inventory — fast
+  const uom=document.getElementById('rb-uom').value;
+  const{data:ex}=await db.from('inventory').select('id,current_stock').eq('item_id',itemId).maybeSingle();
+  if(ex) await db.from('inventory').update({current_stock:(ex.current_stock||0)+qty,last_updated:new Date().toISOString()}).eq('id',ex.id);
+  else await db.from('inventory').insert({item_id:itemId,current_stock:qty,uom});
   closeModal();showToast('✓ RM Batch created & stock updated!');loadRMBatches();
 }
 
