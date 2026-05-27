@@ -1142,7 +1142,7 @@ async function loadPurchase(el,acts){
 async function showPurchaseModal(){
   const[{data:sups},{data:rmItems}]=await Promise.all([
     db.from('suppliers').select('*').eq('is_active',true),
-    db.from('items').select('id,code,name,uom').in('type',['RM','SFG']).order('code')
+    db.from('items').select('id,code,name,uom').eq('type','RM').order('code')
   ]);
   const now=new Date().toISOString().split('T')[0];
   let poLines=[{itemId:'',itemLabel:'',qty:0,uom:'KG',rate:0,gst:18}];
@@ -1256,7 +1256,7 @@ async function loadSales(el,acts){
 async function showSalesModal(){
   const[{data:custs},{data:fgItems}]=await Promise.all([
     db.from('customers').select('*').eq('is_active',true),
-    db.from('items').select('id,code,name,type').in('type',['FG','SFG']).order('code')
+    db.from('items').select('id,code,name,type').eq('type','FG').order('code')
   ]);
   const now=new Date().toISOString().split('T')[0];
   let soLines=[{itemId:'',itemLabel:'',qty:1,uom:'SET',rate:0,gst:18}];
