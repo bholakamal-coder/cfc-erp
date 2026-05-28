@@ -649,6 +649,11 @@ async function loadProfile(){
   profile=data;
 }
 
+function showModal(html){
+  var mr=document.getElementById('modal-root');
+  if(!mr){render();mr=document.getElementById('modal-root');}
+  if(mr) mr.innerHTML='<div class="modal-overlay" onclick="if(event.target===this)closeModal()">'+html+'</div>';
+}
 function closeModal(){modal=null;render();loadPage();}
 
 async function loadPage(){
@@ -1888,6 +1893,7 @@ async function showPurchaseModal(existingPO=null){
     </div>
   </div>`);
 
+  await new Promise(r=>setTimeout(r,10));
   gss('pur-sup-wrap', (sups||[]).map(s=>({id:s.id.toString(),label:s.name})), {
     placeholder:'Supplier search karo...',
     selected: isEdit?existingPO.supplier_id?.toString():null,
@@ -2042,6 +2048,7 @@ async function showSalesModal(existingSO=null){
     </div>
   </div>`);
 
+  await new Promise(r=>setTimeout(r,10));
   gss('so-cust-wrap', (custs||[]).map(c=>({id:c.id.toString(),label:c.name})), {
     placeholder:'Customer search karo...',
     selected: isEdit?existingSO.customer_id?.toString():null,
