@@ -217,6 +217,86 @@ const db=createClient(SURL,SKEY);
 let page='dashboard',user=null,profile=null,modal=null;
 
 // ── CORE ──
+
+// ════════ CORE FUNCTIONS ════════
+function render(){
+  const appEl = document.getElementById('app');
+  if(!appEl) return;
+  appEl.innerHTML = USER ? appHTML() : loginHTML();
+  attachEvents();
+}
+
+window.nav = function(p){
+  PAGE = p; page = p;
+  const mr = document.getElementById('modal-root');
+  if(mr) mr.innerHTML = '';
+  const pc = document.getElementById('page-content');
+  if(pc){
+    document.querySelectorAll('.sb-item').forEach(el=>{
+      el.classList.toggle('active', el.dataset.page === p);
+    });
+    pc.innerHTML = '<div class="loader"><div class="spinner"></div> Loading...</div>';
+    loadPage();
+  } else render();
+};
+
+function showModal(html){
+  let mr = document.getElementById('modal-root');
+  if(!mr){ render(); mr = document.getElementById('modal-root'); }
+  if(mr) mr.innerHTML = '<div class="modal-overlay" onclick="if(event.target===this)closeModal()">' + html + '</div>';
+}
+
+function closeModal(){
+  const mr = document.getElementById('modal-root');
+  if(mr) mr.innerHTML = '';
+  loadPage();
+}
+
+async 
+
+function showToast(msg, dur=3000){
+  const t = document.getElementById('cfc-toast');
+  if(!t) return;
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(t._t); t._t = setTimeout(()=>t.style.display='none', dur);
+}
+
+function showSavedPopup(msg='✓ Saved!'){
+  const p = document.createElement('div');
+  p.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.85);background:#fff;border:1px solid #e31e24;border-radius:10px;padding:16px 28px;font-size:15px;font-weight:600;color:#e31e24;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.12);display:flex;align-items:center;gap:10px;animation:popIn .2s ease forwards';
+  p.innerHTML = '✅ ' + msg;
+  document.body.appendChild(p);
+  setTimeout(()=>p.remove(), 1800);
+}
+
+function setBtnState(btn, loading, txt='Saving...', orig=null){
+  if(!btn) return;
+  if(loading){
+    btn._orig = orig || btn.textContent;
+    btn.disabled = true;
+    btn.innerHTML = '<span style="display:flex;align-items:center;gap:6px"><span class="spinner" style="width:12px;height:12px;border-width:2px"></span>' + txt + '</span>';
+    btn.style.opacity = '.8';
+  } else {
+    btn.disabled = false;
+    btn.textContent = btn._orig || orig || 'Save';
+    btn.style.opacity = '1';
+  }
+}
+
+function confirmDelete(table, id, name){
+  if(!confirm('"' + name + '" delete karna hai?')) return;
+  db.from(table).delete().eq('id', id).then(()=>{ showToast('✓ Deleted!'); loadPage(); });
+}
+
+function sc(s){
+  const m = {Passed:'ok',Completed:'ok',Active:'ok',Dispatched:'ok',Complete:'ok',
+    Failed:'red',Cancelled:'red',Rejected:'red',
+    Pending:'warn','In Progress':'warn',Planned:'warn',Ordered:'warn',
+    MTO:'info',MTS:'warn',RM:'rm',SFG:'sfg',FG:'fg'};
+  return m[s] || 'secondary';
+}
+// ════════ END CORE ════════
+
 let PAGE='dashboard';
 window.nav=function(p){
   PAGE=p;
@@ -241,32 +321,9 @@ function attachEvents(){
   });
 }
 
-async function doLogin(){
-  const email=(document.getElementById('l-email')?.value||'').trim();
-  const pass=document.getElementById('l-pass')?.value||'';
-  const errEl=document.getElementById('l-err');
-  const btn=document.getElementById('login-btn');
-  if(errEl) errEl.textContent='';
-  if(!email||!pass){if(errEl)errEl.textContent='Email aur password daalo.';return;}
-  if(btn){btn.disabled=true;btn.textContent='Signing in...';}
-  const{data,error}=await db.auth.signInWithPassword({email,password:pass});
-  if(btn){btn.disabled=false;btn.textContent='Sign In →';}
-  if(error){if(errEl)errEl.textContent=error.message;return;}
-  USER=data.user;user=USER;
-  try{const{data:p}=await db.from('user_profiles').select('*').eq('user_id',USER.id).single();PROFILE=p;profile=p;}catch(e){}
-  PAGE='dashboard';page='dashboard';
-  render();loadPage();
-}
+async 
 
-async function boot(){
-  const{data:{session}}=await db.auth.getSession();
-  if(session){
-    USER=session.user;user=USER;
-    try{const{data:p}=await db.from('user_profiles').select('*').eq('user_id',USER.id).single();PROFILE=p;profile=p;}catch(e){}
-    PAGE='dashboard';page='dashboard';
-    render();loadPage();
-  } else render();
-}
+async 
 
 
 // ── SMART SEARCHABLE SELECT ──
@@ -573,25 +630,9 @@ async function gssAddItem(query='', type='RM'){
   return {id:data.id.toString(), label:data.code+' — '+data.name, sub:'('+type+')'};
 }
 
-function setBtnState(btn,loading,loadText='Saving...',orig=null){
-  if(!btn) return;
-  if(loading){btn._orig=orig||btn.textContent;btn.disabled=true;btn.innerHTML='<span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin .6s linear infinite"></span>'+loadText+'</span>';btn.style.opacity='.8';}
-  else{btn.disabled=false;btn.textContent=btn._orig||orig||'Save';btn.style.opacity='1';}
-}
-function showSavedPopup(msg='✓ Saved!'){
-  const p=document.createElement('div');
-  p.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.8);background:var(--bg2);border:1px solid var(--green);border-radius:12px;padding:18px 28px;font-size:15px;font-weight:600;color:var(--green);z-index:9999;box-shadow:0 8px 40px rgba(0,0,0,.6);display:flex;align-items:center;gap:10px;animation:popIn .2s ease forwards';
-  p.innerHTML='<span style="font-size:22px">✅</span><span>'+msg+'</span>';
-  const s=document.createElement('style');s.textContent='@keyframes popIn{from{opacity:0;transform:translate(-50%,-50%) scale(.8)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}';
-  document.head.appendChild(s);document.body.appendChild(p);
-  setTimeout(()=>{p.style.animation='popIn .2s ease reverse';setTimeout(()=>p.remove(),200);},1500);
-}
-function showToast(msg){
-  let t=document.getElementById('cfc-toast');
-  if(!t){t=document.createElement('div');t.id='cfc-toast';t.style.cssText='position:fixed;bottom:20px;right:20px;background:#10b981;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:9999;display:none';document.body.appendChild(t);}
-  t.textContent=msg;t.style.display='block';
-  clearTimeout(t._timer);t._timer=setTimeout(()=>t.style.display='none',3000);
-}
+
+
+
 
 const ICONS={
   dashboard:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
@@ -735,17 +776,13 @@ function showSignup(){
   });
 }
 
-async function loadProfile(){
-  if(!user)return;
-  const{data}=await db.from('user_profiles').select('*').eq('id',user.id).single();
-  profile=data;
-}
+async 
 
 
 
 
 // ── HELPERS ──
-function sc(s){return{Draft:'draft',Planned:'planned','In Progress':'inprog',Completed:'done',Cancelled:'cancel',Stacked:'planned',Packed:'done',Pass:'pass',Fail:'fail',Hold:'hold'}[s]||'draft';}
+
 function greeting(){const h=new Date().getHours();return h<12?'Morning':h<17?'Afternoon':'Evening';}
 function flowRow(t,s){return`<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)"><div style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0"></div><div><div style="font-size:13px;font-weight:500">${t}</div><div style="font-size:11px;color:var(--text3)">${s}</div></div></div>`;}
 
@@ -1019,23 +1056,7 @@ async function saveItem(id=null){
 }
 
 // ── CONFIRM DELETE ──
-function confirmDelete(table,id,name){
-  modal=`<div class="modal-overlay"><div class="modal confirm-modal">
-    <div class="modal-head"><span class="modal-title">Confirm Delete</span><button class="modal-close" id="cm">×</button></div>
-    <div class="modal-body"><p class="confirm-text">Are you sure you want to delete <strong>${name}</strong>? This cannot be undone.</p></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost btn-sm" id="cm2">Cancel</button>
-      <button class="btn btn-red btn-sm" id="confirm-del">Yes, Delete</button>
-    </div>
-  </div></div>`;
-  render();
-  document.getElementById('cm').addEventListener('click',closeModal);
-  document.getElementById('cm2').addEventListener('click',closeModal);
-  document.getElementById('confirm-del').addEventListener('click',async()=>{
-    await db.from(table).delete().eq('id',id);
-    closeModal();
-  });
-}
+
 
 // ── BOM ──
 async function loadBOM(el,acts){
@@ -2127,8 +2148,6 @@ async function showPartyModal(type,item=null){
 // ── BOOT ──
 
 
-boot();
-
-</script>
+boot();</script>
 </body>
 </html>
