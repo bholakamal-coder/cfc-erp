@@ -221,6 +221,7 @@ tr:hover td{background:#fafbfc;}
           <th>Type</th>
           <th>UOM</th>
           <th>Tax Rate</th>
+          <th>Stock / Warehouse</th>
           <th>Reorder / Max</th>
           <th>Status</th>
           <th>Actions</th>
@@ -548,27 +549,50 @@ async function deleteCategory(id,name){
 
 // ---- ITEMS ----
 async function loadItems(){
-  document.getElementById("items-tbody").innerHTML="<tr><td colspan='10'><div class='loading'>Loading items...</div></td></tr>";
+  document.getElementById("items-tbody").innerHTML="<tr><td colspan='11'><div class='loading'>Loading items...</div></td></tr>";
   const {data,error}=await sb.from("items").select("*, item_categories(name)").order("created_at",{ascending:false});
   if(error){
-    document.getElementById("items-tbody").innerHTML="<tr><td colspan='10'><div class='loading' style='color:#dc2626;'>Error: "+error.message+"</div></td></tr>";
+    document.getElementById("items-tbody").innerHTML="<tr><td colspan='11'><div class='loading' style='color:#dc2626;'>Error: "+error.message+"</div></td></tr>";
     return;
   }
-  // Fetch sku_planning separately to avoid multiple relationship error
   const itemIds=(data||[]).map(x=>x.id);
-  let skuMap={};
+  let skuMap={},invMap={};
+
+  // Fetch sku_planning separately
   if(itemIds.length>0){
     const {data:skuData}=await sb.from("sku_planning")
       .select("item_id, reorder_level, reorder_qty, min_stock")
       .in("item_id", itemIds);
     (skuData||[]).forEach(s=>{skuMap[s.item_id]=s;});
   }
+
+  // Fetch inventory + warehouse info
+  if(itemIds.length>0){
+    const {data:invData}=await sb.from("inventory")
+      .select("item_id, current_stock, available_stock, avg_cost, uom, warehouses(code,name)")
+      .in("item_id", itemIds);
+    (invData||[]).forEach(inv=>{
+      invMap[inv.item_id]={
+        current_stock: inv.current_stock??0,
+        available_stock: inv.available_stock??0,
+        avg_cost: inv.avg_cost??0,
+        warehouse_code: inv.warehouses?.code||"-",
+        warehouse_name: inv.warehouses?.name||"-",
+      };
+    });
+  }
+
   allItems=(data||[]).map(item=>({
     ...item,
-    category_name:item.item_categories?.name||"",
-    reorder_level:skuMap[item.id]?.reorder_level??null,
-    max_order_qty:skuMap[item.id]?.reorder_qty??null,
-    min_stock:skuMap[item.id]?.min_stock??null,
+    category_name: item.item_categories?.name||"",
+    reorder_level: skuMap[item.id]?.reorder_level??null,
+    max_order_qty: skuMap[item.id]?.reorder_qty??null,
+    min_stock:     skuMap[item.id]?.min_stock??null,
+    current_stock: invMap[item.id]?.current_stock??null,
+    available_stock: invMap[item.id]?.available_stock??null,
+    avg_cost:      invMap[item.id]?.avg_cost??null,
+    warehouse_code: invMap[item.id]?.warehouse_code||"-",
+    warehouse_name: invMap[item.id]?.warehouse_name||"-",
   }));
   applyFilters();
 }
@@ -592,7 +616,7 @@ function renderTable(){
   document.getElementById("filter-count").textContent=filtered.length+" items";
   const tbody=document.getElementById("items-tbody");
   if(!filtered.length){
-    tbody.innerHTML="<tr><td colspan='10'><div class='empty-state'><div class='big'>&#128209;</div><p>No items found.</p></div></td></tr>";
+    tbody.innerHTML="<tr><td colspan='11'><div class='empty-state'><div class='big'>&#128209;</div><p>No items found.</p></div></td></tr>";
     document.getElementById("pagination-bar").style.display="none";return;
   }
   const start=(currentPage-1)*PAGE_SIZE;
@@ -603,6 +627,10 @@ function renderTable(){
     const reorder=item.reorder_level??"-";
     const maxOrd=item.max_order_qty??"-";
     const reorderDisplay=`<span style="font-size:12px;">${reorder} / ${maxOrd}</span>`;
+    const stock=item.current_stock??0;
+    const wh=item.warehouse_code||"-";
+    const stockColor=stock<=0?"color:#dc2626;":(item.reorder_level&&stock<=item.reorder_level?"color:#ca8a04;":"color:#166534;");
+    const stockDisplay=`<span style="font-size:12px;font-weight:600;${stockColor}">${stock} ${item.uom||""}</span><br/><span style="font-size:11px;color:#8a95a0;">${wh}</span>`;
     return `<tr>
       <td style="color:#b0bec5;font-size:12px;">${start+i+1}</td>
       <td><strong style="font-family:monospace;font-size:12.5px;">${item.code||"-"}</strong></td>
@@ -611,6 +639,7 @@ function renderTable(){
       <td style="color:#5a6878;font-size:12px;">${item.type||"-"}</td>
       <td style="color:#5a6878;">${item.uom||"-"}</td>
       <td style="color:#5a6878;">${item.tax_rate??0}%</td>
+      <td>${stockDisplay}</td>
       <td>${reorderDisplay}</td>
       <td><span class="pill ${statusPill}">${statusTxt}</span></td>
       <td style="white-space:nowrap;">
