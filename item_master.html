@@ -105,6 +105,12 @@ tr:hover td{background:#fafbfc;}
 .confirm-box h4{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:8px;}
 .confirm-box p{font-size:13.5px;color:#5a6878;margin-bottom:20px;}
 .confirm-box .actions{display:flex;gap:10px;justify-content:center;}
+.tabs{display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:18px;}
+.tab-btn{padding:9px 18px;font-size:13px;font-weight:600;color:#8a95a0;background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.15s;}
+.tab-btn.active{color:var(--red);border-bottom-color:var(--red);}
+.tab-btn:hover{color:var(--navy);}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
 </style>
 </head>
 <body>
@@ -238,11 +244,19 @@ tr:hover td{background:#fafbfc;}
       <h3 id="modal-title">Add New Item</h3>
       <button class="modal-close" onclick="closeModal()">&#10005;</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" style="padding-top:0;">
 
-      <!-- Basic Info -->
-      <div class="form-section">
-        <div class="form-section-title">Basic Information</div>
+      <!-- TABS -->
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('tab-basic',this)">&#128230; Basic Info</button>
+        <button class="tab-btn" onclick="switchTab('tab-unit',this)">&#9878; Unit & Tax</button>
+        <button class="tab-btn" onclick="switchTab('tab-stock',this)">&#128200; Stock Levels</button>
+        <button class="tab-btn" onclick="switchTab('tab-opening',this)">&#9878; Opening Balance</button>
+        <button class="tab-btn" onclick="switchTab('tab-notes',this)">&#128221; Notes</button>
+      </div>
+
+      <!-- TAB 1: Basic Info -->
+      <div id="tab-basic" class="tab-pane active">
         <div class="form-grid">
           <div class="form-field">
             <label>Item Code <span class="req">*</span></label>
@@ -260,14 +274,21 @@ tr:hover td{background:#fafbfc;}
             </div>
           </div>
           <div class="form-field">
-            <label>Item Type</label>
+            <label>Item Type <span class="req">*</span></label>
             <select id="f-type">
               <option value="">-- Select --</option>
-              <option>Finished Good</option>
-              <option>Semi-Finished</option>
-              <option>Raw Material</option>
-              <option>Consumable</option>
-              <option>Service</option>
+              <option value="RM">RM — Raw Material</option>
+              <option value="SFG">SFG — Semi-Finished Good</option>
+              <option value="FG">FG — Finished Good</option>
+              <option value="Consumable">Consumable</option>
+              <option value="Packing">Packing</option>
+            </select>
+          </div>
+          <div class="form-field" style="grid-column:1/-1;">
+            <label>Status</label>
+            <select id="f-status">
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
             </select>
           </div>
           <div class="form-field full">
@@ -277,16 +298,15 @@ tr:hover td{background:#fafbfc;}
         </div>
       </div>
 
-      <!-- UOM & Tax -->
-      <div class="form-section">
-        <div class="form-section-title">Unit & Tax</div>
+      <!-- TAB 2: Unit & Tax -->
+      <div id="tab-unit" class="tab-pane">
         <div class="form-grid">
           <div class="form-field">
             <label>UOM <span class="req">*</span></label>
             <select id="f-uom">
               <option value="">-- Select --</option>
               <option>Nos</option><option>Kg</option><option>Litre</option>
-              <option>Metre</option><option>Box</option><option>Set</option>
+              <option>Metre</option><option>Box</option><option>Set</option><option>PCS</option>
             </select>
           </div>
           <div class="form-field">
@@ -294,7 +314,7 @@ tr:hover td{background:#fafbfc;}
             <select id="f-secondary-uom">
               <option value="">-- None --</option>
               <option>Nos</option><option>Kg</option><option>Litre</option>
-              <option>Metre</option><option>Box</option><option>Set</option>
+              <option>Metre</option><option>Box</option><option>Set</option><option>PCS</option>
             </select>
           </div>
           <div class="form-field">
@@ -302,7 +322,7 @@ tr:hover td{background:#fafbfc;}
             <input type="text" id="f-hsn" placeholder="e.g. 8708"/>
           </div>
           <div class="form-field">
-            <label>Tax Rate (%)</label>
+            <label>Tax Rate (GST %)</label>
             <select id="f-tax">
               <option value="0">0%</option>
               <option value="5">5%</option>
@@ -314,9 +334,8 @@ tr:hover td{background:#fafbfc;}
         </div>
       </div>
 
-      <!-- Stock Levels -->
-      <div class="form-section">
-        <div class="form-section-title">Stock Levels</div>
+      <!-- TAB 3: Stock Levels -->
+      <div id="tab-stock" class="tab-pane">
         <div class="form-grid-3">
           <div class="form-field">
             <label>Reorder Level</label>
@@ -327,20 +346,54 @@ tr:hover td{background:#fafbfc;}
             <input type="number" id="f-max-order" placeholder="0" min="0"/>
           </div>
           <div class="form-field">
-            <label>Status</label>
-            <select id="f-status">
-              <option value="true">Active</option>
-              <option value="false">Inactive</option>
-            </select>
+            <label>Min Stock</label>
+            <input type="number" id="f-min-stock" placeholder="0" min="0"/>
           </div>
+        </div>
+        <div style="margin-top:14px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:10px;font-size:12.5px;color:#78350f;">
+          &#128161; Reorder Level = jab stock iss se neeche jaye toh alert aayega.<br/>
+          Max Order Qty = ek baar mein maximum order karne ki limit.<br/>
+          Min Stock = minimum rakhna zaroori hai.
         </div>
       </div>
 
-      <!-- Notes -->
-      <div class="form-section" style="margin-bottom:0;">
-        <div class="form-section-title">Additional Notes</div>
+      <!-- TAB 4: Opening Balance -->
+      <div id="tab-opening" class="tab-pane">
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px;font-size:12.5px;color:#166534;margin-bottom:14px;">
+          &#128161; Opening balance sirf naye item ke liye fill karein. Edit mein yeh ignore hoga — stock entry se adjust karein.
+        </div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Warehouse</label>
+            <select id="f-warehouse">
+              <option value="">-- Select Warehouse --</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Opening Qty</label>
+            <input type="number" id="f-opening-qty" placeholder="0" min="0" step="0.01"/>
+          </div>
+          <div class="form-field">
+            <label>Avg Cost / Unit (&#8377;)</label>
+            <input type="number" id="f-avg-cost" placeholder="0.00" min="0" step="0.01"/>
+          </div>
+          <div class="form-field">
+            <label>Opening Date</label>
+            <input type="date" id="f-opening-date"/>
+          </div>
+        </div>
+        <div style="margin-top:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px;font-size:12px;color:#5a6878;">
+          Opening balance se:<br/>
+          &#8226; <strong>inventory</strong> table mein current_stock set hoga<br/>
+          &#8226; <strong>stock_ledger</strong> mein "Opening Stock" entry banegi
+        </div>
+      </div>
+
+      <!-- TAB 5: Notes -->
+      <div id="tab-notes" class="tab-pane">
         <div class="form-field">
-          <textarea id="f-notes" placeholder="Internal notes..."></textarea>
+          <label>Internal Notes</label>
+          <textarea id="f-notes" placeholder="Internal notes, special instructions..." style="min-height:120px;"></textarea>
         </div>
       </div>
 
@@ -501,12 +554,17 @@ async function deleteCategory(id,name){
 // ---- ITEMS ----
 async function loadItems(){
   document.getElementById("items-tbody").innerHTML="<tr><td colspan='10'><div class='loading'>Loading items...</div></td></tr>";
-  const {data,error}=await sb.from("items").select("*, item_categories(name)").order("created_at",{ascending:false});
+  const {data,error}=await sb.from("items").select("*, item_categories(name), sku_planning(reorder_level, reorder_qty)").order("created_at",{ascending:false});
   if(error){
     document.getElementById("items-tbody").innerHTML="<tr><td colspan='10'><div class='loading' style='color:#dc2626;'>Error: "+error.message+"</div></td></tr>";
     return;
   }
-  allItems=(data||[]).map(item=>({...item,category_name:item.item_categories?.name||""}));
+  allItems=(data||[]).map(item=>({
+    ...item,
+    category_name:item.item_categories?.name||"",
+    reorder_level:item.sku_planning?.reorder_level??null,
+    max_order_qty:item.sku_planning?.reorder_qty??null,
+  }));
   applyFilters();
 }
 
@@ -581,13 +639,18 @@ function openAddModal(){
   document.getElementById("modal-title").textContent="Add New Item";
   document.getElementById("save-btn").textContent="Save Item";
   clearForm();
+  loadWarehouses();
   document.getElementById("item-modal").classList.add("open");
 }
 function openEditModal(id){
   const item=allItems.find(x=>x.id===id);if(!item)return;
   editingId=id;
-  document.getElementById("modal-title").textContent="Edit Item";
+  document.getElementById("modal-title").textContent="Edit Item — "+item.code;
   document.getElementById("save-btn").textContent="Update Item";
+  // Hide opening balance tab in edit mode
+  document.querySelectorAll(".tab-btn").forEach(b=>{
+    if(b.textContent.includes("Opening"))b.style.display="none";
+  });
   document.getElementById("f-code").value=item.code||"";
   document.getElementById("f-name").value=item.name||"";
   document.getElementById("f-category").value=item.category_id||"";
@@ -597,18 +660,41 @@ function openEditModal(id){
   document.getElementById("f-secondary-uom").value=item.secondary_uom||"";
   document.getElementById("f-hsn").value=item.hsn_code||"";
   document.getElementById("f-tax").value=item.tax_rate??18;
-  document.getElementById("f-reorder").value=item.reorder_level||"";
-  document.getElementById("f-max-order").value=item.max_order_qty||"";
+  document.getElementById("f-reorder").value=item.reorder_level??"";
+  document.getElementById("f-max-order").value=item.max_order_qty??"";
   document.getElementById("f-status").value=String(item.is_active!==false);
   document.getElementById("f-notes").value=item.notes||"";
   document.getElementById("item-modal").classList.add("open");
 }
 function closeModal(){document.getElementById("item-modal").classList.remove("open");editingId=null;}
+function switchTab(tabId, btn){
+  document.querySelectorAll(".tab-pane").forEach(p=>p.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+  document.getElementById(tabId).classList.add("active");
+  btn.classList.add("active");
+}
+
+async function loadWarehouses(){
+  const {data}=await sb.from("warehouses").select("id,code,name").eq("is_active",true).order("name");
+  const sel=document.getElementById("f-warehouse");
+  if(data&&data.length){
+    sel.innerHTML='<option value="">-- Select Warehouse --</option>'+
+      data.map(w=>`<option value="${w.id}">${w.code} — ${w.name}</option>`).join("");
+  }
+}
+
 function clearForm(){
-  ["f-code","f-name","f-desc","f-hsn","f-reorder","f-max-order","f-notes"].forEach(id=>document.getElementById(id).value="");
-  ["f-category","f-type","f-uom","f-secondary-uom"].forEach(id=>document.getElementById(id).value="");
+  ["f-code","f-name","f-desc","f-hsn","f-reorder","f-max-order","f-min-stock","f-notes","f-opening-qty","f-avg-cost","f-opening-date"].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value="";
+  });
+  ["f-category","f-type","f-uom","f-secondary-uom","f-warehouse"].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value="";
+  });
   document.getElementById("f-tax").value="18";
   document.getElementById("f-status").value="true";
+  // Reset tabs to first
+  document.querySelectorAll(".tab-pane").forEach((p,i)=>p.classList.toggle("active",i===0));
+  document.querySelectorAll(".tab-btn").forEach((b,i)=>b.classList.toggle("active",i===0));
 }
 
 async function saveItem(){
@@ -617,6 +703,13 @@ async function saveItem(){
   const category_id=document.getElementById("f-category").value||null;
   const uom=document.getElementById("f-uom").value;
   if(!code||!name||!uom){showToast("Code, Name aur UOM required hain.","error");return;}
+  const reorder_level=parseFloat(document.getElementById("f-reorder").value)||null;
+  const max_order_qty=parseFloat(document.getElementById("f-max-order").value)||null;
+  const min_stock=parseFloat(document.getElementById("f-min-stock").value)||null;
+  const opening_qty=parseFloat(document.getElementById("f-opening-qty").value)||0;
+  const avg_cost=parseFloat(document.getElementById("f-avg-cost").value)||0;
+  const opening_date=document.getElementById("f-opening-date").value||new Date().toISOString().slice(0,10);
+  const warehouse_id=document.getElementById("f-warehouse").value||null;
   const payload={
     code, name,
     category_id: category_id||null,
@@ -626,16 +719,54 @@ async function saveItem(){
     secondary_uom: document.getElementById("f-secondary-uom").value||null,
     hsn_code: document.getElementById("f-hsn").value.trim()||null,
     tax_rate: parseFloat(document.getElementById("f-tax").value)||0,
-    reorder_level: parseFloat(document.getElementById("f-reorder").value)||null,
-    max_order_qty: parseFloat(document.getElementById("f-max-order").value)||null,
     is_active: document.getElementById("f-status").value==="true",
     notes: document.getElementById("f-notes").value.trim()||null,
   };
   const btn=document.getElementById("save-btn");
   btn.disabled=true;btn.textContent="Saving...";
-  let error;
-  if(editingId){({error}=await sb.from("items").update(payload).eq("id",editingId));}
-  else{({error}=await sb.from("items").insert([payload]));}
+  let error,savedId=editingId;
+  if(editingId){
+    ({error}=await sb.from("items").update(payload).eq("id",editingId));
+  } else {
+    const {data:ins,error:insErr}=await sb.from("items").insert([payload]).select().single();
+    error=insErr;
+    if(ins)savedId=ins.id;
+  }
+  // Save reorder/max to sku_planning
+  if(!error && savedId){
+    // Save sku_planning (reorder/min stock)
+    if(reorder_level!==null||max_order_qty!==null||min_stock!==null){
+      const skuPayload={item_id:savedId,reorder_level,reorder_qty:max_order_qty,min_stock};
+      await sb.from("sku_planning").upsert([skuPayload],{onConflict:"item_id"});
+    }
+    // Save opening balance (only for new items)
+    if(!editingId && opening_qty>0 && warehouse_id){
+      const uom=document.getElementById("f-uom").value||"PCS";
+      // Set inventory
+      await sb.from("inventory").upsert([{
+        item_id:savedId,
+        warehouse_id:parseInt(warehouse_id),
+        current_stock:opening_qty,
+        avg_cost:avg_cost,
+        last_purchase_price:avg_cost,
+        uom:uom,
+      }],{onConflict:"item_id"});
+      // Stock ledger entry
+      const {data:{session}}=await sb.auth.getSession();
+      await sb.from("stock_ledger").insert([{
+        item_id:savedId,
+        warehouse_id:parseInt(warehouse_id),
+        txn_type:"Opening Stock",
+        qty:opening_qty,
+        rate:avg_cost,
+        value:opening_qty*avg_cost,
+        reference_type:"Opening Balance",
+        reference_no:"OB-"+document.getElementById("f-code").value,
+        notes:"Opening balance entered at item creation",
+        created_by:session?.user?.id||null,
+      }]);
+    }
+  }
   btn.disabled=false;btn.textContent=editingId?"Update Item":"Save Item";
   if(error){showToast("Error: "+error.message,"error");return;}
   showToast(editingId?"Item update ho gaya!":"Item add ho gaya!","success");
@@ -645,21 +776,23 @@ async function saveItem(){
 // ---- DELETE PROTECTION SYSTEM ----
 // Tables to check for item linkage
 const LINK_CHECKS = [
-  {table:"bom",        col:"item_id",      label:"BOM"},
-  {table:"bom_items",  col:"item_id",      label:"BOM Components"},
-  {table:"sales_orders",      col:"item_id", label:"Sales Order"},
-  {table:"sales_order_items", col:"item_id", label:"Sales Order Items"},
-  {table:"purchase_orders",      col:"item_id", label:"Purchase Order"},
-  {table:"purchase_order_items", col:"item_id", label:"Purchase Order Items"},
-  {table:"work_orders",  col:"item_id",    label:"Work Order"},
-  {table:"production_orders", col:"item_id", label:"Production Order"},
-  {table:"grn_items",  col:"item_id",      label:"GRN"},
-  {table:"invoice_items", col:"item_id",   label:"Invoice"},
-  {table:"stock_entries", col:"item_id",   label:"Stock Entry"},
-  {table:"stock_ledger", col:"item_id",    label:"Stock Ledger"},
-  {table:"qc_reports", col:"item_id",      label:"QC Report"},
-  {table:"dispatch_items", col:"item_id",  label:"Dispatch"},
-  {table:"batch",      col:"item_id",      label:"Batch"},
+  {table:"bom_headers",         col:"item_id",  label:"BOM"},
+  {table:"bom_lines",           col:"item_id",  label:"BOM Components"},
+  {table:"sku_planning",        col:"item_id",  label:"SKU Planning"},
+  {table:"price_lists",         col:"item_id",  label:"Price List"},
+  {table:"sales_order_lines",   col:"item_id",  label:"Sales Order"},
+  {table:"purchase_order_lines",col:"item_id",  label:"Purchase Order"},
+  {table:"grn_lines",           col:"item_id",  label:"GRN"},
+  {table:"invoice_lines",       col:"item_id",  label:"Invoice"},
+  {table:"dispatch_lines",      col:"item_id",  label:"Dispatch"},
+  {table:"stock_ledger",        col:"item_id",  label:"Stock Ledger"},
+  {table:"inventory",           col:"item_id",  label:"Inventory"},
+  {table:"work_orders",         col:"item_id",  label:"Work Order"},
+  {table:"production_orders",   col:"item_id",  label:"Production Order"},
+  {table:"rm_batches",          col:"item_id",  label:"RM Batch"},
+  {table:"fg_batches",          col:"item_id",  label:"FG Batch"},
+  {table:"qc_records",          col:"item_id",  label:"QC Record"},
+  {table:"mix_families",        col:"mix_item_id", label:"Mix Family"},
 ];
 
 async function checkItemLinks(itemId){
@@ -806,7 +939,7 @@ function importCSV(event){
         code:row.code||row.item_code||"",
         name:row.name||row.item_name||"",
         category_id:catObj?catObj.id:null,
-        type:row.type||null,
+        type:(["RM","SFG","FG","Consumable","Packing"].includes(row.type)?row.type:null),
         uom:row.uom||"Nos",
         secondary_uom:row.secondary_uom||null,
         hsn_code:row.hsn_code||null,
