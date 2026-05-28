@@ -126,7 +126,7 @@ tr:hover td{background:#fafbfc;}
   <div class="sidebar-section">
     <div class="sidebar-section-label">Manufacturing</div>
     <a class="nav-item active" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a>
-    <a class="nav-item" href="#"><span class="icon">&#128295;</span> BOM</a>
+    <a class="nav-item" href="bom.html"><span class="icon">&#128295;</span> BOM</a>
     <a class="nav-item" href="#"><span class="icon">&#127981;</span> Work Orders</a>
     <a class="nav-item" href="#"><span class="icon">&#128203;</span> Production Plan</a>
     <a class="nav-item" href="#"><span class="icon">&#128300;</span> Quality Control</a>
@@ -377,6 +377,10 @@ tr:hover td{background:#fafbfc;}
             <label>Opening Date</label>
             <input type="date" id="f-opening-date"/>
           </div>
+          <div class="form-field">
+            <label>Batch No</label>
+            <input type="text" id="f-batch-no" placeholder="e.g. RM-2026-001 (optional)"/>
+          </div>
         </div>
         <div style="margin-top:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px;font-size:12px;color:#5a6878;">
           Opening balance se:<br/>
@@ -472,6 +476,7 @@ const PAGE_SIZE=15;
   document.getElementById("user-avatar").textContent=email.substring(0,2).toUpperCase();
   document.getElementById("user-name").textContent=email.split("@")[0];
   await loadCategories();
+  await loadWarehouses();
   await loadItems();
 })();
 
@@ -713,16 +718,19 @@ function switchTab(tabId, btn){
 }
 
 async function loadWarehouses(){
-  const {data}=await sb.from("warehouses").select("id,code,name").eq("is_active",true).order("name");
+  const {data,error}=await sb.from("warehouses").select("id,code,name,type").eq("is_active",true).order("code");
   const sel=document.getElementById("f-warehouse");
   if(data&&data.length){
     sel.innerHTML='<option value="">-- Select Warehouse --</option>'+
-      data.map(w=>`<option value="${w.id}">${w.code} — ${w.name}</option>`).join("");
+      data.map(w=>`<option value="${w.id}">${w.code} — ${w.name} (${w.type||""})</option>`).join("");
+  } else {
+    sel.innerHTML='<option value="">-- No warehouses found --</option>';
+    if(error) console.error("Warehouse load error:",error.message);
   }
 }
 
 function clearForm(){
-  ["f-code","f-name","f-desc","f-hsn","f-reorder","f-max-order","f-min-stock","f-notes","f-opening-qty","f-avg-cost","f-opening-date"].forEach(id=>{
+  ["f-code","f-name","f-desc","f-hsn","f-reorder","f-max-order","f-min-stock","f-notes","f-opening-qty","f-avg-cost","f-opening-date","f-batch-no"].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value="";
   });
   ["f-category","f-type","f-uom","f-secondary-uom","f-warehouse"].forEach(id=>{
@@ -791,6 +799,7 @@ async function saveItem(){
       }],{onConflict:"item_id"});
       // Stock ledger entry
       const {data:{session}}=await sb.auth.getSession();
+      const batch_no=document.getElementById("f-batch-no")?.value.trim()||null;
       await sb.from("stock_ledger").insert([{
         item_id:savedId,
         warehouse_id:parseInt(warehouse_id),
@@ -798,6 +807,7 @@ async function saveItem(){
         qty:opening_qty,
         rate:avg_cost,
         value:opening_qty*avg_cost,
+        batch_no:batch_no,
         reference_type:"Opening Balance",
         reference_no:"OB-"+document.getElementById("f-code").value,
         notes:"Opening balance entered at item creation",
