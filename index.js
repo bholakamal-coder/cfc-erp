@@ -1,173 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>CFC ERP — Ceratech Friction Composites</title>
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-<style>
-  :root {
-    --bg:#0f1117;--bg2:#181c27;--bg3:#1e2333;--border:#2a3045;--border2:#3a4460;
-    --text:#e8eaf0;--text2:#8892a4;--text3:#5a6478;
-    --accent:#3b82f6;--accent2:#1d4ed8;
-    --green:#10b981;--amber:#f59e0b;--red:#ef4444;--purple:#8b5cf6;
-    --radius:10px;--radius-sm:6px;
-  }
-  *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
-  .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;}
-  .login-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:400px;}
-  .login-logo{font-size:22px;font-weight:600;margin-bottom:6px;}
-  .login-logo span{color:var(--accent);}
-  .login-sub{font-size:13px;color:var(--text2);margin-bottom:28px;}
-  .form-group{margin-bottom:16px;}
-  .form-label{font-size:11px;color:var(--text2);margin-bottom:6px;display:block;font-weight:500;letter-spacing:.04em;text-transform:uppercase;}
-  .form-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:inherit;font-size:14px;outline:none;transition:border .2s;}
-  .form-input:focus{border-color:var(--accent);}
-  textarea.form-input{resize:vertical;min-height:70px;}
-  .form-select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:inherit;font-size:14px;outline:none;}
-  .form-select:focus{border-color:var(--accent);}
-  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-  .btn{padding:10px 20px;border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;border:none;transition:all .15s;}
-  .btn-primary{background:var(--accent);color:#fff;}
-  .btn-primary:hover{background:var(--accent2);}
-  .btn-sm{padding:5px 12px;font-size:12px;}
-  .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2);}
-  .btn-ghost:hover{border-color:var(--border2);color:var(--text);background:var(--bg3);}
-  .btn-green{background:var(--green);color:#fff;}
-  .btn-green:hover{opacity:.85;}
-  .btn-red{background:var(--red);color:#fff;}
-  .btn-red:hover{opacity:.85;}
-  .btn-amber{background:var(--amber);color:#000;}
-  .btn-amber:hover{opacity:.85;}
-  .err-msg{font-size:12px;color:var(--red);margin-top:10px;text-align:center;}
-  .app{display:flex;min-height:100vh;}
-  .sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;height:100vh;overflow-y:auto;z-index:100;}
-  .sidebar-logo{padding:20px 18px 16px;border-bottom:1px solid var(--border);}
-  .sidebar-logo-title{font-size:15px;font-weight:600;}
-  .sidebar-logo-title span{color:var(--accent);}
-  .sidebar-logo-sub{font-size:11px;color:var(--text3);margin-top:2px;}
-  .sidebar-section{padding:12px 10px 4px;font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;}
-  .sidebar-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--radius-sm);margin:1px 8px;cursor:pointer;color:var(--text2);font-size:13px;font-weight:400;transition:all .15s;border:none;background:transparent;width:calc(100% - 16px);text-align:left;}
-  .sidebar-item:hover{background:var(--bg3);color:var(--text);}
-  .sidebar-item.active{background:rgba(59,130,246,.12);color:var(--accent);font-weight:500;}
-  .sidebar-item svg{width:16px;height:16px;flex-shrink:0;}
-  .sidebar-footer{margin-top:auto;padding:12px;border-top:1px solid var(--border);}
-  .user-name{font-weight:500;color:var(--text);font-size:13px;}
-  .user-info{font-size:12px;color:var(--text2);margin-bottom:8px;}
-  .main{margin-left:220px;flex:1;min-height:100vh;}
-  .topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
-  .topbar-title{font-size:16px;font-weight:500;}
-  .topbar-actions{display:flex;gap:8px;align-items:center;}
-  .content{padding:24px;}
-  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px;}
-  .stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;}
-  .stat-card.blue{border-color:rgba(59,130,246,.25);}
-  .stat-card.green{border-color:rgba(16,185,129,.25);}
-  .stat-card.amber{border-color:rgba(245,158,11,.25);}
-  .stat-card.red{border-color:rgba(239,68,68,.25);}
-  .stat-label{font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
-  .stat-value{font-size:26px;font-weight:600;font-family:'DM Mono',monospace;}
-  .stat-sub{font-size:12px;color:var(--text3);margin-top:4px;}
-  .table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;}
-  .table-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-  .table-title{font-size:14px;font-weight:500;}
-  .search-input{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;width:220px;}
-  .search-input:focus{border-color:var(--accent);}
-  table{width:100%;border-collapse:collapse;}
-  th{padding:10px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);background:var(--bg3);}
-  td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text);vertical-align:middle;}
-  tr:last-child td{border-bottom:none;}
-  tr:hover td{background:rgba(255,255,255,.02);}
-  .empty-row td{text-align:center;color:var(--text3);padding:32px;}
-  .badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:500;}
-  .badge-rm{background:rgba(245,158,11,.15);color:#fbbf24;}
-  .badge-sfg{background:rgba(59,130,246,.15);color:#60a5fa;}
-  .badge-fg{background:rgba(16,185,129,.15);color:#34d399;}
-  .badge-consumable{background:rgba(139,92,246,.15);color:#a78bfa;}
-  .badge-mts{background:rgba(245,158,11,.15);color:#fbbf24;}
-  .badge-mto{background:rgba(59,130,246,.15);color:#60a5fa;}
-  .badge-draft{background:rgba(90,100,120,.2);color:var(--text2);}
-  .badge-planned{background:rgba(59,130,246,.15);color:#60a5fa;}
-  .badge-inprog{background:rgba(245,158,11,.15);color:#fbbf24;}
-  .badge-done{background:rgba(16,185,129,.15);color:#34d399;}
-  .badge-cancel{background:rgba(239,68,68,.15);color:#f87171;}
-  .badge-pass{background:rgba(16,185,129,.15);color:#34d399;}
-  .badge-fail{background:rgba(239,68,68,.15);color:#f87171;}
-  .badge-hold{background:rgba(245,158,11,.15);color:#fbbf24;}
-  .action-btns{display:flex;gap:4px;}
-  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
-  .modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;}
-  .modal-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
-  .modal-title{font-size:15px;font-weight:500;}
-  .modal-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:22px;line-height:1;padding:0;}
-  .modal-close:hover{color:var(--text);}
-  .modal-body{padding:22px;}
-  .modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;}
-  .confirm-modal{max-width:380px;}
-  .confirm-text{font-size:14px;color:var(--text2);line-height:1.6;}
-  .confirm-text strong{color:var(--text);}
-  .loader{display:flex;align-items:center;justify-content:center;padding:48px;color:var(--text3);font-size:13px;gap:10px;}
-  .spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
-  @keyframes spin{to{transform:rotate(360deg);}}
-  .alert{padding:12px 16px;border-radius:var(--radius-sm);margin-bottom:14px;font-size:13px;}
-  .alert-warning{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#fbbf24;}
-  .alert-success{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:#34d399;}
-  .alert-info{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:#60a5fa;}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
-  .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
-  .card-title{font-size:11px;font-weight:500;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;}
-  .page-header{margin-bottom:20px;}
-  .page-header h2{font-size:20px;font-weight:500;margin-bottom:4px;}
-  .page-header p{font-size:13px;color:var(--text2);}
-  .bom-tree{background:var(--bg3);border-radius:var(--radius-sm);padding:14px;}
-  .bom-node{display:flex;align-items:center;gap:8px;padding:5px 0;}
-  .bom-indent{width:20px;height:1px;background:var(--border);flex-shrink:0;}
-  .bom-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;}
-  .bom-item-qty{font-size:12px;color:var(--text2);margin-left:auto;font-family:'DM Mono',monospace;}
-  /* ── GLOBAL SMART SELECT ── */
-  .gss-wrap{position:relative;width:100%;}
-  .gss-display{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px 10px 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between;}
-  .gss-display:focus,.gss-display.open{border-color:var(--accent);}
-  .gss-display-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .gss-arrow{color:var(--text3);font-size:10px;flex-shrink:0;margin-left:6px;}
-  .gss-dropdown{position:absolute;top:calc(100% + 2px);left:0;right:0;background:var(--bg2);border:1px solid var(--accent);border-radius:var(--radius-sm);z-index:9999;max-height:260px;overflow:hidden;display:none;box-shadow:0 8px 24px rgba(0,0,0,.5);flex-direction:column;}
-  .gss-dropdown.open{display:flex;}
-  .gss-search-wrap{padding:8px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;}
-  .gss-search{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:7px 10px;color:var(--text);font-family:inherit;font-size:13px;outline:none;}
-  .gss-search:focus{border-color:var(--accent);}
-  .gss-list{overflow-y:auto;max-height:180px;}
-  .gss-opt{padding:9px 14px;cursor:pointer;font-size:13px;color:var(--text);transition:background .1s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .gss-opt:hover{background:var(--bg3);}
-  .gss-opt.active{background:rgba(59,130,246,.15);color:var(--accent);}
-  .gss-empty{padding:12px 14px;font-size:12px;color:var(--text3);text-align:center;}
-  .gss-add{padding:9px 14px;cursor:pointer;font-size:13px;color:var(--green);border-top:1px solid var(--border);font-weight:500;display:flex;align-items:center;gap:6px;background:var(--bg2);position:sticky;bottom:0;}
-  .gss-add:hover{background:rgba(16,185,129,.08);}
-  @media(max-width:768px){
-    .sidebar{width:60px;}
-    .sidebar-item span,.sidebar-logo-title,.sidebar-logo-sub,.sidebar-section,.user-info,.user-name{display:none;}
-    .main{margin-left:60px;}
-    .form-row{grid-template-columns:1fr;}
-    .grid2{grid-template-columns:1fr;}
-  }
-  .smart-select-wrap{position:relative;width:100%;}
-  .smart-select-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:inherit;font-size:14px;outline:none;cursor:pointer;}
-  .smart-select-input:focus{border-color:var(--accent);}
-  .smart-select-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:999;max-height:240px;overflow-y:auto;display:none;box-shadow:0 4px 20px rgba(0,0,0,.4);}
-  .smart-select-dropdown.open{display:block;}
-  .smart-select-search{width:100%;background:var(--bg3);border:none;border-bottom:1px solid var(--border);padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;position:sticky;top:0;}
-  .smart-select-option{padding:9px 14px;cursor:pointer;font-size:13px;color:var(--text);transition:background .1s;}
-  .smart-select-option:hover{background:var(--bg3);}
-  .smart-select-option.selected{background:rgba(59,130,246,.15);color:var(--accent);}
-  .smart-select-add{padding:9px 14px;cursor:pointer;font-size:13px;color:var(--green);border-top:1px solid var(--border);display:flex;align-items:center;gap:6px;font-weight:500;}
-  .smart-select-add:hover{background:rgba(16,185,129,.1);}
-  .smart-select-empty{padding:12px 14px;font-size:12px;color:var(--text3);text-align:center;}
-</style>
-</head>
-<body>
-<div id="app"></div>
-<script>
+
 const SURL='https://hfufhcsvbrzygoykvtah.supabase.co';
 const SKEY='sb_publishable_iqs1Q7TrS4j28CWqv3TUJQ_57WHtgB9';
 const {createClient}=supabase;
@@ -556,27 +387,27 @@ function appHTML(){
     ${navItem('suppliers','suppliers','Suppliers')}
     ${navItem('customers','customers','Customers')}
     <div class="sidebar-section">Tools</div>
-    <a href="dashboard.html" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
+    <a href="/dashboard" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
       Command Center
     </a>
-    <a href="mrp.html" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
+    <a href="/mrp" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       MRP / MES
     </a>
-    <a href="planner.html" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
+    <a href="/planner" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Production Planner
     </a>
-    <a href="oven.html" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
+    <a href="/oven" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
       Oven Planning
     </a>
-    <a href="invoice.html" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
+    <a href="/invoice" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
       GST Invoice
     </a>
-    <a href="operator.html" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
+    <a href="/operator" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;margin:1px 8px;color:var(--text2);font-size:13px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='var(--bg3)';this.style.color='var(--text)'" onmouseout="this.style.background='transparent';this.style.color='var(--text2)'">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       Operator View
     </a>
@@ -746,12 +577,12 @@ async function loadDashboard(el){
       <div class="table-wrap" style="padding:12px 16px">
         <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Quick Access</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-          <a href="dashboard.html" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📊 Command Center</a>
-          <a href="mrp.html" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⚙ MRP / MES</a>
-          <a href="planner.html" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">🎯 Planner</a>
-          <a href="oven.html" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--amber)'" onmouseout="this.style.borderColor='var(--border)'">🔥 Oven</a>
-          <a href="invoice.html" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--purple)'" onmouseout="this.style.borderColor='var(--border)'">🧾 Invoice</a>
-          <a href="operator.html" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">👷 Operator</a>
+          <a href="/dashboard" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📊 Command Center</a>
+          <a href="/mrp" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⚙ MRP / MES</a>
+          <a href="/planner" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">🎯 Planner</a>
+          <a href="/oven" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--amber)'" onmouseout="this.style.borderColor='var(--border)'">🔥 Oven</a>
+          <a href="/invoice" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--purple)'" onmouseout="this.style.borderColor='var(--border)'">🧾 Invoice</a>
+          <a href="/operator" style="display:block;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500;transition:all .15s" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">👷 Operator</a>
         </div>
       </div>
     </div>
@@ -2171,6 +2002,3 @@ async function boot(){
   render();
 }
 boot();
-</script>
-</body>
-</html>

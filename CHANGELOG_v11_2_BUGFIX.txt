@@ -1,0 +1,15 @@
+CFC ERP v11.2 Stage Bugfix Complete Package
+
+Fixed in each stage/module:
+1. Main ERP: converted all absolute navigation links to .html safe links for local/Netlify use.
+2. Dashboard: fixed navigation links to Dashboard/MRP/Planner/Operator/Oven/Invoice.
+3. MRP/MES: added missing showStepAction/saveStepAction functions so clicking operation circles no longer breaks.
+4. Planner: fixed redirect after plan creation from /tracker to tracker.html.
+5. Tracker: added missing showAssignOp alias so quick Assign button works.
+6. Batch/Traceability: removed undefined updatePBPrefix inline handler.
+7. Batch/Traceability: added missing showMixDetail function for Mix Batch detail button.
+8. Oven, Invoice, Operator, Batch: converted nav links to .html safe links.
+9. Deployment: added Netlify _redirects fallback for both clean URLs and .html files.
+10. Validation: all inline JS files pass node --check after patch.
+
+Package is complete with all required files included.

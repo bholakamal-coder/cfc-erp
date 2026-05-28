@@ -109,8 +109,8 @@ input:checked+.slider:before{transform:translateX(16px);}
 <div class="topbar">
   <div style="display:flex;align-items:center;gap:16px">
     <div class="logo">CFC <span>ERP</span></div>
-    <a class="back" href="/">← Back to ERP</a>
-    <a class="back" href="/tracker" style="margin-left:0">| Machine Tracker</a>
+    <a class="back" href="index.html">← Back to ERP</a>
+    <a class="back" href="tracker.html" style="margin-left:0">| Machine Tracker</a>
   </div>
   <div style="font-size:12px;color:var(--text3)" id="today-date"></div>
 </div>
@@ -590,7 +590,7 @@ async function savePlan(){
   const{error}=await db.from('production_orders').insert(orders);
   if(error){showToast('Error: '+error.message);return;}
   showToast(`✓ ${orders.length} production orders create ho gaye!`);
-  setTimeout(()=>window.location.href='/tracker',2000);
+  setTimeout(()=>window.location.href='tracker.html',2000);
 }
 
 function showToast(msg){
