@@ -390,13 +390,14 @@ function gssToggle(id){
 }
 
 function gssFilter(id){
-  const wrap = document.getElementById(id);
-  if(!wrap?._gssData) return;
-  const q = document.getElementById('gsssearch-'+id)?.value?.toLowerCase()||'';
-  const filtered = wrap._gssData.options.filter(o=>
-    o.label.toLowerCase().includes(q) || (o.sub||'').toLowerCase().includes(q)
-  );
-  gssRenderList(id, filtered, wrap._gssData.selectedId);
+  var wrap=document.getElementById(id);
+  if(!wrap||!wrap._gssData)return;
+  var inp=document.getElementById('gsssearch-'+id);
+  var q=inp?inp.value.toLowerCase():'';
+  var filtered=wrap._gssData.options.filter(function(o){
+    return o.label.toLowerCase().indexOf(q)>=0||(o.sub||'').toLowerCase().indexOf(q)>=0;
+  });
+  gssRenderList(id,filtered,wrap._gssData.selectedId);
 }
 
 function gssRenderList(id, options, selectedId){
@@ -406,20 +407,22 @@ function gssRenderList(id, options, selectedId){
     list.innerHTML='<div class="gss-empty">Koi result nahi mila</div>';
     return;
   }
-  list.innerHTML = options.slice(0,50).map(o=>`
-    <div class="gss-opt ${o.id==selectedId?'active':''}" onclick="gssSelect('${id}','${o.id}',${JSON.stringify(o.label)})">
-      ${o.label}${o.sub?`<span style="font-size:11px;color:var(--text3);margin-left:6px">${o.sub}</span>`:''}
-    </div>`).join('');
+  list.innerHTML = options.slice(0,50).map(function(o){
+    var cls=o.id==selectedId?'active':'';
+    var sub=o.sub?('<span style="font-size:11px;color:#94a3b8;margin-left:4px">'+o.sub+'</span>'):'';
+    var lbl=o.label.replace(/"/g,'&quot;');
+    return '<div class="gss-opt '+cls+'" onclick="gssSelect(\'' +id+ '\',\'' +o.id+ '\',\''+lbl+'\')">'+o.label+sub+'</div>';
+  }).join('');
 }
 
 function gssSelect(id, optId, label){
   const wrap = document.getElementById(id);
-  if(!wrap?._gssData) return;
+  if(!wrap||!wrap._gssData) return;
   wrap._gssData.selectedId = optId;
   document.getElementById('gsst-'+id).innerHTML = label;
   document.getElementById('gssdd-'+id)?.classList.remove('open');
   document.getElementById('gssd-'+id)?.classList.remove('open');
-  if(wrap._gssData.cfg?.onSelect) wrap._gssData.cfg.onSelect(optId, label);
+  if(wrap._gssData.cfg&&wrap._gssData.cfg.onSelect) wrap._gssData.cfg.onSelect(optId, label);
 }
 
 function gssGet(id){
@@ -613,7 +616,7 @@ async function doLogin(){
 }
 
 function showSignup(){
-  modal=`<div class="modal-overlay"><div class="modal">
+  showModal(`<div class="modal">
     <div class="modal-head"><span class="modal-title">Create Account</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body">
       <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="s-name"/></div>
@@ -629,8 +632,7 @@ function showSignup(){
       <div id="s-err" class="err-msg"></div>
     </div>
     <div class="modal-footer"><button class="btn btn-primary btn-sm" id="do-signup">Create Account</button></div>
-  </div></div>`;
-  render();
+  </div>`);
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('do-signup').addEventListener('click',async()=>{
     const{data,error}=await db.auth.signUp({email:document.getElementById('s-email').value,password:document.getElementById('s-pass').value});
@@ -872,7 +874,7 @@ function bindItemActions(items){
 
 async function showItemModal(item=null){
   const{data:cats}=await db.from('item_categories').select('*');
-  modal=`<div class="modal-overlay"><div class="modal">
+  showModal(`<div class="modal">
     <div class="modal-head"><span class="modal-title">${item?'Edit Item':'New Item'}</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body">
       <div class="form-row">
@@ -909,8 +911,7 @@ async function showItemModal(item=null){
       <button class="btn btn-ghost btn-sm" id="cm2">Cancel</button>
       <button class="btn btn-primary btn-sm" id="save-item">${item?'Update Item':'Save Item'}</button>
     </div>
-  </div></div>`;
-  render();
+  </div>`);
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',closeModal);
   document.getElementById('save-item').addEventListener('click',()=>saveItem(item?.id));
@@ -936,15 +937,14 @@ async function saveItem(id=null){
 
 // ── CONFIRM DELETE ──
 function confirmDelete(table,id,name){
-  modal=`<div class="modal-overlay"><div class="modal confirm-modal">
+  showModal(`<div class="modal confirm-modal">
     <div class="modal-head"><span class="modal-title">Confirm Delete</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body"><p class="confirm-text">Are you sure you want to delete <strong>${name}</strong>? This cannot be undone.</p></div>
     <div class="modal-footer">
       <button class="btn btn-ghost btn-sm" id="cm2">Cancel</button>
       <button class="btn btn-red btn-sm" id="confirm-del">Yes, Delete</button>
     </div>
-  </div></div>`;
-  render();
+  </div>`);
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',closeModal);
   document.getElementById('confirm-del').addEventListener('click',async()=>{
@@ -1012,7 +1012,7 @@ async function loadBOM(el,acts){
 async function showBOMDetail(bomId){
   const{data:bom}=await db.from('bom_headers').select('*,items(code,name)').eq('id',bomId).single();
   const{data:lines}=await db.from('bom_lines').select('*,items:component_item_id(code,name,type,uom)').eq('bom_id',bomId);
-  modal=`<div class="modal-overlay"><div class="modal" style="max-width:620px">
+  showModal(`<div class="modal" style="max-width:620px">
     <div class="modal-head"><span class="modal-title">BOM — ${bom?.items?.code} v${bom?.version}</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body">
       <div style="margin-bottom:14px;font-size:13px;color:var(--text2)">Output: <strong style="color:var(--text)">${bom?.output_qty} ${bom?.output_uom}</strong> of <strong style="color:var(--text)">${bom?.items?.name}</strong></div>
@@ -1030,8 +1030,7 @@ async function showBOMDetail(bomId){
       <button class="btn btn-ghost btn-sm" id="cm2">Close</button>
       <button class="btn btn-primary btn-sm" id="add-line-btn">+ Add Component</button>
     </div>
-  </div></div>`;
-  render();
+  </div>`);
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',closeModal);
   document.getElementById('add-line-btn').addEventListener('click',()=>showBOMLineModal(bomId));
@@ -1045,7 +1044,7 @@ async function showBOMModal(bom=null){
     db.from('items').select('id,code,name').like('code','MIX-%').order('code')
   ]);
 
-  modal=`<div class="modal-overlay"><div class="modal" style="max-width:680px">
+  showModal(`<div class="modal" style="max-width:680px">
     <div class="modal-head">
       <span class="modal-title">${isEdit?'Edit':'New'} BOM</span>
       <button class="modal-close" id="cm">×</button>
@@ -1116,8 +1115,7 @@ async function showBOMModal(bom=null){
       <button class="btn btn-ghost btn-sm" id="cm2">Cancel</button>
       <button class="btn btn-primary btn-sm" id="save-bom">${isEdit?'Update BOM':'Create BOM'}</button>
     </div>
-  </div></div>`;
-  render();
+  </div>`);
 
   // Item search
   gss('bm-item-wrap',(items||[]).map(i=>({id:i.id.toString(),label:i.code+' — '+i.name,sub:'('+i.type+')'})),{
@@ -1201,7 +1199,7 @@ async function showBOMLineModal(bomId){
     ...(machines||[]).map(m=>({id:'mach_'+m.id,label:m.name,sub:'Machine: '+m.operation,uom:'HRS',machineId:m.id}))
   ];
 
-  modal=`<div class="modal-overlay"><div class="modal">
+  showModal(`<div class="modal">
     <div class="modal-head">
       <span class="modal-title">Add Component / Process</span>
       <button class="modal-close" id="cm">×</button>
@@ -1237,8 +1235,7 @@ async function showBOMLineModal(bomId){
       <button class="btn btn-ghost btn-sm" id="cm2">← Back</button>
       <button class="btn btn-primary btn-sm" id="save-bl">Add Component</button>
     </div>
-  </div></div>`;
-  render();
+  </div>`);
 
   // Wait for DOM then init
   await new Promise(r=>setTimeout(r,50));
@@ -1398,7 +1395,7 @@ async function loadMachines(el,acts){
 }
 
 async function showMachModal(item=null){
-  modal=`<div class="modal-overlay"><div class="modal">
+  showModal(`<div class="modal">
     <div class="modal-head"><span class="modal-title">${item?'Edit Machine':'New Machine'}</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body">
       <div class="form-row">
@@ -1418,8 +1415,7 @@ async function showMachModal(item=null){
       <div id="m-err" class="err-msg"></div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost btn-sm" id="cm2">Cancel</button><button class="btn btn-primary btn-sm" id="save-mach">${item?'Update':'Save'}</button></div>
-  </div></div>`;
-  render();
+  </div>`);
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',closeModal);
   document.getElementById('save-mach').addEventListener('click',async()=>{
@@ -1476,7 +1472,7 @@ async function showPOModal(){
   const{data:items}=await db.from('items').select('id,code,name,type').order('code');
   const now=new Date().toISOString().split('T')[0];
   const orderNo='PO-'+Date.now().toString().slice(-6);
-  modal=`<div class="modal-overlay"><div class="modal">
+  showModal(`<div class="modal">
     <div class="modal-head"><span class="modal-title">New Production Order</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body">
       <div class="form-row">
@@ -1497,8 +1493,7 @@ async function showPOModal(){
       <div id="po-err" class="err-msg"></div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost btn-sm" id="cm2">Cancel</button><button class="btn btn-primary btn-sm" id="save-po">Create Order</button></div>
-  </div></div>`;
-  render();
+  </div>`);
   gss('po-item-wrap',(items||[]).map(i=>({id:i.id.toString(),label:i.code+' — '+i.name,sub:'('+i.type+')'})),{
     placeholder:'Item search karo...',
     onAdd:async(q)=>gssAddItem(q,'SFG')
@@ -1515,7 +1510,7 @@ async function showPOModal(){
 }
 
 async function showPOStatusModal(id,currentStatus){
-  modal=`<div class="modal-overlay"><div class="modal" style="max-width:380px">
+  showModal(`<div class="modal" style="max-width:380px">
     <div class="modal-head"><span class="modal-title">Update Status</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body">
       <div class="form-group"><label class="form-label">New Status</label>
@@ -1526,8 +1521,7 @@ async function showPOStatusModal(id,currentStatus){
       <div class="form-group"><label class="form-label">Completed Qty</label><input class="form-input" id="done-qty" type="number" placeholder="0"/></div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost btn-sm" id="cm2">Cancel</button><button class="btn btn-green btn-sm" id="upd-st">Update</button></div>
-  </div></div>`;
-  render();
+  </div>`);
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',closeModal);
   document.getElementById('upd-st').addEventListener('click',async()=>{
@@ -1587,7 +1581,7 @@ async function loadInventory(el,acts){
 
 async function showStockModal(){
   const{data:items}=await db.from('items').select('id,code,name,uom').in('type',['RM','FG']).order('code');
-  modal=`<div class="modal-overlay"><div class="modal">
+  showModal(`<div class="modal">
     <div class="modal-head"><span class="modal-title">Stock Entry</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body">
       <div class="form-group"><label class="form-label">Item *</label>
@@ -1615,8 +1609,7 @@ async function showStockModal(){
       <div id="s-err" class="err-msg"></div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost btn-sm" id="cm2">Cancel</button><button class="btn btn-green btn-sm" id="save-stock">Save Entry</button></div>
-  </div></div>`;
-  render();
+  </div>`);
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',closeModal);
   document.getElementById('s-item')?.addEventListener('change',e=>{const o=e.target.selectedOptions[0];if(o?.dataset?.uom)document.getElementById('s-uom').value=o.dataset.uom;});
@@ -1663,7 +1656,7 @@ async function loadQC(el,acts){
 
 async function showQCModal(){
   const{data:items}=await db.from('items').select('id,code,name').order('code');
-  modal=`<div class="modal-overlay"><div class="modal">
+  showModal(`<div class="modal">
     <div class="modal-head"><span class="modal-title">New QC Entry</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body">
       <div class="form-row">
@@ -1694,8 +1687,7 @@ async function showQCModal(){
       <div id="q-err" class="err-msg"></div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost btn-sm" id="cm2">Cancel</button><button class="btn btn-primary btn-sm" id="save-qc">Save QC</button></div>
-  </div></div>`;
-  render();
+  </div>`);
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',closeModal);
   document.getElementById('save-qc').addEventListener('click',async()=>{
@@ -1733,7 +1725,7 @@ async function showPackModal(){
   const{data:items}=await db.from('items').select('id,code,name').eq('type','FG').order('code');
   const{data:pos}=await db.from('production_orders').select('id,order_no').in('status',['Stacked','Planned']).order('order_no');
   const pkNo='PK-'+Date.now().toString().slice(-6);
-  modal=`<div class="modal-overlay"><div class="modal">
+  showModal(`<div class="modal">
     <div class="modal-head"><span class="modal-title">New Packing Order</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body">
       <div class="form-row">
@@ -1759,8 +1751,7 @@ async function showPackModal(){
       <div id="pk-err" class="err-msg"></div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost btn-sm" id="cm2">Cancel</button><button class="btn btn-primary btn-sm" id="save-pk">Create</button></div>
-  </div></div>`;
-  render();
+  </div>`);
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',closeModal);
   document.getElementById('save-pk').addEventListener('click',async()=>{
@@ -1853,7 +1844,7 @@ async function showPurchaseModal(existingPO=null){
     if(el) el.innerHTML=`Subtotal: <strong>₹${sub.toLocaleString('en-IN')}</strong> + GST <strong>₹${gst.toFixed(0)}</strong> = <strong style="color:var(--green)">₹${(sub+gst).toLocaleString('en-IN',{maximumFractionDigits:0})}</strong>`;
   }
 
-  modal=`<div class="modal-overlay"><div class="modal" style="max-width:780px">
+  showModal(`<div class="modal" style="max-width:780px">
     <div class="modal-head"><span class="modal-title">${isEdit?'Edit':'New'} Purchase Order</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body">
       <div class="form-row">
@@ -1895,8 +1886,7 @@ async function showPurchaseModal(existingPO=null){
       <button class="btn btn-ghost btn-sm" id="cm2">Cancel</button>
       <button class="btn btn-primary btn-sm" id="save-pur">${isEdit?'Update PO':'Create PO'}</button>
     </div>
-  </div></div>`;
-  render();
+  </div>`);
 
   gss('pur-sup-wrap', (sups||[]).map(s=>({id:s.id.toString(),label:s.name})), {
     placeholder:'Supplier search karo...',
@@ -2008,7 +1998,7 @@ async function showSalesModal(existingSO=null){
     if(el) el.innerHTML=`Subtotal: <strong>₹${sub.toLocaleString('en-IN')}</strong> + GST <strong>₹${gstTotal.toFixed(0)}</strong> = <strong style="color:var(--green)">₹${(sub+gstTotal).toLocaleString('en-IN',{maximumFractionDigits:0})}</strong>`;
   }
 
-  modal=`<div class="modal-overlay"><div class="modal" style="max-width:780px">
+  showModal(`<div class="modal" style="max-width:780px">
     <div class="modal-head"><span class="modal-title">${isEdit?'Edit':'New'} Sales Order</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body">
       <div class="form-row">
@@ -2050,8 +2040,7 @@ async function showSalesModal(existingSO=null){
       <button class="btn btn-ghost btn-sm" id="cm2">Cancel</button>
       <button class="btn btn-primary btn-sm" id="save-so">${isEdit?'Update SO':'Create SO'}</button>
     </div>
-  </div></div>`;
-  render();
+  </div>`);
 
   gss('so-cust-wrap', (custs||[]).map(c=>({id:c.id.toString(),label:c.name})), {
     placeholder:'Customer search karo...',
@@ -2137,7 +2126,7 @@ async function loadCustomers(el,acts){
 async function showPartyModal(type,item=null){
   const isSup=type==='supplier';
   const code=item?.code||(isSup?'SUP':'CUS')+'-'+Date.now().toString().slice(-4);
-  modal=`<div class="modal-overlay"><div class="modal">
+  showModal(`<div class="modal">
     <div class="modal-head"><span class="modal-title">${item?'Edit':'Add'} ${isSup?'Supplier':'Customer'}</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body">
       <div class="form-row">
@@ -2153,8 +2142,7 @@ async function showPartyModal(type,item=null){
       <div id="p-err" class="err-msg"></div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost btn-sm" id="cm2">Cancel</button><button class="btn btn-primary btn-sm" id="save-party">${item?'Update':'Save'}</button></div>
-  </div></div>`;
-  render();
+  </div>`);
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',closeModal);
   document.getElementById('save-party').addEventListener('click',async()=>{
