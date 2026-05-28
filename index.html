@@ -587,7 +587,10 @@ function appHTML(){
     <div class="topbar"><div class="topbar-title">${pageTitles[page]||'CFC ERP'}</div><div class="topbar-actions" id="topbar-actions"></div></div>
     <div class="content" id="page-content"><div class="loader"><div class="spinner"></div> Loading...</div></div>
   </main>
-  </div>${modal||''}`;}
+  </div>${modal||''}
+  <div id="modal-root"></div>
+  <div id="cfc-toast"></div>
+  `;}
 
 const pageTitles={dashboard:'Dashboard',production:'Production Orders',planning:'Daily Planning',items:'Item Master',bom:'Bill of Materials',machines:'Machines',inventory:'Inventory',qc:'Quality Control',packing:'Packing & Dispatch',purchase:'Purchase Orders',sales:'Sales Orders',suppliers:'Suppliers',customers:'Customers'};
 
@@ -1237,6 +1240,9 @@ async function showBOMLineModal(bomId){
   </div></div>`;
   render();
 
+  // Wait for DOM then init
+  await new Promise(r=>setTimeout(r,50));
+
   // Live search state
   let blSelected=null;
   let blHighlight=-1;
@@ -1265,13 +1271,11 @@ async function showBOMLineModal(bomId){
     if(!dd) return;
     if(!blFiltered.length){dd.style.display='none';return;}
     dd.style.display='block';
-    dd.innerHTML=blFiltered.slice(0,40).map((o,idx)=>`
+    dd.innerHTML=blFiltered.slice(0,40).map((o,i)=>`
       <div onclick="blSelectById('${o.id}')" 
-        style="padding:8px 12px;cursor:pointer;font-size:13px;${idx===blHighlight?'background:var(--accent);color:#fff;':''}"
-        onmouseover="this.style.background='var(--bg3)';blHighlight=${idx}"
-        onmouseout="if(${idx}!==${blHighlight})this.style.background=''">
-        <div style="font-weight:500">${o.label}</div>
-        <div style="font-size:11px;opacity:.7">${o.sub}</div>
+        style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);${i===blHighlight?'background:var(--accent);color:#fff;':''}">
+        <div style="font-weight:500;font-size:13px">${o.label}</div>
+        <div style="font-size:11px;color:${i===blHighlight?'rgba(255,255,255,.8)':'var(--text3)'}">${o.sub}</div>
       </div>`).join('');
     // Add "Add New RM" option
     const q=document.getElementById('bl-search')?.value||'';
@@ -1321,10 +1325,19 @@ async function showBOMLineModal(bomId){
   };
 
   // Show dropdown on focus
-  document.getElementById('bl-search')?.addEventListener('focus',()=>{
-    blFiltered=allOptions;
+  const blInp=document.getElementById('bl-search');
+  if(blInp){
+    blInp.addEventListener('focus',()=>{
+      blFiltered=allOptions.slice(0,50);
+      renderBLDropdown();
+    });
+    blInp.addEventListener('input',()=>window.blFilter());
+    blInp.addEventListener('keydown',(e)=>window.blKeyDown(e));
+    // Show all on load
+    blFiltered=allOptions.slice(0,50);
     renderBLDropdown();
-  });
+    blInp.focus();
+  }
 
   // Close on outside click
   document.addEventListener('click',function blOutside(e){
@@ -1348,16 +1361,10 @@ async function showBOMLineModal(bomId){
     
     const payload={
       bom_id:parseInt(bomId),
-      qty,uom,is_optional:isOpt
+      component_item_id:blSelected.itemId?parseInt(blSelected.itemId):null,
+      qty,uom,is_optional:isOpt,
+      notes:blSelected.machineId?'Machine: '+blSelected.label:null
     };
-    
-    if(blSelected.itemId){
-      payload.component_item_id=blSelected.itemId;
-    } else if(blSelected.machineId){
-      // Store machine as notes for now
-      payload.component_item_id=null;
-      payload.notes='Machine: '+blSelected.label;
-    }
     
     const{error}=await db.from('bom_lines').insert(payload);
     if(error){document.getElementById('bl-err').textContent=error.message;setBtnState(btn,false,'','Add Component');return;}
