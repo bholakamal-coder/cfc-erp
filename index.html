@@ -126,6 +126,24 @@
   .bom-indent{width:20px;height:1px;background:var(--border);flex-shrink:0;}
   .bom-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;}
   .bom-item-qty{font-size:12px;color:var(--text2);margin-left:auto;font-family:'DM Mono',monospace;}
+  /* ── GLOBAL SMART SELECT ── */
+  .gss-wrap{position:relative;width:100%;}
+  .gss-display{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px 10px 12px;color:var(--text);font-family:inherit;font-size:14px;outline:none;cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between;}
+  .gss-display:focus,.gss-display.open{border-color:var(--accent);}
+  .gss-display-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .gss-arrow{color:var(--text3);font-size:10px;flex-shrink:0;margin-left:6px;}
+  .gss-dropdown{position:absolute;top:calc(100% + 2px);left:0;right:0;background:var(--bg2);border:1px solid var(--accent);border-radius:var(--radius-sm);z-index:9999;max-height:260px;overflow:hidden;display:none;box-shadow:0 8px 24px rgba(0,0,0,.5);flex-direction:column;}
+  .gss-dropdown.open{display:flex;}
+  .gss-search-wrap{padding:8px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;}
+  .gss-search{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:7px 10px;color:var(--text);font-family:inherit;font-size:13px;outline:none;}
+  .gss-search:focus{border-color:var(--accent);}
+  .gss-list{overflow-y:auto;max-height:180px;}
+  .gss-opt{padding:9px 14px;cursor:pointer;font-size:13px;color:var(--text);transition:background .1s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .gss-opt:hover{background:var(--bg3);}
+  .gss-opt.active{background:rgba(59,130,246,.15);color:var(--accent);}
+  .gss-empty{padding:12px 14px;font-size:12px;color:var(--text3);text-align:center;}
+  .gss-add{padding:9px 14px;cursor:pointer;font-size:13px;color:var(--green);border-top:1px solid var(--border);font-weight:500;display:flex;align-items:center;gap:6px;background:var(--bg2);position:sticky;bottom:0;}
+  .gss-add:hover{background:rgba(16,185,129,.08);}
   @media(max-width:768px){
     .sidebar{width:60px;}
     .sidebar-item span,.sidebar-logo-title,.sidebar-logo-sub,.sidebar-section,.user-info,.user-name{display:none;}
@@ -294,6 +312,170 @@ async function quickAddItem(targetSelectId){
     selectSmartOption(targetSelectId,data.id,data.code+' — '+data.name);
   }
   showToast('✓ Item added: '+data.name);
+}
+
+// ══════════════════════════════════════════
+// GLOBAL SMART SELECT — har jagah use karo
+// ══════════════════════════════════════════
+/*
+  Usage:
+  gss('container-id', options, {
+    placeholder: 'Search...',
+    onSelect: (id, label) => {},
+    onAdd: (query) => {},   // optional — "Add New" button
+    selected: 'current-id' // optional
+  })
+  options = [{id, label, sub}]  sub = small grey text
+*/
+function gss(containerId, options, cfg={}){
+  const wrap = document.getElementById(containerId);
+  if(!wrap) return;
+  
+  let selectedId = cfg.selected||null;
+  let selectedLabel = options.find(o=>o.id==selectedId)?.label || '';
+  
+  wrap._gssData = {options, cfg, selectedId};
+  
+  wrap.innerHTML = `
+    <div class="gss-wrap">
+      <button type="button" class="gss-display" id="gssd-${containerId}" onclick="gssToggle('${containerId}')">
+        <span class="gss-display-text" id="gsst-${containerId}">${selectedLabel||`<span style="color:var(--text3)">${cfg.placeholder||'Search or select...'}</span>`}</span>
+        <span class="gss-arrow">▼</span>
+      </button>
+      <div class="gss-dropdown" id="gssdd-${containerId}">
+        <div class="gss-search-wrap">
+          <input class="gss-search" id="gsssearch-${containerId}" 
+            placeholder="Type to search..." 
+            oninput="gssFilter('${containerId}')"
+            onclick="event.stopPropagation()"/>
+        </div>
+        <div class="gss-list" id="gsslist-${containerId}"></div>
+        ${cfg.onAdd?`<div class="gss-add" onclick="gssAddNew('${containerId}')">+ Add New</div>`:''}
+      </div>
+    </div>`;
+  
+  gssRenderList(containerId, options, selectedId);
+  
+  // Close on outside click
+  setTimeout(()=>{
+    document.addEventListener('click', function gssClose(e){
+      const dd = document.getElementById('gssdd-'+containerId);
+      const btn = document.getElementById('gssd-'+containerId);
+      if(dd && btn && !dd.contains(e.target) && !btn.contains(e.target)){
+        dd.classList.remove('open');
+        btn.classList.remove('open');
+        document.removeEventListener('click', gssClose);
+      }
+    });
+  }, 0);
+}
+
+function gssToggle(id){
+  const dd = document.getElementById('gssdd-'+id);
+  const btn = document.getElementById('gssd-'+id);
+  const isOpen = dd.classList.contains('open');
+  
+  // Close all other dropdowns first
+  document.querySelectorAll('.gss-dropdown.open').forEach(d=>{
+    d.classList.remove('open');
+    d.previousElementSibling?.classList.remove('open');
+  });
+  
+  if(!isOpen){
+    dd.classList.add('open');
+    btn.classList.add('open');
+    const search = document.getElementById('gsssearch-'+id);
+    if(search){ search.value=''; search.focus(); gssFilter(id); }
+  }
+}
+
+function gssFilter(id){
+  const wrap = document.getElementById(id);
+  if(!wrap?._gssData) return;
+  const q = document.getElementById('gsssearch-'+id)?.value?.toLowerCase()||'';
+  const filtered = wrap._gssData.options.filter(o=>
+    o.label.toLowerCase().includes(q) || (o.sub||'').toLowerCase().includes(q)
+  );
+  gssRenderList(id, filtered, wrap._gssData.selectedId);
+}
+
+function gssRenderList(id, options, selectedId){
+  const list = document.getElementById('gsslist-'+id);
+  if(!list) return;
+  if(!options.length){
+    list.innerHTML='<div class="gss-empty">Koi result nahi mila</div>';
+    return;
+  }
+  list.innerHTML = options.slice(0,50).map(o=>`
+    <div class="gss-opt ${o.id==selectedId?'active':''}" onclick="gssSelect('${id}','${o.id}',${JSON.stringify(o.label)})">
+      ${o.label}${o.sub?`<span style="font-size:11px;color:var(--text3);margin-left:6px">${o.sub}</span>`:''}
+    </div>`).join('');
+}
+
+function gssSelect(id, optId, label){
+  const wrap = document.getElementById(id);
+  if(!wrap?._gssData) return;
+  wrap._gssData.selectedId = optId;
+  document.getElementById('gsst-'+id).innerHTML = label;
+  document.getElementById('gssdd-'+id)?.classList.remove('open');
+  document.getElementById('gssd-'+id)?.classList.remove('open');
+  if(wrap._gssData.cfg?.onSelect) wrap._gssData.cfg.onSelect(optId, label);
+}
+
+function gssGet(id){
+  return document.getElementById(id)?._gssData?.selectedId || null;
+}
+
+async function gssAddNew(id){
+  const wrap = document.getElementById(id);
+  const cfg = wrap?._gssData?.cfg;
+  document.getElementById('gssdd-'+id)?.classList.remove('open');
+  if(cfg?.onAdd){
+    const query = document.getElementById('gsssearch-'+id)?.value || '';
+    const result = await cfg.onAdd(query);
+    if(result){
+      // Add to options and select
+      wrap._gssData.options.unshift(result);
+      gssSelect(id, result.id, result.label);
+    }
+  }
+}
+
+// Quick add helpers
+async function gssAddCustomer(query=''){
+  const name = prompt('Customer naam:', query);
+  if(!name?.trim()) return null;
+  const gstin = prompt('GSTIN (optional):');
+  const phone = prompt('Phone (optional):');
+  const code = 'CUS-'+Date.now().toString().slice(-6);
+  const{data,error} = await db.from('customers').insert({code,name:name.trim(),gstin:gstin||null,phone:phone||null,is_active:true}).select().single();
+  if(error){showToast('Error: '+error.message);return null;}
+  showToast('✓ Customer added!');
+  return {id:data.id.toString(), label:data.name};
+}
+
+async function gssAddSupplier(query=''){
+  const name = prompt('Supplier naam:', query);
+  if(!name?.trim()) return null;
+  const gstin = prompt('GSTIN (optional):');
+  const phone = prompt('Phone (optional):');
+  const code = 'SUP-'+Date.now().toString().slice(-6);
+  const{data,error} = await db.from('suppliers').insert({code,name:name.trim(),gstin:gstin||null,phone:phone||null,is_active:true}).select().single();
+  if(error){showToast('Error: '+error.message);return null;}
+  showToast('✓ Supplier added!');
+  return {id:data.id.toString(), label:data.name};
+}
+
+async function gssAddItem(query='', type='RM'){
+  const code = prompt('Item code:', query.toUpperCase());
+  if(!code?.trim()) return null;
+  const name = prompt('Item naam:');
+  if(!name?.trim()) return null;
+  const uom = prompt('UOM (KG/PCS/LTR/SET/MTR):', type==='RM'?'KG':'PCS');
+  const{data,error} = await db.from('items').insert({code:code.trim().toUpperCase(),name:name.trim(),type,uom:uom||'PCS',category_id:1}).select().single();
+  if(error){showToast('Error: '+error.message);return null;}
+  showToast('✓ Item added!');
+  return {id:data.id.toString(), label:data.code+' — '+data.name, sub:'('+type+')'};
 }
 
 function setBtnState(btn,loading,loadText='Saving...',orig=null){
@@ -1007,18 +1189,16 @@ function calcBOMParams(){
 }
 
 async function showBOMLineModal(bomId){
-  const{data:items}=await db.from('items').select('id,code,name,type').order('code');
+  const{data:items}=await db.from('items').select('id,code,name,type,uom').order('code');
   modal=`<div class="modal-overlay"><div class="modal">
     <div class="modal-head"><span class="modal-title">Add Component</span><button class="modal-close" id="cm">×</button></div>
     <div class="modal-body">
       <div class="form-group"><label class="form-label">Component Item *</label>
-        <select class="form-select" id="bl-item"><option value="">-- Select --</option>
-          ${(items||[]).map(i=>`<option value="${i.id}">${i.code} — ${i.name} (${i.type})</option>`).join('')}
-        </select>
+        <div id="bl-item-wrap"></div>
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Quantity *</label><input class="form-input" id="bl-qty" type="number" step="0.001" value="1"/></div>
-        <div class="form-group"><label class="form-label">UOM *</label><input class="form-input" id="bl-uom" value="pcs"/></div>
+        <div class="form-group"><label class="form-label">UOM *</label><input class="form-input" id="bl-uom" value="PCS"/></div>
       </div>
       <div class="form-group"><label class="form-label">Optional?</label>
         <select class="form-select" id="bl-opt"><option value="false">No — Required</option><option value="true">Yes — Optional</option></select>
@@ -1028,14 +1208,26 @@ async function showBOMLineModal(bomId){
     <div class="modal-footer"><button class="btn btn-ghost btn-sm" id="cm2">Cancel</button><button class="btn btn-primary btn-sm" id="save-bl">Add</button></div>
   </div></div>`;
   render();
+  // Smart select for item
+  gss('bl-item-wrap', (items||[]).map(i=>({id:i.id.toString(),label:i.code+' — '+i.name,sub:'('+i.type+')'})), {
+    placeholder:'Search RM, SFG, FG...',
+    onSelect:(id,label)=>{
+      const item=items.find(it=>it.id.toString()===id);
+      if(item?.uom) document.getElementById('bl-uom').value=item.uom;
+    },
+    onAdd:async(q)=>gssAddItem(q,'RM')
+  });
   document.getElementById('cm').addEventListener('click',()=>showBOMDetail(bomId));
   document.getElementById('cm2').addEventListener('click',()=>showBOMDetail(bomId));
   document.getElementById('save-bl').addEventListener('click',async()=>{
-    const cid=document.getElementById('bl-item').value;
-    if(!cid){document.getElementById('bl-err').textContent='Select a component.';return;}
+    const cid=gssGet('bl-item-wrap');
+    if(!cid){document.getElementById('bl-err').textContent='Item select karo.';return;}
+    const btn=document.getElementById('save-bl');
+    setBtnState(btn,true,'Adding...');
     const{error}=await db.from('bom_lines').insert({bom_id:bomId,component_item_id:cid,qty:parseFloat(document.getElementById('bl-qty').value)||1,uom:document.getElementById('bl-uom').value,is_optional:document.getElementById('bl-opt').value==='true'});
-    if(error){document.getElementById('bl-err').textContent=error.message;return;}
-    showBOMDetail(bomId);
+    if(error){document.getElementById('bl-err').textContent=error.message;setBtnState(btn,false,'','Add');return;}
+    showSavedPopup('Component Added!');
+    setTimeout(()=>showBOMDetail(bomId),1200);
   });
 }
 
@@ -1165,12 +1357,14 @@ async function showPOModal(){
     <div class="modal-footer"><button class="btn btn-ghost btn-sm" id="cm2">Cancel</button><button class="btn btn-primary btn-sm" id="save-po">Create Order</button></div>
   </div></div>`;
   render();
-  smartSelect('po-item-wrap',(items||[]).map(i=>({id:i.id,label:i.code+' — '+i.name+' ('+i.type+')'})),null,(id)=>{},()=>quickAddItem('po-item-wrap'));
+  gss('po-item-wrap',(items||[]).map(i=>({id:i.id.toString(),label:i.code+' — '+i.name,sub:'('+i.type+')'})),{
+    placeholder:'Item search karo...',
+    onAdd:async(q)=>gssAddItem(q,'SFG')
+  });
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',closeModal);
   document.getElementById('save-po').addEventListener('click',async()=>{
-    const wrap=document.getElementById('po-item-wrap');
-    const item_id=wrap?._ssData?.selectedId||'';
+    const item_id=gssGet('po-item-wrap');
     if(!item_id){document.getElementById('po-err').textContent='Item select karo.';return;}
     const{error}=await db.from('production_orders').insert({order_no:document.getElementById('po-no').value,order_type:document.getElementById('po-type').value,item_id,planned_qty:parseFloat(document.getElementById('po-qty').value)||0,planned_date:document.getElementById('po-date').value,customer_ref:document.getElementById('po-cref').value,notes:document.getElementById('po-notes').value,status:'Planned'});
     if(error){document.getElementById('po-err').textContent=error.message;return;}
@@ -1476,8 +1670,16 @@ async function showPurchaseModal(){
       </div>`).join('');
     poLines.forEach((line,i)=>{
       setTimeout(()=>{
-        smartSelect('po-line-item-'+i,(rmItems||[]).map(it=>({id:it.id,label:it.code+' — '+it.name})),line.itemId||null,(id,label)=>{poLines[i].itemId=id;poLines[i].itemLabel=label;// Auto-fill UOM
-          const item=rmItems?.find(it=>it.id==id);if(item?.uom){poLines[i].uom=item.uom;}},()=>quickAddItem('po-line-item-'+i));
+        gss('po-line-item-'+i,(rmItems||[]).map(it=>({id:it.id.toString(),label:it.code+' — '+it.name,sub:it.uom})),{
+          placeholder:'RM search karo...',
+          selected:line.itemId||null,
+          onSelect:(id,label)=>{
+            poLines[i].itemId=id;
+            const item=rmItems?.find(it=>it.id.toString()===id);
+            if(item?.uom) poLines[i].uom=item.uom;
+          },
+          onAdd:async(q)=>{const r=await gssAddItem(q,'RM');if(r){poLines[i].itemId=r.id;}return r;}
+        });
       },50);
     });
     updatePOTotal();
@@ -1518,13 +1720,15 @@ async function showPurchaseModal(){
     <div class="modal-footer"><button class="btn btn-ghost btn-sm" id="cm2">Cancel</button><button class="btn btn-primary btn-sm" id="save-pur">Create PO</button></div>
   </div></div>`;
   render();
-  smartSelect('pur-sup-wrap',(sups||[]).map(s=>({id:s.id,label:s.name})),null,(id)=>{},()=>quickAddSupplier('pur-sup-wrap'));
+  gss('pur-sup-wrap',(sups||[]).map(s=>({id:s.id.toString(),label:s.name})),{
+    placeholder:'Supplier search karo...',
+    onAdd:async(q)=>gssAddSupplier(q)
+  });
   renderPOLines();
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',closeModal);
   document.getElementById('save-pur').addEventListener('click',async()=>{
-    const wrap=document.getElementById('pur-sup-wrap');
-    const sup=wrap?._ssData?.selectedId||'';
+    const sup=gssGet('pur-sup-wrap');
     if(!sup){document.getElementById('pur-err').textContent='Supplier select karo.';return;}
     const validLines=poLines.filter(l=>l.itemId&&l.qty>0);
     if(!validLines.length){document.getElementById('pur-err').textContent='Kam se kam 1 item add karo.';return;}
@@ -1594,7 +1798,12 @@ async function showSalesModal(){
     // Initialize smartSelect for each line item
     soLines.forEach((line,i)=>{
       setTimeout(()=>{
-        smartSelect('so-line-item-'+i,(fgItems||[]).map(it=>({id:it.id,label:it.code+' — '+it.name})),line.itemId||null,(id,label)=>{soLines[i].itemId=id;soLines[i].itemLabel=label;},()=>quickAddItem('so-line-item-'+i));
+        gss('so-line-item-'+i,(fgItems||[]).map(it=>({id:it.id.toString(),label:it.code+' — '+it.name})),{
+          placeholder:'FG item search...',
+          selected:line.itemId||null,
+          onSelect:(id)=>{soLines[i].itemId=id;},
+          onAdd:async(q)=>{const r=await gssAddItem(q,'FG');if(r){soLines[i].itemId=r.id;}return r;}
+        });
       },50);
     });
     updateSOTotal();
@@ -1635,13 +1844,15 @@ async function showSalesModal(){
     <div class="modal-footer"><button class="btn btn-ghost btn-sm" id="cm2">Cancel</button><button class="btn btn-primary btn-sm" id="save-so">Create SO</button></div>
   </div></div>`;
   render();
-  smartSelect('so-cust-wrap',(custs||[]).map(c=>({id:c.id,label:c.name})),null,(id)=>{},()=>quickAddCustomer('so-cust-wrap'));
+  gss('so-cust-wrap',(custs||[]).map(c=>({id:c.id.toString(),label:c.name})),{
+    placeholder:'Customer search karo...',
+    onAdd:async(q)=>gssAddCustomer(q)
+  });
   renderSOLines();
   document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',closeModal);
   document.getElementById('save-so').addEventListener('click',async()=>{
-    const wrap=document.getElementById('so-cust-wrap');
-    const cust=wrap?._ssData?.selectedId||'';
+    const cust=gssGet('so-cust-wrap');
     if(!cust){document.getElementById('so-err').textContent='Customer select karo.';return;}
     const validLines=soLines.filter(l=>l.itemId&&l.qty>0);
     if(!validLines.length){document.getElementById('so-err').textContent='Kam se kam 1 item add karo.';return;}
