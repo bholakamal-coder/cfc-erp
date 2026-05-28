@@ -773,7 +773,7 @@ async function loadProfile(){
 
 function closeModal(){modal=null;render();loadPage();}
 
-async async function loadPage(){
+async function loadPage(){
   const el=document.getElementById('page-content');
   const acts=document.getElementById('topbar-actions');
   if(!el)return;
