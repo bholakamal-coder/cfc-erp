@@ -2142,7 +2142,26 @@ async function showPartyModal(type,item=null){
 }
 
 // ── BOOT ──
-
+async function boot(){
+  try{
+    const{data:{session}}=await db.auth.getSession();
+    if(session){
+      USER=session.user;user=USER;
+      try{
+        const{data:p}=await db.from('user_profiles').select('*').eq('user_id',USER.id).single();
+        PROFILE=p;profile=p;
+      }catch(e){}
+      PAGE='dashboard';page='dashboard';
+      render();
+      loadPage();
+    } else {
+      render();
+    }
+  }catch(e){
+    console.error('Boot error:',e);
+    document.getElementById('app').innerHTML='<div style="padding:40px;text-align:center;color:red">Error: '+e.message+'</div>';
+  }
+}
 
 boot();</script>
 </body>
