@@ -397,16 +397,12 @@ tr:hover td{background:#fafbfc;}
   </div>
 </div>
 
-<!-- DELETE CONFIRM -->
+<!-- DELETE CONFIRM — dynamic content -->
 <div class="confirm-overlay" id="confirm-modal">
-  <div class="confirm-box">
+  <div class="confirm-box" id="confirm-box-inner" style="text-align:center;">
     <div style="font-size:36px;margin-bottom:12px;">&#128465;</div>
     <h4>Delete Item?</h4>
-    <p id="confirm-msg">This action cannot be undone.</p>
-    <div class="actions">
-      <button class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
-      <button class="btn btn-danger" onclick="confirmDelete()">Yes, Delete</button>
-    </div>
+    <p>Checking...</p>
   </div>
 </div>
 
@@ -646,19 +642,147 @@ async function saveItem(){
   closeModal();loadItems();
 }
 
-// ---- DELETE ----
-function openDeleteConfirm(id,name){
-  deletingId=id;
-  document.getElementById("confirm-msg").textContent='Delete "'+name+'"? Yeh undo nahi hoga.';
-  document.getElementById("confirm-modal").classList.add("open");
+// ---- DELETE PROTECTION SYSTEM ----
+// Tables to check for item linkage
+const LINK_CHECKS = [
+  {table:"bom",        col:"item_id",      label:"BOM"},
+  {table:"bom_items",  col:"item_id",      label:"BOM Components"},
+  {table:"sales_orders",      col:"item_id", label:"Sales Order"},
+  {table:"sales_order_items", col:"item_id", label:"Sales Order Items"},
+  {table:"purchase_orders",      col:"item_id", label:"Purchase Order"},
+  {table:"purchase_order_items", col:"item_id", label:"Purchase Order Items"},
+  {table:"work_orders",  col:"item_id",    label:"Work Order"},
+  {table:"production_orders", col:"item_id", label:"Production Order"},
+  {table:"grn_items",  col:"item_id",      label:"GRN"},
+  {table:"invoice_items", col:"item_id",   label:"Invoice"},
+  {table:"stock_entries", col:"item_id",   label:"Stock Entry"},
+  {table:"stock_ledger", col:"item_id",    label:"Stock Ledger"},
+  {table:"qc_reports", col:"item_id",      label:"QC Report"},
+  {table:"dispatch_items", col:"item_id",  label:"Dispatch"},
+  {table:"batch",      col:"item_id",      label:"Batch"},
+];
+
+async function checkItemLinks(itemId){
+  const linked=[];
+  for(const check of LINK_CHECKS){
+    try{
+      const {data,error}=await sb.from(check.table)
+        .select("id, code, name, created_at, status")
+        .eq(check.col, itemId)
+        .limit(5);
+      if(!error && data && data.length>0){
+        linked.push({
+          type: check.label,
+          count: data.length,
+          docs: data.map(d=>({
+            id: d.id,
+            ref: d.code||d.name||d.id,
+            date: d.created_at?new Date(d.created_at).toLocaleDateString("en-IN"):"",
+            status: d.status||""
+          }))
+        });
+      }
+    }catch(e){ /* table may not exist yet */ }
+  }
+  return linked;
 }
-function closeConfirm(){document.getElementById("confirm-modal").classList.remove("open");deletingId=null;}
+
+async function logDeleteAttempt(itemId, itemName, allowed, linkedDocs, reason){
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    await sb.from("delete_audit_log").insert([{
+      user_id: session?.user?.id||null,
+      user_email: session?.user?.email||null,
+      record_type: "item",
+      record_id: itemId,
+      record_name: itemName,
+      action: "DELETE_ATTEMPT",
+      allowed: allowed,
+      blocked_reason: reason||null,
+      linked_documents: linkedDocs||null,
+    }]);
+  }catch(e){}
+}
+
+let deleteCheckResult=null;
+
+async function openDeleteConfirm(id, name){
+  deletingId=id;
+  // Show checking state
+  const overlay=document.getElementById("confirm-modal");
+  const box=document.getElementById("confirm-box-inner");
+  box.innerHTML=`
+    <div style="font-size:32px;margin-bottom:12px;">&#128269;</div>
+    <h4>Checking links...</h4>
+    <p style="color:#8a95a0;">Linked documents check ho rahe hain...</p>`;
+  overlay.classList.add("open");
+
+  // Check links
+  const linked=await checkItemLinks(id);
+  deleteCheckResult={id,name,linked};
+
+  if(linked.length>0){
+    // BLOCKED — show linked docs
+    await logDeleteAttempt(id, name, false, linked, "Linked with: "+linked.map(l=>l.type).join(", "));
+    let docsHtml=linked.map(l=>`
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:700;color:#cc2200;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">${l.type} (${l.count} record${l.count>1?"s":""})</div>
+        ${l.docs.map(d=>`
+          <div style="display:flex;gap:8px;align-items:center;padding:5px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;margin-bottom:3px;font-size:12px;">
+            <span style="font-family:monospace;font-weight:600;color:#1c2d42;">${d.ref}</span>
+            ${d.date?`<span style="color:#8a95a0;">${d.date}</span>`:""}
+            ${d.status?`<span style="margin-left:auto;background:#fef9c3;color:#854d0e;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;">${d.status}</span>`:""}
+          </div>`).join("")}
+      </div>`).join("");
+
+    box.innerHTML=`
+      <div style="font-size:32px;margin-bottom:10px;">&#128683;</div>
+      <h4 style="color:#cc2200;">Delete Blocked!</h4>
+      <p style="margin-bottom:12px;"><strong>"${name}"</strong> ko delete nahi kar sakte.</p>
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:10px;font-size:12.5px;color:#7f1d1d;margin-bottom:14px;text-align:left;">
+        &#9888; Yeh record following documents mein linked hai:
+      </div>
+      <div style="text-align:left;max-height:220px;overflow-y:auto;margin-bottom:14px;">${docsHtml}</div>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px;font-size:12.5px;color:#166534;margin-bottom:16px;text-align:left;">
+        &#128161; <strong>Suggestion:</strong> Delete ke bajaye item ko <strong>Inactive</strong> mark karein — history safe rahegi, naye transactions mein show nahi hoga.
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+        <button class="btn btn-secondary" onclick="closeConfirm()">Close</button>
+        <button class="btn btn-primary" onclick="markInactive('${id}','${name.replace(/'/g,"\'")}')">Mark as Inactive</button>
+      </div>`;
+  } else {
+    // SAFE to delete
+    box.innerHTML=`
+      <div style="font-size:36px;margin-bottom:12px;">&#128465;</div>
+      <h4>Delete Item?</h4>
+      <p style="margin-bottom:20px;"><strong>"${name}"</strong> permanently delete hoga. Koi linked document nahi hai.</p>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmDelete()">Yes, Delete</button>
+      </div>`;
+  }
+}
+
+function closeConfirm(){
+  document.getElementById("confirm-modal").classList.remove("open");
+  deletingId=null;deleteCheckResult=null;
+}
+
 async function confirmDelete(){
   if(!deletingId)return;
-  const{error}=await sb.from("items").delete().eq("id",deletingId);
-  closeConfirm();
+  const name=deleteCheckResult?.name||deletingId;
+  const {error}=await sb.from("items").delete().eq("id",deletingId);
+  if(error){showToast("Error: "+error.message,"error");closeConfirm();return;}
+  await logDeleteAttempt(deletingId, name, true, [], "No linked documents");
+  showToast("Item delete ho gaya.","success");
+  closeConfirm();loadItems();
+}
+
+async function markInactive(id, name){
+  const {error}=await sb.from("items").update({is_active:false}).eq("id",id);
   if(error){showToast("Error: "+error.message,"error");return;}
-  showToast("Item delete ho gaya.","success");loadItems();
+  showToast('"'+name+'" inactive mark ho gaya.','success');
+  closeConfirm();loadItems();
 }
 
 // ---- IMPORT ----
