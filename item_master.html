@@ -554,16 +554,26 @@ async function deleteCategory(id,name){
 // ---- ITEMS ----
 async function loadItems(){
   document.getElementById("items-tbody").innerHTML="<tr><td colspan='10'><div class='loading'>Loading items...</div></td></tr>";
-  const {data,error}=await sb.from("items").select("*, item_categories(name), sku_planning(reorder_level, reorder_qty)").order("created_at",{ascending:false});
+  const {data,error}=await sb.from("items").select("*, item_categories(name)").order("created_at",{ascending:false});
   if(error){
     document.getElementById("items-tbody").innerHTML="<tr><td colspan='10'><div class='loading' style='color:#dc2626;'>Error: "+error.message+"</div></td></tr>";
     return;
   }
+  // Fetch sku_planning separately to avoid multiple relationship error
+  const itemIds=(data||[]).map(x=>x.id);
+  let skuMap={};
+  if(itemIds.length>0){
+    const {data:skuData}=await sb.from("sku_planning")
+      .select("item_id, reorder_level, reorder_qty, min_stock")
+      .in("item_id", itemIds);
+    (skuData||[]).forEach(s=>{skuMap[s.item_id]=s;});
+  }
   allItems=(data||[]).map(item=>({
     ...item,
     category_name:item.item_categories?.name||"",
-    reorder_level:item.sku_planning?.reorder_level??null,
-    max_order_qty:item.sku_planning?.reorder_qty??null,
+    reorder_level:skuMap[item.id]?.reorder_level??null,
+    max_order_qty:skuMap[item.id]?.reorder_qty??null,
+    min_stock:skuMap[item.id]?.min_stock??null,
   }));
   applyFilters();
 }
