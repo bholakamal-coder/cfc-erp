@@ -223,6 +223,29 @@ const {createClient}=supabase;
 const db=createClient(SURL,SKEY);
 let page='dashboard',user=null,profile=null,modal=null;
 
+// ── CORE NAVIGATION ──
+function nav(p){
+  page=p;
+  modal=null;
+  const mr=document.getElementById('modal-root');
+  if(mr) mr.innerHTML='';
+  const pc=document.getElementById('page-content');
+  if(pc){
+    document.querySelectorAll('.sidebar-item').forEach(el=>{
+      const oc=el.getAttribute('onclick')||'';
+      el.classList.toggle('active',oc.includes("'"+p+"'"));
+    });
+    pc.innerHTML='<div class="loader"><div class="spinner"></div> Loading...</div>';
+    loadPage();
+  } else {
+    render();
+  }
+}
+
+// Make nav globally accessible
+window.nav = nav;
+
+
 // ── SMART SEARCHABLE SELECT ──
 // Usage: smartSelect(containerId, options, selectedId, onSelect, onAddNew)
 // options = [{id, label}]
@@ -611,26 +634,6 @@ function loginHTML(){
       </div>
     </div>
   </div>`;
-}
-
-// ── NAV FUNCTION ──
-function nav(p){
-  page=p;
-  modal=null;
-  const pc=document.getElementById('page-content');
-  const mr=document.getElementById('modal-root');
-  if(mr) mr.innerHTML='';
-  if(pc){
-    // Update sidebar active without full re-render
-    document.querySelectorAll('.sidebar-item').forEach(el=>{
-      const oc=el.getAttribute('onclick')||'';
-      el.classList.toggle('active', oc.includes("'"+p+"'") || oc.includes('"'+p+'"'));
-    });
-    pc.innerHTML='<div class="loader"><div class="spinner"></div> Loading...</div>';
-    loadPage();
-  } else {
-    render();
-  }
 }
 
 function navItem(p,icon,label){return`<button class="sidebar-item ${page===p?'active':''}" data-page="${p}">${ICONS[icon]||''}<span>${label}</span></button>`;}
