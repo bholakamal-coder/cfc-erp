@@ -215,8 +215,50 @@ const LOGO_SRC='data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0
 const {createClient}=supabase;
 const db=createClient(SURL,SKEY);
 let page='dashboard',user=null,profile=null,modal=null;
+let USER=null,PROFILE=null;
 
 // ── CORE ──
+
+async function doLogin(){
+  const email=(document.getElementById('l-email')?.value||'').trim();
+  const pass=document.getElementById('l-pass')?.value||'';
+  const errEl=document.getElementById('l-err');
+  const btn=document.getElementById('login-btn');
+  if(errEl) errEl.textContent='';
+  if(!email||!pass){if(errEl)errEl.textContent='Email aur password daalo.';return;}
+  if(btn){btn.disabled=true;btn.textContent='Signing in...';}
+  try{
+    const{data,error}=await db.auth.signInWithPassword({email,password:pass});
+    if(btn){btn.disabled=false;btn.textContent='Sign In →';}
+    if(error){if(errEl)errEl.textContent=error.message;return;}
+    USER=data.user;user=USER;
+    try{const{data:p}=await db.from('user_profiles').select('*').eq('user_id',USER.id).single();PROFILE=p;profile=p;}catch(e){}
+    PAGE='dashboard';page='dashboard';
+    render();loadPage();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Sign In →';}
+    if(errEl)errEl.textContent=e.message;
+  }
+}
+
+async function loadPage(){
+  page=PAGE;
+  const el=document.getElementById('page-content');
+  const acts=document.getElementById('page-actions');
+  if(!el)return;
+  el.innerHTML='<div class="loader"><div class="spinner"></div> Loading...</div>';
+  if(acts)acts.innerHTML='';
+  const map={
+    dashboard:loadDashboard,items:loadItems,bom:loadBOM,
+    machines:loadMachines,production:loadProduction,
+    inventory:loadInventory,qc:loadQC,packing:loadPacking,
+    purchase:loadPurchase,sales:loadSales,
+    suppliers:loadSuppliers,customers:loadCustomers
+  };
+  if(map[PAGE])await map[PAGE](el,acts);
+  else el.innerHTML='<p style="padding:40px;color:#94a3b8;text-align:center">Coming soon</p>';
+}
+
 
 // ════════ CORE FUNCTIONS ════════
 function render(){
