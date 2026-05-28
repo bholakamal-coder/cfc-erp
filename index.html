@@ -43,7 +43,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .user-name{font-size:12px;font-weight:500;color:var(--text2);}
 
 /* SIDEBAR */
-.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar);background:#fff;border-right:1px solid var(--border);overflow-y:auto;z-index:50;display:flex;flex-direction:column;}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar);background:#fff;border-right:1px solid var(--border);overflow-y:auto;z-index:50;}
 .sidebar::-webkit-scrollbar{width:3px;}
 .sidebar::-webkit-scrollbar-thumb{background:var(--border-d);border-radius:2px;}
 .sidebar-section{padding:14px 12px 3px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;}
@@ -200,7 +200,7 @@ tbody tr:hover{background:#fafafa;}
 
 @media(max-width:768px){
   .sidebar{width:52px;}
-  
+  .sidebar-item span:not(.icon),.sidebar-section,.sidebar-footer{display:none;}
   .main{margin-left:52px;}
   .form-row,.form-row-3,.grid2{grid-template-columns:1fr;}
   .topbar-center{display:none;}
