@@ -144,7 +144,7 @@ tr:hover td{background:#fafbfc;}
   <div class="page-header">
     <div>
       <h1>&#128295; BOM Master</h1>
-      <p>Bill of Materials — finished items ke components define karein</p>
+      <p>Bill of Materials — FG aur SFG items ke components define karein</p>
     </div>
     <button class="btn btn-primary" onclick="openAddModal()">+ Create BOM</button>
   </div>
@@ -158,9 +158,9 @@ tr:hover td{background:#fafbfc;}
       <option value="Inactive">Inactive</option>
     </select>
     <select id="filter-type" onchange="applyFilters()">
-      <option value="">All Types</option>
-      <option value="FG">FG</option>
-      <option value="SFG">SFG</option>
+      <option value="">FG + SFG (All)</option>
+      <option value="FG">FG — Finished Good</option>
+      <option value="SFG">SFG — Semi Finished</option>
     </select>
     <span class="filter-count" id="filter-count">Loading...</span>
   </div>
@@ -204,9 +204,9 @@ tr:hover td{background:#fafbfc;}
       <div class="section-title">BOM Header</div>
       <div class="form-grid">
         <div class="form-field">
-          <label>Finished Item <span class="req">*</span></label>
+          <label>Finished / SFG Item <span class="req">*</span></label>
           <div class="item-search-wrap">
-            <input type="text" id="h-item-search" placeholder="Code ya naam type karein..." oninput="searchItems('h-item-search','h-item-dropdown','fg-only')" autocomplete="off"/>
+            <input type="text" id="h-item-search" placeholder="FG / SFG item search karein..." oninput="searchItems('h-item-search','h-item-dropdown','fg-only')" autocomplete="off"/>
             <div class="item-dropdown" id="h-item-dropdown"></div>
           </div>
           <input type="hidden" id="h-item-id"/>
@@ -416,7 +416,7 @@ function searchItems(inputId, dropdownId, filter){
   const dd=document.getElementById(dropdownId);
   if(q.length<1){dd.classList.remove("open");return;}
   let items=allItems;
-  if(filter==="fg-only") items=allItems.filter(x=>x.type==="FG"||x.type==="SFG");
+  if(filter==="fg-only") items=allItems.filter(x=>x.type==="FG"||x.type==="SFG"); // FG + SFG both allowed
   const results=items.filter(x=>(x.code||"").toLowerCase().includes(q)||(x.name||"").toLowerCase().includes(q)).slice(0,10);
   if(!results.length){dd.classList.remove("open");return;}
   dd.innerHTML=results.map(x=>`
