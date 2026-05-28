@@ -738,9 +738,12 @@ function clearForm(){
   });
   document.getElementById("f-tax").value="18";
   document.getElementById("f-status").value="true";
-  // Reset tabs to first
+  // Reset tabs — show ALL tabs including opening balance
   document.querySelectorAll(".tab-pane").forEach((p,i)=>p.classList.toggle("active",i===0));
-  document.querySelectorAll(".tab-btn").forEach((b,i)=>b.classList.toggle("active",i===0));
+  document.querySelectorAll(".tab-btn").forEach((b,i)=>{
+    b.classList.toggle("active",i===0);
+    b.style.display=""; // Show all tabs including opening balance
+  });
 }
 
 async function saveItem(){
