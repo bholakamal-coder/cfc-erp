@@ -4,25 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>CFC ERP — Batch Tracking</title>
-<script src="https://unpkg.com/@supabase/supabase-js@2">
-// === HOTFIX v11.2: missing detail helpers ===
-function updatePBPrefix(){
-  const el=document.getElementById('pb-op');
-  if(el) el.dispatchEvent(new Event('change'));
-}
-async function showMixDetail(id){
-  const {data:b,error}=await db.from('mix_batches').select('*,mix_item:mix_item_id(code,name),machines(name)').eq('id',id).single();
-  if(error||!b){showToast('Mix batch detail nahi mila');return;}
-  const {data:rms}=await db.from('mix_batch_rms').select('qty_used,uom,rm_batches(batch_no),items(code,name)').eq('mix_batch_id',id);
-  showModal(`<div class="mhead"><span class="mtitle">Mix Batch Detail</span><button class="mclose" onclick="closeModal()">×</button></div>
-  <div class="mbody">
-    <div class="batch-card mix"><div class="batch-no">${b.batch_no}</div><div style="font-size:13px;color:var(--text2)">${b.mix_item?.code||'—'} — ${b.mix_item?.name||''}</div><div style="margin-top:8px;font-size:12px;color:var(--text3)">Qty: ${b.batch_qty_kg||0} KG · Available: ${b.available_qty_kg||0} KG · Status: ${b.status||'—'} · Machine: ${b.machines?.name||'—'}</div></div>
-    <div style="font-size:12px;font-weight:700;margin:12px 0 6px">RM used</div>
-    ${(rms||[]).map(x=>`<div class="batch-card rm" style="margin-bottom:6px"><div style="font-size:12px"><b>${x.items?.code||'—'}</b> ${x.items?.name||''}</div><div style="font-size:11px;color:var(--text3)">Batch: ${x.rm_batches?.batch_no||'—'} · Used: ${x.qty_used||0} ${x.uom||'KG'}</div></div>`).join('')||'<div style="color:var(--text3);font-size:13px">No RM lines found.</div>'}
-  </div><div class="mfoot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Close</button></div>`);
-}
-
-</script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
 :root{--bg:#0f1117;--bg2:#181c27;--bg3:#1e2333;--border:#2a3045;--text:#e8eaf0;--text2:#8892a4;--text3:#5a6478;--accent:#3b82f6;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--purple:#8b5cf6;--radius:10px;}
@@ -134,10 +116,10 @@ tr:hover td{background:rgba(255,255,255,.02);}
   <div style="display:flex;align-items:center;gap:14px">
     <div class="logo">CFC <span>ERP</span></div>
     <div class="nav">
-      <a href="index.html">Main ERP</a>
-      <a href="dashboard.html">Dashboard</a>
-      <a href="mrp.html">MRP/MES</a>
-      <a href="operator.html">Operator</a>
+      <a href="/">Main ERP</a>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/mrp">MRP/MES</a>
+      <a href="/operator">Operator</a>
     </div>
   </div>
   <div style="font-size:12px;color:var(--text3)" id="today"></div>
@@ -726,7 +708,7 @@ async function showProcessBatchModal(){
   <div class="mbody">
     <div class="frow">
       <div class="fgroup"><label class="flabel">Operation *</label>
-        <select class="finput" id="pb-op">
+        <select class="finput" id="pb-op" onchange="updatePBPrefix()">
           <option value="">-- Select --</option>
           ${ops.map(o=>`<option value="${o}">${o}</option>`).join('')}
         </select>
@@ -1195,24 +1177,6 @@ async function quickAddRMItem(containerId){
 
 // Init
 loadRMBatches();
-
-// === HOTFIX v11.2: missing detail helpers ===
-function updatePBPrefix(){
-  const el=document.getElementById('pb-op');
-  if(el) el.dispatchEvent(new Event('change'));
-}
-async function showMixDetail(id){
-  const {data:b,error}=await db.from('mix_batches').select('*,mix_item:mix_item_id(code,name),machines(name)').eq('id',id).single();
-  if(error||!b){showToast('Mix batch detail nahi mila');return;}
-  const {data:rms}=await db.from('mix_batch_rms').select('qty_used,uom,rm_batches(batch_no),items(code,name)').eq('mix_batch_id',id);
-  showModal(`<div class="mhead"><span class="mtitle">Mix Batch Detail</span><button class="mclose" onclick="closeModal()">×</button></div>
-  <div class="mbody">
-    <div class="batch-card mix"><div class="batch-no">${b.batch_no}</div><div style="font-size:13px;color:var(--text2)">${b.mix_item?.code||'—'} — ${b.mix_item?.name||''}</div><div style="margin-top:8px;font-size:12px;color:var(--text3)">Qty: ${b.batch_qty_kg||0} KG · Available: ${b.available_qty_kg||0} KG · Status: ${b.status||'—'} · Machine: ${b.machines?.name||'—'}</div></div>
-    <div style="font-size:12px;font-weight:700;margin:12px 0 6px">RM used</div>
-    ${(rms||[]).map(x=>`<div class="batch-card rm" style="margin-bottom:6px"><div style="font-size:12px"><b>${x.items?.code||'—'}</b> ${x.items?.name||''}</div><div style="font-size:11px;color:var(--text3)">Batch: ${x.rm_batches?.batch_no||'—'} · Used: ${x.qty_used||0} ${x.uom||'KG'}</div></div>`).join('')||'<div style="color:var(--text3);font-size:13px">No RM lines found.</div>'}
-  </div><div class="mfoot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Close</button></div>`);
-}
-
 </script>
 </body>
 </html>

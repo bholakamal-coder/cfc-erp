@@ -4,13 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>CFC ERP — Machine Tracker</title>
-<script src="https://unpkg.com/@supabase/supabase-js@2">
-// === HOTFIX v11.2: missing assign alias from quick action ===
-async function showAssignOp(orderId,opName,plannedQty){
-  return showStepDetail(orderId,opName,0,plannedQty);
-}
-
-</script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
 :root{--bg:#0f1117;--bg2:#181c27;--bg3:#1e2333;--border:#2a3045;--text:#e8eaf0;--text2:#8892a4;--text3:#5a6478;--accent:#3b82f6;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--radius:10px;}
@@ -104,7 +98,7 @@ a.back:hover{text-decoration:underline;}
 <div class="topbar">
   <div style="display:flex;align-items:center;gap:16px">
     <div class="logo">CFC <span>ERP</span></div>
-    <a class="back" href="index.html">← Back to ERP</a>
+    <a class="back" href="/">← Back to ERP</a>
   </div>
   <div class="topbar-right">
     <button class="btn btn-primary btn-sm" id="new-po-btn">+ New Production Order</button>
@@ -426,12 +420,6 @@ document.getElementById('refresh-btn').addEventListener('click',loadTracker);
 setInterval(()=>{if(!document.getElementById('modal-area').innerHTML)loadTracker();},60000);
 
 loadTracker();
-
-// === HOTFIX v11.2: missing assign alias from quick action ===
-async function showAssignOp(orderId,opName,plannedQty){
-  return showStepDetail(orderId,opName,0,plannedQty);
-}
-
 </script>
 </body>
 </html>

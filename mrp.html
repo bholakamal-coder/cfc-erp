@@ -4,30 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>CFC ERP — MRP & MES Dashboard</title>
-<script src="https://unpkg.com/@supabase/supabase-js@2">
-// === HOTFIX v11.2: missing work-order step action ===
-async function showStepAction(orderId,opName,opId,qty){
-  if(!opId){ return showAssignOp(orderId,opName,qty); }
-  const {data:op,error}=await db.from('production_order_operations').select('*,operations(name),machines(name)').eq('id',opId).single();
-  if(error||!op){ showToast('Operation detail nahi mila'); return; }
-  showModal(`<div class="mhead"><span class="mtitle">${opName}</span><button class="mclose" onclick="closeModal()">×</button></div>
-  <div class="mbody">
-    <div class="form-group"><label class="flabel">Machine</label><div>${op.machines?.name||'—'}</div></div>
-    <div class="form-group"><label class="flabel">Status</label><select class="finput" id="sa-status"><option ${op.status==='Pending'?'selected':''}>Pending</option><option ${op.status==='In Progress'?'selected':''}>In Progress</option><option ${op.status==='Done'?'selected':''}>Done</option></select></div>
-    <div class="form-group"><label class="flabel">Completed Qty</label><input class="finput" id="sa-qty" type="number" value="${op.completed_qty||0}"/></div>
-    <div id="sa-err" style="color:var(--red);font-size:12px;margin-top:8px"></div>
-  </div>
-  <div class="mfoot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancel</button><button class="btn btn-primary btn-sm" onclick="saveStepAction(${opId})">Save</button></div>`);
-}
-async function saveStepAction(opId){
-  const status=document.getElementById('sa-status').value;
-  const qty=parseFloat(document.getElementById('sa-qty').value)||0;
-  const {error}=await db.from('production_order_operations').update({status,completed_qty:qty}).eq('id',opId);
-  if(error){document.getElementById('sa-err').textContent=error.message;return;}
-  closeModal();showToast('✓ Operation updated');loadWO();
-}
-
-</script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
 :root{--bg:#0f1117;--bg2:#181c27;--bg3:#1e2333;--border:#2a3045;--text:#e8eaf0;--text2:#8892a4;--text3:#5a6478;--accent:#3b82f6;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--radius:10px;}
@@ -150,9 +127,9 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:rgba(255,255,255,.02
   <div style="display:flex;align-items:center;gap:16px">
     <div class="logo">CFC <span>ERP</span></div>
     <div class="nav-links">
-      <a href="index.html">Main ERP</a>
-      <a href="tracker.html">Machine Tracker</a>
-      <a href="planner.html">Planner</a>
+      <a href="/">Main ERP</a>
+      <a href="/tracker">Machine Tracker</a>
+      <a href="/planner">Planner</a>
     </div>
   </div>
   <div style="font-size:12px;color:var(--text3)" id="today"></div>
@@ -738,29 +715,6 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 
 // Init
 initMRP();
-
-// === HOTFIX v11.2: missing work-order step action ===
-async function showStepAction(orderId,opName,opId,qty){
-  if(!opId){ return showAssignOp(orderId,opName,qty); }
-  const {data:op,error}=await db.from('production_order_operations').select('*,operations(name),machines(name)').eq('id',opId).single();
-  if(error||!op){ showToast('Operation detail nahi mila'); return; }
-  showModal(`<div class="mhead"><span class="mtitle">${opName}</span><button class="mclose" onclick="closeModal()">×</button></div>
-  <div class="mbody">
-    <div class="form-group"><label class="flabel">Machine</label><div>${op.machines?.name||'—'}</div></div>
-    <div class="form-group"><label class="flabel">Status</label><select class="finput" id="sa-status"><option ${op.status==='Pending'?'selected':''}>Pending</option><option ${op.status==='In Progress'?'selected':''}>In Progress</option><option ${op.status==='Done'?'selected':''}>Done</option></select></div>
-    <div class="form-group"><label class="flabel">Completed Qty</label><input class="finput" id="sa-qty" type="number" value="${op.completed_qty||0}"/></div>
-    <div id="sa-err" style="color:var(--red);font-size:12px;margin-top:8px"></div>
-  </div>
-  <div class="mfoot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancel</button><button class="btn btn-primary btn-sm" onclick="saveStepAction(${opId})">Save</button></div>`);
-}
-async function saveStepAction(opId){
-  const status=document.getElementById('sa-status').value;
-  const qty=parseFloat(document.getElementById('sa-qty').value)||0;
-  const {error}=await db.from('production_order_operations').update({status,completed_qty:qty}).eq('id',opId);
-  if(error){document.getElementById('sa-err').textContent=error.message;return;}
-  closeModal();showToast('✓ Operation updated');loadWO();
-}
-
 </script>
 </body>
 </html>
