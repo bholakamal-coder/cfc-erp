@@ -614,9 +614,9 @@ function renderTable(){
       <td>${reorderDisplay}</td>
       <td><span class="pill ${statusPill}">${statusTxt}</span></td>
       <td style="white-space:nowrap;">
-        <button class="btn btn-secondary btn-sm" onclick="openEditModal('${item.id}')">&#9998; Edit</button>
+        <button class="btn btn-secondary btn-sm" onclick="openEditModal(${item.id})">&#9998; Edit</button>
         &nbsp;
-        <button class="btn btn-danger btn-sm" onclick="openDeleteConfirm('${item.id}','${safeName}')">&#128465;</button>
+        <button class="btn btn-danger btn-sm" onclick="openDeleteConfirm(${item.id},'${safeName}')">&#128465;</button>
       </td>
     </tr>`;
   }).join("");
@@ -648,7 +648,7 @@ function openAddModal(){
   document.getElementById("item-modal").classList.add("open");
 }
 function openEditModal(id){
-  const item=allItems.find(x=>x.id===id);if(!item)return;
+  const item=allItems.find(x=>x.id==id);if(!item){console.error('Item not found:',id,allItems.map(x=>x.id));return;}
   editingId=id;
   document.getElementById("modal-title").textContent="Edit — "+item.code;
   document.getElementById("save-btn").textContent="Update Item";
