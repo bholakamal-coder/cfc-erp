@@ -1186,43 +1186,181 @@ function calcBOMParams(){
 }
 
 async function showBOMLineModal(bomId){
-  const{data:items}=await db.from('items').select('id,code,name,type,uom').order('code');
+  // Get RM, SFG items + machines
+  const[{data:items},{data:machines}]=await Promise.all([
+    db.from('items').select('id,code,name,type,uom').in('type',['RM','SFG']).order('type').order('code'),
+    db.from('machines').select('id,name,operation').eq('is_active',true).order('operation')
+  ]);
+
+  // Combine: items + machines as items
+  const allOptions=[
+    ...(items||[]).map(i=>({id:'item_'+i.id,label:i.code+' — '+i.name,sub:i.type,uom:i.uom,itemId:i.id})),
+    ...(machines||[]).map(m=>({id:'mach_'+m.id,label:m.name,sub:'Machine: '+m.operation,uom:'HRS',machineId:m.id}))
+  ];
+
   modal=`<div class="modal-overlay"><div class="modal">
-    <div class="modal-head"><span class="modal-title">Add Component</span><button class="modal-close" id="cm">×</button></div>
+    <div class="modal-head">
+      <span class="modal-title">Add Component / Process</span>
+      <button class="modal-close" id="cm">×</button>
+    </div>
     <div class="modal-body">
-      <div class="form-group"><label class="form-label">Component Item *</label>
-        <div id="bl-item-wrap"></div>
+      <div class="form-group">
+        <label class="form-label">Item / Machine *</label>
+        <div style="position:relative">
+          <input class="form-input" id="bl-search" placeholder="Type to search RM, SFG, Machine..." autocomplete="off"
+            oninput="blFilter()" onkeydown="blKeyDown(event)"/>
+          <div id="bl-dropdown" style="position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--accent);border-radius:var(--radius-sm);z-index:999;max-height:220px;overflow-y:auto;display:none;box-shadow:0 4px 12px rgba(0,0,0,.3)"></div>
+        </div>
+        <div id="bl-selected" style="margin-top:6px;display:none;background:var(--bg3);border-radius:var(--radius-sm);padding:8px 12px;font-size:13px;display:flex;align-items:center;justify-content:space-between">
+          <span id="bl-selected-text"></span>
+          <button onclick="blClear()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px">×</button>
+        </div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label">Quantity *</label><input class="form-input" id="bl-qty" type="number" step="0.001" value="1"/></div>
-        <div class="form-group"><label class="form-label">UOM *</label><input class="form-input" id="bl-uom" value="PCS"/></div>
+        <div class="form-group"><label class="form-label">Quantity *</label>
+          <input class="form-input" id="bl-qty" type="number" step="0.001" value="1"/></div>
+        <div class="form-group"><label class="form-label">UOM</label>
+          <input class="form-input" id="bl-uom" value="KG"/></div>
       </div>
       <div class="form-group"><label class="form-label">Optional?</label>
-        <select class="form-select" id="bl-opt"><option value="false">No — Required</option><option value="true">Yes — Optional</option></select>
+        <select class="form-select" id="bl-opt">
+          <option value="false">No — Required</option>
+          <option value="true">Yes — Optional</option>
+        </select>
       </div>
       <div id="bl-err" class="err-msg"></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-ghost btn-sm" id="cm2">Cancel</button><button class="btn btn-primary btn-sm" id="save-bl">Add</button></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" id="cm2">← Back</button>
+      <button class="btn btn-primary btn-sm" id="save-bl">Add Component</button>
+    </div>
   </div></div>`;
   render();
-  // Smart select for item
-  gss('bl-item-wrap', (items||[]).map(i=>({id:i.id.toString(),label:i.code+' — '+i.name,sub:'('+i.type+')'})), {
-    placeholder:'Search RM, SFG, FG...',
-    onSelect:(id,label)=>{
-      const item=items.find(it=>it.id.toString()===id);
-      if(item?.uom) document.getElementById('bl-uom').value=item.uom;
-    },
-    onAdd:async(q)=>gssAddItem(q,'RM')
+
+  // Live search state
+  let blSelected=null;
+  let blHighlight=-1;
+  let blFiltered=[];
+
+  window.blFilter=function(){
+    const q=(document.getElementById('bl-search')?.value||'').toLowerCase();
+    blFiltered=q.length<1?allOptions:allOptions.filter(o=>
+      o.label.toLowerCase().includes(q)||o.sub.toLowerCase().includes(q)
+    );
+    blHighlight=-1;
+    renderBLDropdown();
+  };
+
+  window.blKeyDown=function(e){
+    const dd=document.getElementById('bl-dropdown');
+    if(!dd||dd.style.display==='none') return;
+    if(e.key==='ArrowDown'){e.preventDefault();blHighlight=Math.min(blHighlight+1,blFiltered.length-1);renderBLDropdown();}
+    else if(e.key==='ArrowUp'){e.preventDefault();blHighlight=Math.max(blHighlight-1,0);renderBLDropdown();}
+    else if(e.key==='Enter'){e.preventDefault();if(blHighlight>=0&&blFiltered[blHighlight])blSelectOpt(blFiltered[blHighlight]);}
+    else if(e.key==='Escape'){dd.style.display='none';}
+  };
+
+  function renderBLDropdown(){
+    const dd=document.getElementById('bl-dropdown');
+    if(!dd) return;
+    if(!blFiltered.length){dd.style.display='none';return;}
+    dd.style.display='block';
+    dd.innerHTML=blFiltered.slice(0,40).map((o,idx)=>`
+      <div onclick="blSelectById('${o.id}')" 
+        style="padding:8px 12px;cursor:pointer;font-size:13px;${idx===blHighlight?'background:var(--accent);color:#fff;':''}"
+        onmouseover="this.style.background='var(--bg3)';blHighlight=${idx}"
+        onmouseout="if(${idx}!==${blHighlight})this.style.background=''">
+        <div style="font-weight:500">${o.label}</div>
+        <div style="font-size:11px;opacity:.7">${o.sub}</div>
+      </div>`).join('');
+    // Add "Add New RM" option
+    const q=document.getElementById('bl-search')?.value||'';
+    if(q.length>1){
+      dd.innerHTML+=`<div onclick="blAddNew('${q}')" style="padding:8px 12px;cursor:pointer;font-size:13px;color:var(--green);border-top:1px solid var(--border);font-weight:600">+ Add New Item: "${q}"</div>`;
+    }
+  }
+
+  window.blSelectById=function(optId){
+    const opt=allOptions.find(o=>o.id===optId);
+    if(opt) blSelectOpt(opt);
+  };
+
+  function blSelectOpt(opt){
+    blSelected=opt;
+    const inp=document.getElementById('bl-search');
+    if(inp){inp.value='';inp.placeholder=opt.label;}
+    const selDiv=document.getElementById('bl-selected');
+    const selTxt=document.getElementById('bl-selected-text');
+    if(selDiv){selDiv.style.display='flex';}
+    if(selTxt) selTxt.textContent=opt.label+' ('+opt.sub+')';
+    const dd=document.getElementById('bl-dropdown');
+    if(dd) dd.style.display='none';
+    if(opt.uom) document.getElementById('bl-uom').value=opt.uom;
+  }
+
+  window.blClear=function(){
+    blSelected=null;
+    const inp=document.getElementById('bl-search');
+    if(inp){inp.value='';inp.placeholder='Type to search...';}
+    const selDiv=document.getElementById('bl-selected');
+    if(selDiv) selDiv.style.display='none';
+  };
+
+  window.blAddNew=async function(q){
+    const code=prompt('Item code:',q.toUpperCase());
+    if(!code) return;
+    const name=prompt('Item naam:');
+    if(!name) return;
+    const uom=prompt('UOM (KG/PCS/LTR):','KG');
+    const{data,error}=await db.from('items').insert({code:code.trim().toUpperCase(),name:name.trim(),type:'RM',uom:uom||'KG',category_id:1}).select().single();
+    if(error){alert('Error: '+error.message);return;}
+    const newOpt={id:'item_'+data.id,label:data.code+' — '+data.name,sub:'RM',uom:data.uom,itemId:data.id};
+    allOptions.unshift(newOpt);
+    blSelectOpt(newOpt);
+    showToast('✓ Item added: '+data.name);
+  };
+
+  // Show dropdown on focus
+  document.getElementById('bl-search')?.addEventListener('focus',()=>{
+    blFiltered=allOptions;
+    renderBLDropdown();
   });
-  document.getElementById('cm').addEventListener('click',()=>showBOMDetail(bomId));
+
+  // Close on outside click
+  document.addEventListener('click',function blOutside(e){
+    const dd=document.getElementById('bl-dropdown');
+    const inp=document.getElementById('bl-search');
+    if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp){
+      dd.style.display='none';
+      document.removeEventListener('click',blOutside);
+    }
+  });
+
+  document.getElementById('cm').addEventListener('click',closeModal);
   document.getElementById('cm2').addEventListener('click',()=>showBOMDetail(bomId));
   document.getElementById('save-bl').addEventListener('click',async()=>{
-    const cid=gssGet('bl-item-wrap');
-    if(!cid){document.getElementById('bl-err').textContent='Item select karo.';return;}
+    if(!blSelected){document.getElementById('bl-err').textContent='Item ya machine select karo.';return;}
     const btn=document.getElementById('save-bl');
     setBtnState(btn,true,'Adding...');
-    const{error}=await db.from('bom_lines').insert({bom_id:parseInt(bomId),component_item_id:parseInt(cid),qty:parseFloat(document.getElementById('bl-qty').value)||1,uom:document.getElementById('bl-uom').value,is_optional:document.getElementById('bl-opt').value==='true'});
-    if(error){document.getElementById('bl-err').textContent=error.message;setBtnState(btn,false,'','Add');return;}
+    const qty=parseFloat(document.getElementById('bl-qty').value)||1;
+    const uom=document.getElementById('bl-uom').value||'KG';
+    const isOpt=document.getElementById('bl-opt').value==='true';
+    
+    const payload={
+      bom_id:parseInt(bomId),
+      qty,uom,is_optional:isOpt
+    };
+    
+    if(blSelected.itemId){
+      payload.component_item_id=blSelected.itemId;
+    } else if(blSelected.machineId){
+      // Store machine as notes for now
+      payload.component_item_id=null;
+      payload.notes='Machine: '+blSelected.label;
+    }
+    
+    const{error}=await db.from('bom_lines').insert(payload);
+    if(error){document.getElementById('bl-err').textContent=error.message;setBtnState(btn,false,'','Add Component');return;}
     showSavedPopup('Component Added!');
     setTimeout(()=>showBOMDetail(bomId),1200);
   });
