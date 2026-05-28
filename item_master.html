@@ -8,7 +8,7 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{--red:#cc2200;--red-dark:#a81c00;--navy:#1c2d42;--sidebar-w:240px;--topbar-h:56px;}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#1a2635;display:flex;min-height:100vh;}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a2635;display:flex;min-height:100vh;}
 .sidebar{width:var(--sidebar-w);background:var(--navy);min-height:100vh;position:fixed;top:0;left:0;display:flex;flex-direction:column;z-index:100;}
 .sidebar-logo{padding:16px 18px 14px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px;}
 .sidebar-logo img{height:36px;width:auto;filter:brightness(0) invert(1);}
@@ -42,6 +42,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#1a263
 .btn-danger{background:#fee2e2;color:#991b1b;border:none;}
 .btn-danger:hover{background:#fecaca;}
 .btn-sm{padding:5px 10px;font-size:12px;}
+.btn-icon{padding:7px 10px;font-size:13px;}
 .filter-bar{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;}
 .filter-bar input,.filter-bar select{border:1px solid #dde3ea;border-radius:6px;padding:7px 11px;font-size:13px;color:#1a2635;background:#f9fafb;outline:none;}
 .filter-bar input:focus,.filter-bar select:focus{border-color:var(--red);background:#fff;}
@@ -70,6 +71,7 @@ tr:hover td{background:#fafbfc;}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
 .modal{background:#fff;border-radius:10px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.15);}
+.modal-sm{max-width:400px;}
 .modal-header{padding:18px 22px 14px;border-bottom:1px solid #edf0f4;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;}
 .modal-header h3{font-size:16px;font-weight:700;color:var(--navy);}
 .modal-close{font-size:22px;cursor:pointer;color:#8a95a0;background:none;border:none;line-height:1;padding:2px 6px;border-radius:4px;}
@@ -84,6 +86,12 @@ tr:hover td{background:#fafbfc;}
 .form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:var(--red);background:#fff;box-shadow:0 0 0 3px rgba(204,34,0,0.08);}
 .form-field textarea{resize:vertical;min-height:70px;}
 .req{color:var(--red);}
+.cat-row{display:flex;gap:8px;align-items:center;}
+.cat-row select{flex:1;}
+.cat-list{margin-top:12px;display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;}
+.cat-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:13.5px;}
+.cat-item .del-cat{background:none;border:none;color:#dc2626;cursor:pointer;font-size:16px;padding:2px 4px;border-radius:4px;}
+.cat-item .del-cat:hover{background:#fee2e2;}
 .toast{position:fixed;bottom:24px;right:24px;background:#1a2635;color:#fff;padding:12px 18px;border-radius:8px;font-size:13.5px;z-index:999;opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateY(0);}
 .toast.success{background:#166534;}
@@ -167,6 +175,9 @@ tr:hover td{background:#fafbfc;}
       <p>Manage all products, parts and raw materials</p>
     </div>
     <div style="display:flex;gap:10px;">
+      <button class="btn btn-secondary" onclick="openCategoryModal()">&#127991; Manage Categories</button>
+      <input type="file" id="import-file" accept=".csv" style="display:none;" onchange="importCSV(event)"/>
+      <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()">&#11014; Import CSV</button>
       <button class="btn btn-secondary" onclick="exportCSV()">&#11015; Export CSV</button>
       <button class="btn btn-primary" onclick="openAddModal()">+ Add Item</button>
     </div>
@@ -176,9 +187,6 @@ tr:hover td{background:#fafbfc;}
     <input type="text" id="search-input" placeholder="Search item code or name..." oninput="applyFilters()"/>
     <select id="filter-category" onchange="applyFilters()">
       <option value="">All Categories</option>
-      <option>Brake Pad</option><option>Disc Rotor</option><option>Drum Brake</option>
-      <option>Caliper</option><option>Raw Material</option><option>Packaging</option>
-      <option>Consumable</option><option>Spare Part</option><option>Semi-Finished</option><option>Finished Good</option>
     </select>
     <select id="filter-status" onchange="applyFilters()">
       <option value="">All Status</option><option>Active</option><option>Inactive</option>
@@ -209,7 +217,7 @@ tr:hover td{background:#fafbfc;}
   </div>
 </div></div>
 
-<!-- ADD/EDIT MODAL -->
+<!-- ADD/EDIT ITEM MODAL -->
 <div class="modal-overlay" id="item-modal">
   <div class="modal">
     <div class="modal-header">
@@ -220,13 +228,12 @@ tr:hover td{background:#fafbfc;}
       <div class="form-grid">
         <div class="form-field"><label>Item Code <span class="req">*</span></label><input type="text" id="f-code" placeholder="e.g. CD-BP-001"/></div>
         <div class="form-field"><label>Item Name <span class="req">*</span></label><input type="text" id="f-name" placeholder="e.g. Ceramic Brake Pad"/></div>
-        <div class="form-field"><label>Category <span class="req">*</span></label>
-          <select id="f-category">
-            <option value="">-- Select --</option>
-            <option>Brake Pad</option><option>Disc Rotor</option><option>Drum Brake</option>
-            <option>Caliper</option><option>Raw Material</option><option>Packaging</option>
-            <option>Consumable</option><option>Spare Part</option><option>Semi-Finished</option><option>Finished Good</option>
-          </select>
+        <div class="form-field">
+          <label>Category <span class="req">*</span></label>
+          <div class="cat-row">
+            <select id="f-category"><option value="">-- Select --</option></select>
+            <button class="btn btn-secondary btn-icon" onclick="openCategoryModal()" title="Add new category">+ New</button>
+          </div>
         </div>
         <div class="form-field"><label>UOM <span class="req">*</span></label>
           <select id="f-uom">
@@ -257,6 +264,55 @@ tr:hover td{background:#fafbfc;}
   </div>
 </div>
 
+<!-- CATEGORY MANAGER MODAL -->
+<div class="modal-overlay" id="cat-modal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3>&#127991; Manage Categories</h3>
+      <button class="modal-close" onclick="closeCategoryModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field" style="margin-bottom:12px;">
+        <label>Add New Category</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="new-cat-input" placeholder="e.g. Brake Drum" style="flex:1;" onkeydown="if(event.key==='Enter')addCategory()"/>
+          <button class="btn btn-primary" onclick="addCategory()">+ Add</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:#8a95a0;margin-bottom:8px;">Existing Categories</div>
+      <div class="cat-list" id="cat-list">
+        <div class="loading" style="padding:20px;">Loading...</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeCategoryModal()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="modal-overlay" id="import-modal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3>&#11014; Import Items from CSV</h3>
+      <button class="modal-close" onclick="closeImportModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div id="import-status"></div>
+      <div id="import-preview"></div>
+      <div style="margin-top:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;font-size:12px;color:#5a6878;">
+        <strong>CSV Format:</strong><br/>
+        Columns: <code>item_code, item_name, category, uom, rate, stock_qty, hsn_code, gst_percent, status, description</code><br/>
+        <span style="color:#8a95a0;">First row = header. item_code aur item_name required hain.</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeImportModal()">Cancel</button>
+      <button class="btn btn-primary" id="import-confirm-btn" onclick="confirmImport()" style="display:none;">&#11014; Import All</button>
+    </div>
+  </div>
+</div>
+
 <!-- DELETE CONFIRM -->
 <div class="confirm-overlay" id="confirm-modal">
   <div class="confirm-box">
@@ -271,13 +327,17 @@ tr:hover td{background:#fafbfc;}
 </div>
 
 <div class="toast" id="toast"></div>
+
 <script>
 const SUPABASE_URL="https://sdopdeqepjoshbzrpbmi.supabase.co";
 const SUPABASE_KEY="sb_publishable_eWBMrAFa7Yyvtlb-7-8IGA_KxfE7v_8";
 const {createClient}=supabase;
 const sb=createClient(SUPABASE_URL,SUPABASE_KEY);
-let allItems=[],filtered=[],editingId=null,deletingId=null,currentPage=1;
+let allItems=[],filtered=[],categories=[],editingId=null,deletingId=null,currentPage=1;
 const PAGE_SIZE=15;
+
+// Default categories agar table na ho
+const DEFAULT_CATS=["Brake Pad","Disc Rotor","Drum Brake","Caliper","Raw Material","Packaging","Consumable","Spare Part","Semi-Finished","Finished Good"];
 
 (async()=>{
   const {data:{session}}=await sb.auth.getSession();
@@ -285,8 +345,39 @@ const PAGE_SIZE=15;
   const email=session.user.email||"";
   document.getElementById("user-avatar").textContent=email.substring(0,2).toUpperCase();
   document.getElementById("user-name").textContent=email.split("@")[0];
-  loadItems();
+  await loadCategories();
+  await loadItems();
 })();
+
+async function loadCategories(){
+  // Try item_categories table first
+  const {data,error}=await sb.from("item_categories").select("*").order("name");
+  if(error||!data||data.length===0){
+    // Fallback: use distinct categories from items table
+    const {data:items}=await sb.from("items").select("category");
+    if(items&&items.length>0){
+      const unique=[...new Set(items.map(x=>x.category).filter(Boolean))].sort();
+      categories=unique.length>0?unique:DEFAULT_CATS;
+    } else {
+      categories=DEFAULT_CATS;
+    }
+  } else {
+    categories=data.map(x=>x.name);
+  }
+  populateCategoryDropdowns();
+}
+
+function populateCategoryDropdowns(){
+  const opts=categories.map(c=>`<option value="${c}">${c}</option>`).join("");
+  // Filter dropdown
+  const fc=document.getElementById("filter-category");
+  fc.innerHTML='<option value="">All Categories</option>'+opts;
+  // Form dropdown
+  const fm=document.getElementById("f-category");
+  const cur=fm.value;
+  fm.innerHTML='<option value="">-- Select --</option>'+opts;
+  if(cur)fm.value=cur;
+}
 
 async function loadItems(){
   document.getElementById("items-tbody").innerHTML="<tr><td colspan='9'><div class='loading'>Loading items...</div></td></tr>";
@@ -305,11 +396,10 @@ function applyFilters(){
   const st=document.getElementById("filter-status").value;
   const uom=document.getElementById("filter-uom").value;
   filtered=allItems.filter(item=>{
-    return (!s||(item.item_code||"").toLowerCase().includes(s)||(item.item_name||"").toLowerCase().includes(s))
+    return(!s||(item.item_code||"").toLowerCase().includes(s)||(item.item_name||"").toLowerCase().includes(s))
       &&(!cat||item.category===cat)&&(!st||item.status===st)&&(!uom||item.uom===uom);
   });
-  currentPage=1;
-  renderTable();
+  currentPage=1;renderTable();
 }
 
 function renderTable(){
@@ -317,8 +407,7 @@ function renderTable(){
   const tbody=document.getElementById("items-tbody");
   if(!filtered.length){
     tbody.innerHTML="<tr><td colspan='9'><div class='empty-state'><div class='big'>&#128209;</div><p>No items found. Add your first item!</p></div></td></tr>";
-    document.getElementById("pagination-bar").style.display="none";
-    return;
+    document.getElementById("pagination-bar").style.display="none";return;
   }
   const start=(currentPage-1)*PAGE_SIZE;
   const pageItems=filtered.slice(start,start+PAGE_SIZE);
@@ -350,8 +439,7 @@ function renderPagination(){
   const bar=document.getElementById("pagination-bar");
   bar.style.display=total>1?"flex":"none";
   document.getElementById("page-info").textContent="Showing "+((currentPage-1)*PAGE_SIZE+1)+"\u2013"+Math.min(currentPage*PAGE_SIZE,filtered.length)+" of "+filtered.length;
-  const btns=document.getElementById("page-btns");
-  btns.innerHTML="";
+  const btns=document.getElementById("page-btns");btns.innerHTML="";
   for(let p=1;p<=total;p++){
     const b=document.createElement("button");
     b.className="pg-btn"+(p===currentPage?" active":"");
@@ -361,6 +449,52 @@ function renderPagination(){
   }
 }
 
+// ---- CATEGORY MODAL ----
+async function openCategoryModal(){
+  document.getElementById("cat-modal").classList.add("open");
+  renderCatList();
+}
+function closeCategoryModal(){
+  document.getElementById("cat-modal").classList.remove("open");
+  document.getElementById("new-cat-input").value="";
+  populateCategoryDropdowns();
+}
+function renderCatList(){
+  const list=document.getElementById("cat-list");
+  if(!categories.length){
+    list.innerHTML="<div style='text-align:center;color:#8a95a0;padding:16px;'>No categories yet.</div>";return;
+  }
+  list.innerHTML=categories.map(c=>`
+    <div class="cat-item">
+      <span>${c}</span>
+      <button class="del-cat" onclick="deleteCategory('${c}')" title="Delete">&#10005;</button>
+    </div>`).join("");
+}
+async function addCategory(){
+  const inp=document.getElementById("new-cat-input");
+  const name=inp.value.trim();
+  if(!name){showToast("Category name likhein.","error");return;}
+  if(categories.includes(name)){showToast("Yeh category already hai!","error");return;}
+
+  // Try saving to item_categories table
+  const {error}=await sb.from("item_categories").insert([{name}]);
+  // Even if table doesn't exist, add locally
+  categories.push(name);
+  categories.sort();
+  inp.value="";
+  renderCatList();
+  showToast("Category add ho gayi!","success");
+}
+async function deleteCategory(name){
+  if(!confirm(`"${name}" category delete karein?`))return;
+  await sb.from("item_categories").delete().eq("name",name);
+  categories=categories.filter(c=>c!==name);
+  renderCatList();
+  populateCategoryDropdowns();
+  showToast("Category delete ho gayi.","success");
+}
+
+// ---- ITEM MODAL ----
 function openAddModal(){
   editingId=null;
   document.getElementById("modal-title").textContent="Add New Item";
@@ -368,10 +502,8 @@ function openAddModal(){
   clearForm();
   document.getElementById("item-modal").classList.add("open");
 }
-
 function openEditModal(id){
-  const item=allItems.find(x=>x.id===id);
-  if(!item)return;
+  const item=allItems.find(x=>x.id===id);if(!item)return;
   editingId=id;
   document.getElementById("modal-title").textContent="Edit Item";
   document.getElementById("save-btn").textContent="Update Item";
@@ -388,7 +520,6 @@ function openEditModal(id){
   document.getElementById("f-desc").value=item.description||"";
   document.getElementById("item-modal").classList.add("open");
 }
-
 function closeModal(){document.getElementById("item-modal").classList.remove("open");editingId=null;}
 function clearForm(){
   ["f-code","f-name","f-rate","f-stock","f-min-stock","f-hsn","f-desc"].forEach(id=>document.getElementById(id).value="");
@@ -397,13 +528,12 @@ function clearForm(){
   document.getElementById("f-status").value="Active";
   document.getElementById("f-gst").value="18";
 }
-
 async function saveItem(){
   const item_code=document.getElementById("f-code").value.trim();
   const item_name=document.getElementById("f-name").value.trim();
   const category=document.getElementById("f-category").value;
   const uom=document.getElementById("f-uom").value;
-  if(!item_code||!item_name||!category||!uom){showToast("Please fill all required fields.","error");return;}
+  if(!item_code||!item_name||!category||!uom){showToast("Sabhi required fields bharo.","error");return;}
   const payload={item_code,item_name,category,uom,
     rate:parseFloat(document.getElementById("f-rate").value)||0,
     stock_qty:parseFloat(document.getElementById("f-stock").value)||0,
@@ -420,13 +550,13 @@ async function saveItem(){
   else{({error}=await sb.from("items").insert([payload]));}
   btn.disabled=false;btn.textContent=editingId?"Update Item":"Save Item";
   if(error){showToast("Error: "+error.message,"error");return;}
-  showToast(editingId?"Item updated!":"Item added!","success");
+  showToast(editingId?"Item update ho gaya!":"Item add ho gaya!","success");
   closeModal();loadItems();
 }
 
 function openDeleteConfirm(id,name){
   deletingId=id;
-  document.getElementById("confirm-msg").textContent='Delete "'+name+'"? This cannot be undone.';
+  document.getElementById("confirm-msg").textContent='Delete "'+name+'"? Yeh action undo nahi hoga.';
   document.getElementById("confirm-modal").classList.add("open");
 }
 function closeConfirm(){document.getElementById("confirm-modal").classList.remove("open");deletingId=null;}
@@ -435,7 +565,92 @@ async function confirmDelete(){
   const{error}=await sb.from("items").delete().eq("id",deletingId);
   closeConfirm();
   if(error){showToast("Error deleting item.","error");return;}
-  showToast("Item deleted.","success");loadItems();
+  showToast("Item delete ho gaya.","success");loadItems();
+}
+
+let importRows=[];
+function importCSV(event){
+  const file=event.target.files[0];
+  if(!file)return;
+  event.target.value="";
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const text=e.target.result;
+    const lines=text.trim().split(/\r?\n/);
+    if(lines.length<2){showToast("CSV mein data nahi hai.","error");return;}
+    const headers=lines[0].split(",").map(h=>h.replace(/"/g,"").trim().toLowerCase());
+    importRows=[];
+    const errors=[];
+    for(let i=1;i<lines.length;i++){
+      const vals=lines[i].match(/(".*?"|[^,]+|(?<=,)(?=,)|^(?=,)|(?<=,)$)/g)||[];
+      const row={};
+      headers.forEach((h,idx)=>{row[h]=(vals[idx]||"").replace(/"/g,"").trim();});
+      if(!row.item_code&&!row["item code"]){errors.push("Row "+(i+1)+": item_code missing");continue;}
+      if(!row.item_name&&!row["item name"]){errors.push("Row "+(i+1)+": item_name missing");continue;}
+      importRows.push({
+        item_code:row.item_code||row["item code"]||"",
+        item_name:row.item_name||row["item name"]||"",
+        category:row.category||"",
+        uom:row.uom||"Nos",
+        rate:parseFloat(row.rate)||0,
+        stock_qty:parseFloat(row.stock_qty||row["stock qty"])||0,
+        hsn_code:row.hsn_code||row.hsn||"",
+        gst_percent:parseInt(row.gst_percent||row.gst)||18,
+        status:row.status||"Active",
+        description:row.description||""
+      });
+    }
+    const statusEl=document.getElementById("import-status");
+    const previewEl=document.getElementById("import-preview");
+    if(importRows.length===0){
+      statusEl.innerHTML=`<div style="color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:10px;font-size:13px;margin-bottom:10px;">&#9888; Koi valid row nahi mila.<br>${errors.slice(0,3).join("<br>")}</div>`;
+      document.getElementById("import-confirm-btn").style.display="none";
+    } else {
+      statusEl.innerHTML=`<div style="color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px;font-size:13px;margin-bottom:10px;">&#10003; <strong>${importRows.length} items</strong> import ke liye ready hain.${errors.length>0?" ("+errors.length+" rows skip honge)":""}</div>`;
+      previewEl.innerHTML=`<div style="font-size:12px;color:#5a6878;margin-bottom:6px;">Preview (first 5):</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead><tr style="background:#f8fafc;">
+            <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0;">Code</th>
+            <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0;">Name</th>
+            <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0;">Category</th>
+            <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0;">UOM</th>
+            <th style="padding:6px 8px;text-align:right;border-bottom:1px solid #e2e8f0;">Rate</th>
+          </tr></thead>
+          <tbody>${importRows.slice(0,5).map(r=>`<tr>
+            <td style="padding:6px 8px;border-bottom:1px solid #f0f4f8;font-family:monospace;">${r.item_code}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f0f4f8;">${r.item_name}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f0f4f8;">${r.category||"-"}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f0f4f8;">${r.uom}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f0f4f8;text-align:right;">&#8377;${r.rate}</td>
+          </tr>`).join("")}</tbody>
+        </table>`;
+      document.getElementById("import-confirm-btn").style.display="inline-flex";
+    }
+    document.getElementById("import-modal").classList.add("open");
+  };
+  reader.readAsText(file);
+}
+
+async function confirmImport(){
+  const btn=document.getElementById("import-confirm-btn");
+  btn.disabled=true;btn.textContent="Importing...";
+  let success=0,failed=0;
+  for(const row of importRows){
+    const {error}=await sb.from("items").upsert([row],{onConflict:"item_code"});
+    if(error)failed++;else success++;
+  }
+  btn.disabled=false;
+  closeImportModal();
+  showToast(success+" items import ho gaye!"+(failed>0?" ("+failed+" failed)":""),"success");
+  loadItems();
+}
+
+function closeImportModal(){
+  document.getElementById("import-modal").classList.remove("open");
+  document.getElementById("import-status").innerHTML="";
+  document.getElementById("import-preview").innerHTML="";
+  document.getElementById("import-confirm-btn").style.display="none";
+  importRows=[];
 }
 
 function exportCSV(){
@@ -456,6 +671,7 @@ function showToast(msg,type=""){
 async function handleLogout(){await sb.auth.signOut();window.location.href="index.html";}
 document.getElementById("confirm-modal").addEventListener("click",function(e){if(e.target===this)closeConfirm();});
 document.getElementById("item-modal").addEventListener("click",function(e){if(e.target===this)closeModal();});
+document.getElementById("import-modal").addEventListener("click",function(e){if(e.target===this)closeImportModal();});
 </script>
 </body>
 </html>
