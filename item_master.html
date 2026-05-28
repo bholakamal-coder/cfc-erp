@@ -356,8 +356,8 @@ tr:hover td{background:#fafbfc;}
 
       <!-- TAB 4: Opening Balance -->
       <div id="tab-opening" class="tab-pane">
-        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px;font-size:12.5px;color:#166534;margin-bottom:14px;">
-          &#128161; Opening balance sirf naye item ke liye fill karein. Edit mein yeh ignore hoga — stock entry se adjust karein.
+        <div id="opening-msg" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px;font-size:12.5px;color:#166534;margin-bottom:14px;">
+          &#128161; Opening balance sirf naye item ke liye fill karein. Warehouse, Qty, Avg Cost aur Batch No enter karein.
         </div>
         <div class="form-grid">
           <div class="form-field">
@@ -687,13 +687,16 @@ function openEditModal(id){
   editingId=id;
   document.getElementById("modal-title").textContent="Edit — "+item.code;
   document.getElementById("save-btn").textContent="Update Item";
-  // Reset tabs first
-  document.querySelectorAll(".tab-pane").forEach((p,i)=>p.classList.toggle("active",i===0));
+  // Reset tabs — show all including opening balance
+  document.querySelectorAll(".tab-pane").forEach((p,i)=>{
+    p.classList.toggle("active",i===0);
+    p.style.display="";
+  });
   document.querySelectorAll(".tab-btn").forEach((b,i)=>{
     b.classList.toggle("active",i===0);
-    // Hide opening balance tab in edit mode
-    b.style.display=b.textContent.includes("Opening")?"none":"";
+    b.style.display="";
   });
+  // Edit mode — opening fields editable (stock update allowed)
   document.getElementById("f-code").value=item.code||"";
   document.getElementById("f-name").value=item.name||"";
   document.getElementById("f-category").value=item.category_id||"";
@@ -708,22 +711,37 @@ function openEditModal(id){
   document.getElementById("f-max-order").value=item.max_order_qty??"";
   document.getElementById("f-status").value=String(item.is_active!==false);
   document.getElementById("f-notes").value=item.notes||"";
-  // Load current inventory info in a read-only info box
-  const invBox=document.getElementById("edit-inv-info");
-  if(invBox){
-    if(item.current_stock!==null&&item.current_stock!==undefined){
-      invBox.innerHTML=`<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px;font-size:13px;color:#166534;margin-bottom:12px;">
-        &#128200; <strong>Current Stock:</strong> ${item.current_stock} ${item.uom||""} &nbsp;|&nbsp;
-        <strong>Warehouse:</strong> ${item.warehouse_name||"-"} &nbsp;|&nbsp;
+  // Update opening balance tab message for edit mode
+  const openingMsg=document.getElementById("opening-msg");
+  if(openingMsg){
+    if(item.current_stock!==null&&item.current_stock!==undefined&&item.current_stock>0){
+      openingMsg.style.background="#f0fdf4";
+      openingMsg.style.borderColor="#bbf7d0";
+      openingMsg.style.color="#166534";
+      openingMsg.innerHTML=`&#128200; <strong>Current Stock:</strong> ${item.current_stock} ${item.uom||""} &nbsp;&nbsp;
+        <strong>Warehouse:</strong> ${item.warehouse_name||"-"} &nbsp;&nbsp;
         <strong>Avg Cost:</strong> &#8377;${item.avg_cost||0}
-        <br/><span style="font-size:11px;color:#8a95a0;margin-top:4px;display:block;">Stock adjust karne ke liye Stock Entry use karein.</span>
-      </div>`;
+        <br/><span style="font-size:11px;margin-top:4px;display:block;opacity:0.8;">
+        &#128393; Warehouse, Qty ya Cost update karne ke liye neeche fields mein changes karein aur Save karein.</span>`;
     } else {
-      invBox.innerHTML=`<div style="background:#fef9c3;border:1px solid #fde68a;border-radius:6px;padding:10px;font-size:13px;color:#854d0e;margin-bottom:12px;">
-        &#9888; Koi opening stock nahi hai. Stock Entry se add karein.
-      </div>`;
+      openingMsg.style.background="#fef9c3";
+      openingMsg.style.borderColor="#fde68a";
+      openingMsg.style.color="#854d0e";
+      openingMsg.innerHTML=`&#9888; Is item ka abhi koi stock nahi hai. Opening balance add karna ho toh <strong>Stock Entry</strong> use karein.`;
     }
   }
+  // Also fill opening fields with current values (disabled/read-only)
+  const whSel=document.getElementById("f-warehouse");
+  if(whSel&&item.warehouse_code){
+    // Try to match warehouse by code
+    for(let opt of whSel.options){
+      if(opt.text.includes(item.warehouse_code)){opt.selected=true;break;}
+    }
+  }
+  const openQty=document.getElementById("f-opening-qty");
+  if(openQty) openQty.value=item.current_stock||0;
+  const avgCost=document.getElementById("f-avg-cost");
+  if(avgCost) avgCost.value=item.avg_cost||0;
   document.getElementById("item-modal").classList.add("open");
 }
 function closeModal(){document.getElementById("item-modal").classList.remove("open");editingId=null;}
@@ -755,11 +773,19 @@ function clearForm(){
   });
   document.getElementById("f-tax").value="18";
   document.getElementById("f-status").value="true";
-  // Reset tabs — show ALL tabs including opening balance
-  document.querySelectorAll(".tab-pane").forEach((p,i)=>p.classList.toggle("active",i===0));
+  // Reset tabs — show all tabs
+  document.querySelectorAll(".tab-pane").forEach((p,i)=>{
+    p.classList.toggle("active",i===0);
+    p.style.display="";
+  });
   document.querySelectorAll(".tab-btn").forEach((b,i)=>{
     b.classList.toggle("active",i===0);
-    b.style.display=""; // Show all tabs including opening balance
+    b.style.display="";
+  });
+  // In add mode — enable opening balance fields
+  ["f-warehouse","f-opening-qty","f-avg-cost","f-opening-date","f-batch-no"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.disabled=false;el.style.opacity="1";}
   });
 }
 
@@ -805,8 +831,8 @@ async function saveItem(){
       const skuPayload={item_id:savedId,reorder_level,reorder_qty:max_order_qty,min_stock};
       await sb.from("sku_planning").upsert([skuPayload],{onConflict:"item_id"});
     }
-    // Save opening balance (only for new items)
-    if(!editingId && opening_qty>0 && warehouse_id){
+    // Save/Update opening balance (for both new and edit)
+    if(opening_qty>0 && warehouse_id){
       const uom=document.getElementById("f-uom").value||"PCS";
       const batch_no=document.getElementById("f-batch-no")?.value.trim()||null;
       // Set inventory
