@@ -105,6 +105,12 @@ tr:hover td{background:#fafbfc;}
 .confirm-box h4{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:8px;}
 .confirm-box p{font-size:13.5px;color:#5a6878;margin-bottom:20px;}
 .confirm-box .actions{display:flex;gap:10px;justify-content:center;}
+.sku-dropdown{display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #dde3ea;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.1);z-index:50;max-height:180px;overflow-y:auto;}
+.sku-dropdown.open{display:block;}
+.sku-dd-item{padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f4f8;}
+.sku-dd-item:hover{background:#f4f6f9;}
+.sku-dd-item:last-child{border-bottom:none;}
+.sku-dd-code{font-family:monospace;font-size:11px;color:#5a6878;}
 .tabs{display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:18px;}
 .tab-btn{padding:9px 18px;font-size:13px;font-weight:600;color:#8a95a0;background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.15s;}
 .tab-btn.active{color:var(--red);border-bottom-color:var(--red);}
@@ -252,7 +258,8 @@ tr:hover td{background:#fafbfc;}
         <button class="tab-btn active" onclick="switchTab('tab-basic',this)">&#128230; Basic Info</button>
         <button class="tab-btn" onclick="switchTab('tab-unit',this)">&#9878; Unit & Tax</button>
         <button class="tab-btn" onclick="switchTab('tab-stock',this)">&#128200; Stock Levels</button>
-        <button class="tab-btn" onclick="switchTab('tab-opening',this)">&#9878; Opening Balance</button>
+        <button class="tab-btn" onclick="switchTab('tab-sku',this)">&#128295; SKU Planning</button>
+        <button class="tab-btn" onclick="switchTab('tab-opening',this)">&#127968; Opening Balance</button>
         <button class="tab-btn" onclick="switchTab('tab-notes',this)">&#128221; Notes</button>
       </div>
 
@@ -354,7 +361,126 @@ tr:hover td{background:#fafbfc;}
         </div>
       </div>
 
-      <!-- TAB 4: Opening Balance -->
+      <!-- TAB 4: SKU Planning -->
+      <div id="tab-sku" class="tab-pane">
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px;font-size:12.5px;color:#1e40af;margin-bottom:14px;">
+          &#128295; SKU Planning fields sirf FG/SFG items ke liye fill karein. Yeh production planning mein use honge.
+        </div>
+
+        <div style="font-size:11px;font-weight:700;color:#8a95a0;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #f0f4f8;">Mix & Preform</div>
+        <div class="form-grid" style="margin-bottom:16px;">
+          <div class="form-field">
+            <label>Mix Family (VO/HP/HE)</label>
+            <select id="sku-mix-family">
+              <option value="">-- Select --</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Preform Weight (g)</label>
+            <input type="number" id="sku-preform-weight" placeholder="e.g. 185" min="0" step="0.1"/>
+          </div>
+        </div>
+
+        <div style="font-size:11px;font-weight:700;color:#8a95a0;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #f0f4f8;">Back Plate</div>
+        <div class="form-grid" style="margin-bottom:16px;">
+          <div class="form-field">
+            <label>BP Item (Raw)</label>
+            <div class="item-search-wrap" style="position:relative;">
+              <input type="text" id="sku-bp-search" placeholder="BP item search..." oninput="skuItemSearch('sku-bp-search','sku-bp-dd','sku-bp-id')" autocomplete="off"/>
+              <div class="sku-dropdown" id="sku-bp-dd"></div>
+            </div>
+            <input type="hidden" id="sku-bp-id"/>
+          </div>
+          <div class="form-field">
+            <label>BP Weight (g)</label>
+            <input type="number" id="sku-bp-weight" placeholder="e.g. 120" min="0" step="0.1"/>
+          </div>
+          <div class="form-field">
+            <label>BP Coated Item</label>
+            <div class="item-search-wrap" style="position:relative;">
+              <input type="text" id="sku-bpc-search" placeholder="Coated BP search..." oninput="skuItemSearch('sku-bpc-search','sku-bpc-dd','sku-bpc-id')" autocomplete="off"/>
+              <div class="sku-dropdown" id="sku-bpc-dd"></div>
+            </div>
+            <input type="hidden" id="sku-bpc-id"/>
+          </div>
+        </div>
+
+        <div style="font-size:11px;font-weight:700;color:#8a95a0;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #f0f4f8;">Die & Moulding</div>
+        <div class="form-grid-3" style="margin-bottom:16px;">
+          <div class="form-field">
+            <label>Die</label>
+            <select id="sku-die">
+              <option value="">-- Select Die --</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Cavity Count</label>
+            <input type="number" id="sku-cavity" placeholder="e.g. 2" min="1"/>
+          </div>
+          <div class="form-field">
+            <label>Cycle Time (min)</label>
+            <input type="number" id="sku-cycle-time" placeholder="8.5" min="0" step="0.1" value="8.5"/>
+          </div>
+        </div>
+
+        <div style="font-size:11px;font-weight:700;color:#8a95a0;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #f0f4f8;">Tray & Grinder</div>
+        <div class="form-grid" style="margin-bottom:16px;">
+          <div class="form-field">
+            <label>Tray Capacity (pcs)</label>
+            <input type="number" id="sku-tray-cap" placeholder="e.g. 72" min="1"/>
+          </div>
+          <div class="form-field">
+            <label>Pcs per Set</label>
+            <input type="number" id="sku-pcs-set" placeholder="4" min="1" value="4"/>
+          </div>
+          <div class="form-field">
+            <label>Grinder Category</label>
+            <select id="sku-grinder-cat">
+              <option value="">-- Select --</option>
+              <option value="Small">Small</option>
+              <option value="Medium">Medium</option>
+              <option value="Large">Large</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Grinder Machine</label>
+            <select id="sku-grinder-machine">
+              <option value="">-- Select --</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="font-size:11px;font-weight:700;color:#8a95a0;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #f0f4f8;">Vehicle & Application</div>
+        <div class="form-grid" style="margin-bottom:8px;">
+          <div class="form-field">
+            <label>Vehicle Name</label>
+            <input type="text" id="sku-vehicle-name" placeholder="e.g. Maruti Swift"/>
+          </div>
+          <div class="form-field">
+            <label>Vehicle Model / Year</label>
+            <input type="text" id="sku-vehicle-model" placeholder="e.g. 2015-2022"/>
+          </div>
+          <div class="form-field">
+            <label>Axle</label>
+            <select id="sku-axle">
+              <option value="">-- Select --</option>
+              <option value="Front">Front</option>
+              <option value="Rear">Rear</option>
+              <option value="Both">Both</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>OEM Reference</label>
+            <input type="text" id="sku-oem-ref" placeholder="e.g. 55810-M79M10"/>
+          </div>
+          <div class="form-field">
+            <label>Standard Cost (&#8377;)</label>
+            <input type="number" id="sku-std-cost" placeholder="0.00" min="0" step="0.01"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: Opening Balance -->
       <div id="tab-opening" class="tab-pane">
         <div id="opening-msg" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px;font-size:12.5px;color:#166534;margin-bottom:14px;">
           &#128161; Opening balance sirf naye item ke liye fill karein. Warehouse, Qty, Avg Cost aur Batch No enter karein.
@@ -478,6 +604,7 @@ const PAGE_SIZE=15;
   document.getElementById("user-name").textContent=email.split("@")[0];
   await loadCategories();
   await loadWarehouses();
+  await loadSkuMasterData();
   await loadItems();
 })();
 
@@ -679,7 +806,9 @@ function openAddModal(){
   document.getElementById("modal-title").textContent="Add New Item";
   document.getElementById("save-btn").textContent="Save Item";
   clearForm();
+  clearSkuForm();
   loadWarehouses();
+  loadSkuMasterData();
   document.getElementById("item-modal").classList.add("open");
 }
 function openEditModal(id){
@@ -742,6 +871,7 @@ function openEditModal(id){
   if(openQty) openQty.value=item.current_stock||0;
   const avgCost=document.getElementById("f-avg-cost");
   if(avgCost) avgCost.value=item.avg_cost||0;
+  loadSkuMasterData().then(()=>loadSkuPlanning(id));
   document.getElementById("item-modal").classList.add("open");
 }
 function closeModal(){document.getElementById("item-modal").classList.remove("open");editingId=null;}
@@ -750,6 +880,152 @@ function switchTab(tabId, btn){
   document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
   document.getElementById(tabId).classList.add("active");
   btn.classList.add("active");
+}
+
+// ---- SKU PLANNING ----
+let mixFamilies=[], dies=[], grinderMachines=[], allItemsForSku=[];
+
+async function loadSkuMasterData(){
+  // Mix families
+  const {data:mf}=await sb.from("mix_families").select("id,code,name").eq("is_active",true).order("code");
+  mixFamilies=mf||[];
+  const mfSel=document.getElementById("sku-mix-family");
+  if(mfSel) mfSel.innerHTML='<option value="">-- Select --</option>'+
+    mixFamilies.map(m=>`<option value="${m.id}">${m.code} — ${m.name}</option>`).join("");
+
+  // Dies
+  const {data:dieData}=await sb.from("dies").select("id,die_code,die_name,cavity_count").eq("is_active",true).order("die_code");
+  dies=dieData||[];
+  const dieSel=document.getElementById("sku-die");
+  if(dieSel) dieSel.innerHTML='<option value="">-- Select Die --</option>'+
+    dies.map(d=>`<option value="${d.id}">${d.die_code}${d.die_name?" — "+d.die_name:""} (${d.cavity_count} cav)</option>`).join("");
+
+  // Grinder machines
+  const {data:gm}=await sb.from("machines").select("id,code,name").eq("is_active",true).ilike("process_name","%grind%").order("code");
+  grinderMachines=gm||[];
+  const gmSel=document.getElementById("sku-grinder-machine");
+  if(gmSel) gmSel.innerHTML='<option value="">-- Select --</option>'+
+    grinderMachines.map(m=>`<option value="${m.id}">${m.code} — ${m.name}</option>`).join("");
+}
+
+function skuItemSearch(inputId, ddId, hiddenId){
+  const q=document.getElementById(inputId).value.toLowerCase();
+  const dd=document.getElementById(ddId);
+  if(!q){dd.classList.remove("open");return;}
+  const results=allItems.filter(x=>(x.code||"").toLowerCase().includes(q)||(x.name||"").toLowerCase().includes(q)).slice(0,8);
+  if(!results.length){dd.classList.remove("open");return;}
+  dd.innerHTML=results.map(x=>`
+    <div class="sku-dd-item" onclick="selectSkuItem('${inputId}','${ddId}','${hiddenId}',${x.id},'${x.code}','${(x.name||"").replace(/'/g,"\'")}')">
+      <span class="sku-dd-code">${x.code}</span> — ${x.name}
+    </div>`).join("");
+  dd.classList.add("open");
+}
+
+function selectSkuItem(inputId, ddId, hiddenId, id, code, name){
+  document.getElementById(inputId).value=code+" — "+name;
+  document.getElementById(hiddenId).value=id;
+  document.getElementById(ddId).classList.remove("open");
+}
+
+async function saveSkuPlanning(itemId){
+  const mix_family_id=parseInt(document.getElementById("sku-mix-family").value)||null;
+  const die_id=parseInt(document.getElementById("sku-die").value)||null;
+  const grinder_machine_id=parseInt(document.getElementById("sku-grinder-machine").value)||null;
+  const bp_item_id=parseInt(document.getElementById("sku-bp-id").value)||null;
+  const bp_coated_item_id=parseInt(document.getElementById("sku-bpc-id").value)||null;
+  const vehicle_name=document.getElementById("sku-vehicle-name").value.trim()||null;
+  const vehicle_model=document.getElementById("sku-vehicle-model").value.trim()||null;
+  const axle=document.getElementById("sku-axle").value||null;
+  const oem_ref=document.getElementById("sku-oem-ref").value.trim()||null;
+
+  const skuPayload={
+    item_id: itemId,
+    mix_family_id, die_id, grinder_machine_id,
+    bp_item_id, bp_coated_item_id,
+    preform_weight_g: parseFloat(document.getElementById("sku-preform-weight").value)||null,
+    bp_weight_g: parseFloat(document.getElementById("sku-bp-weight").value)||null,
+    cavity_count: parseInt(document.getElementById("sku-cavity").value)||null,
+    cycle_time_min: parseFloat(document.getElementById("sku-cycle-time").value)||8.5,
+    tray_capacity: parseInt(document.getElementById("sku-tray-cap").value)||null,
+    pcs_per_set: parseInt(document.getElementById("sku-pcs-set").value)||4,
+    grinder_category: document.getElementById("sku-grinder-cat").value||null,
+    standard_cost: parseFloat(document.getElementById("sku-std-cost").value)||null,
+    vehicle_name, vehicle_model, axle, oem_ref,
+    reorder_level: parseFloat(document.getElementById("f-reorder").value)||0,
+    reorder_qty: parseFloat(document.getElementById("f-max-order").value)||0,
+    min_stock: parseFloat(document.getElementById("f-min-stock").value)||0,
+  };
+  const {error}=await sb.from("sku_planning").upsert([skuPayload],{onConflict:"item_id"});
+  if(error) console.error("SKU save error:",error.message);
+}
+
+async function loadSkuPlanning(itemId){
+  const {data}=await sb.from("sku_planning").select("*").eq("item_id",itemId).single();
+  if(!data) return;
+  // Mix family
+  const mfSel=document.getElementById("sku-mix-family");
+  if(mfSel&&data.mix_family_id) mfSel.value=data.mix_family_id;
+  // Preform weight
+  const pw=document.getElementById("sku-preform-weight");
+  if(pw) pw.value=data.preform_weight_g||"";
+  // BP
+  if(data.bp_item_id){
+    const bpItem=allItems.find(x=>x.id==data.bp_item_id);
+    if(bpItem){
+      document.getElementById("sku-bp-search").value=bpItem.code+" — "+bpItem.name;
+      document.getElementById("sku-bp-id").value=data.bp_item_id;
+    }
+  }
+  const bpw=document.getElementById("sku-bp-weight");
+  if(bpw) bpw.value=data.bp_weight_g||"";
+  if(data.bp_coated_item_id){
+    const bpcItem=allItems.find(x=>x.id==data.bp_coated_item_id);
+    if(bpcItem){
+      document.getElementById("sku-bpc-search").value=bpcItem.code+" — "+bpcItem.name;
+      document.getElementById("sku-bpc-id").value=data.bp_coated_item_id;
+    }
+  }
+  // Die
+  const dieSel=document.getElementById("sku-die");
+  if(dieSel&&data.die_id) dieSel.value=data.die_id;
+  const cv=document.getElementById("sku-cavity");
+  if(cv) cv.value=data.cavity_count||"";
+  const ct=document.getElementById("sku-cycle-time");
+  if(ct) ct.value=data.cycle_time_min||8.5;
+  // Tray
+  const tc=document.getElementById("sku-tray-cap");
+  if(tc) tc.value=data.tray_capacity||"";
+  const ps=document.getElementById("sku-pcs-set");
+  if(ps) ps.value=data.pcs_per_set||4;
+  // Grinder
+  const gc=document.getElementById("sku-grinder-cat");
+  if(gc) gc.value=data.grinder_category||"";
+  const gmSel=document.getElementById("sku-grinder-machine");
+  if(gmSel&&data.grinder_machine_id) gmSel.value=data.grinder_machine_id;
+  // Vehicle
+  const vn=document.getElementById("sku-vehicle-name");
+  if(vn) vn.value=data.vehicle_name||"";
+  const vm=document.getElementById("sku-vehicle-model");
+  if(vm) vm.value=data.vehicle_model||"";
+  const ax=document.getElementById("sku-axle");
+  if(ax) ax.value=data.axle||"";
+  const oem=document.getElementById("sku-oem-ref");
+  if(oem) oem.value=data.oem_ref||"";
+  const sc=document.getElementById("sku-std-cost");
+  if(sc) sc.value=data.standard_cost||"";
+}
+
+function clearSkuForm(){
+  ["sku-preform-weight","sku-bp-search","sku-bp-weight","sku-bpc-search",
+   "sku-cavity","sku-tray-cap","sku-vehicle-name","sku-vehicle-model","sku-oem-ref","sku-std-cost"].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value="";
+  });
+  ["sku-bp-id","sku-bpc-id"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  ["sku-mix-family","sku-die","sku-grinder-cat","sku-grinder-machine","sku-axle"].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value="";
+  });
+  const ct=document.getElementById("sku-cycle-time");if(ct)ct.value="8.5";
+  const ps=document.getElementById("sku-pcs-set");if(ps)ps.value="4";
 }
 
 async function loadWarehouses(){
@@ -866,6 +1142,8 @@ async function saveItem(){
   }
   btn.disabled=false;btn.textContent=editingId?"Update Item":"Save Item";
   if(error){showToast("Error: "+error.message,"error");return;}
+  // Save SKU Planning
+  await saveSkuPlanning(savedId);
   showToast(editingId?"Item update ho gaya!":"Item add ho gaya!","success");
   closeModal();loadItems();
 }
