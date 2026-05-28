@@ -362,7 +362,15 @@ async function loadCategories(){
       categories=DEFAULT_CATS;
     }
   } else {
-    categories=data.map(x=>x.name);
+    // Normalize Title Case + duplicates remove
+    const seen=new Map();
+    data.forEach(x=>{
+      if(!x.name)return;
+      const norm=x.name.trim().split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
+      const key=norm.toLowerCase();
+      if(!seen.has(key))seen.set(key,norm);
+    });
+    categories=[...seen.values()].sort();
   }
   populateCategoryDropdowns();
 }
