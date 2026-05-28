@@ -323,13 +323,8 @@ tr:hover td{background:#fafbfc;}
           </div>
           <div class="form-field">
             <label>Tax Rate (GST %)</label>
-            <select id="f-tax">
-              <option value="0">0%</option>
-              <option value="5">5%</option>
-              <option value="12">12%</option>
-              <option value="18" selected>18%</option>
-              <option value="28">28%</option>
-            </select>
+            <input type="number" id="f-tax" placeholder="18" min="0" max="100" step="0.01" value="18"/>
+            <span style="font-size:11px;color:#8a95a0;">Manually enter: 0, 5, 12, 18, 28</span>
           </div>
         </div>
       </div>
@@ -655,11 +650,14 @@ function openAddModal(){
 function openEditModal(id){
   const item=allItems.find(x=>x.id===id);if(!item)return;
   editingId=id;
-  document.getElementById("modal-title").textContent="Edit Item — "+item.code;
+  document.getElementById("modal-title").textContent="Edit — "+item.code;
   document.getElementById("save-btn").textContent="Update Item";
-  // Hide opening balance tab in edit mode
-  document.querySelectorAll(".tab-btn").forEach(b=>{
-    if(b.textContent.includes("Opening"))b.style.display="none";
+  // Reset tabs first
+  document.querySelectorAll(".tab-pane").forEach((p,i)=>p.classList.toggle("active",i===0));
+  document.querySelectorAll(".tab-btn").forEach((b,i)=>{
+    b.classList.toggle("active",i===0);
+    // Hide opening balance tab in edit mode
+    b.style.display=b.textContent.includes("Opening")?"none":"";
   });
   document.getElementById("f-code").value=item.code||"";
   document.getElementById("f-name").value=item.name||"";
@@ -670,6 +668,7 @@ function openEditModal(id){
   document.getElementById("f-secondary-uom").value=item.secondary_uom||"";
   document.getElementById("f-hsn").value=item.hsn_code||"";
   document.getElementById("f-tax").value=item.tax_rate??18;
+  document.getElementById("f-min-stock").value=item.min_stock??"";
   document.getElementById("f-reorder").value=item.reorder_level??"";
   document.getElementById("f-max-order").value=item.max_order_qty??"";
   document.getElementById("f-status").value=String(item.is_active!==false);
