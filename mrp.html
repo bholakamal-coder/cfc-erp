@@ -292,7 +292,7 @@ async function runMRP(){
             rMap[id]={id:id,code:item.code,name:item.name,type:item.type,uom:item.uom||line.uom,
               req:0,av:av,
               rl:sku?parseFloat(sku.reorder_level||0):0,
-              rq2:sku?parseFloat(sku.reorder_qty||0):0,
+              rq:sku?parseFloat(sku.reorder_qty||0):0,
               ms:sku?parseFloat(sku.min_stock||0):0,
               wos:[]};
           }
@@ -319,11 +319,22 @@ async function runMRP(){
     mrpResults=Object.values(rMap).map(function(r){
       var sh=r.req-r.av;
       var pct=r.req>0?Math.min(100,Math.round(r.av/r.req*100)):100;
-      var st=r.req<=0?'NA':sh<=0?'OK':r.av>0?'Partial':'Shortage';
-      var bm=r.ms>0&&r.av<r.ms;
-      var br=r.rl>0&&r.av<=r.rl;
+      var bm_pre=r.ms>0&&r.av<r.ms;
+      var br_pre=r.rl>0&&r.av<=r.rl;
+      var st;
+      if(r.req>0){
+        if(sh<=0) st='OK';
+        else if(r.av>0) st='Partial';
+        else st='Shortage';
+      } else {
+        if(bm_pre) st='Below Min';
+        else if(br_pre) st='Reorder';
+        else st='OK';
+      }
+      var bm=bm_pre;
+      var br=br_pre;
       var ra=bm?'Below Min':br?'Reorder':'';
-      return {code:r.code,name:r.name,type:r.type,uom:r.uom,req:r.req,av:r.av,sh:sh,pct:pct,st:st,bm:bm,br:br,ra:ra,rl:r.rl,ms:r.ms,wos:r.wos};
+      return {code:r.code,name:r.name,type:r.type,uom:r.uom,req:r.req,av:r.av,sh:sh,pct:pct,st:st,bm:bm,br:br,ra:ra,rl:r.rl,rq:r.rq||0,ms:r.ms,wos:r.wos};
     });
 
     mrpResults.sort(function(a,b){
@@ -356,7 +367,7 @@ async function runMRP(){
     }
     if(par>0)sum+='<div class="warn-box">&#9888; <strong>'+par+' items partial stock</strong></div>';
     if(reo>0){
-      var rc=mrpResults.filter(function(r){return r.br||r.bm;}).map(function(r){return r.code+'('+r.av.toFixed(0)+'<'+r.rl+')';});
+      var rc=mrpResults.filter(function(r){return r.br||r.bm;}).map(function(r){return r.code+'(stock:'+r.av.toFixed(0)+' reorder:'+r.rl+(r.rq>0?' order:'+r.rq:'')+')';});
       sum+='<div class="warn-box" style="background:#faf5ff;border-color:#d8b4fe;color:#6d28d9;">&#128204; <strong>'+reo+' items reorder needed</strong><br><small>'+rc.join(', ')+'</small></div>';
     }
     if(!sht&&!par&&!reo)sum+='<div class="info-box" style="background:#f0fdf4;border-color:#86efac;color:#166534;">&#10003; Sabhi items stock sufficient hai!</div>';
@@ -379,7 +390,8 @@ async function runMRP(){
         +'<td style="color:'+(r.sh>0?'#dc2626':'#166534')+';font-weight:700;">'+(r.sh>0?'+'+r.sh.toFixed(2)+' &#10060;':'OK &#10003;')+'</td>'
         +'<td style="min-width:90px;"><div class="progress-bar"><div class="progress-fill" style="width:'+r.pct+'%;background:'+pc+';"></div></div><span style="font-size:10px;color:#8a95a0;">'+r.pct+'%</span></td>'
         +'<td>'+rcell+'</td>'
-        +'<td><span class="pill pill-'+(r.st==='OK'?'ok':r.st==='Shortage'?'short':r.st==='Partial'?'low':'na')+'">'+r.st+'</span></td>'
+        +'<td style="font-weight:600;color:#1e40af;">'+(r.rq>0?r.rq+' '+r.uom:'—')+'</td>'
+        +'<td><span class="pill pill-'+(r.st==='OK'?'ok':r.st==='Shortage'?'short':r.st==='Partial'?'low':r.st==='Reorder'?'low':r.st==='Below Min'?'short':'na')+'">'+r.st+'</span></td>'
         +'<td>'+acell+'</td>'
         +'<td style="font-size:11px;color:#5a6878;max-width:140px;">'+r.wos.slice(0,3).join(', ')+(r.wos.length>3?'...':'')+'</td>'
         +'</tr>';
@@ -388,7 +400,7 @@ async function runMRP(){
     wrap.innerHTML=sum
       +'<div style="font-size:12px;font-weight:700;color:#8a95a0;letter-spacing:1px;text-transform:uppercase;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid #f0f4f8;">'+disp.length+' Items</div>'
       +'<div class="table-wrap"><table>'
-      +'<thead><tr><th>#</th><th>Code</th><th>Name</th><th>Type</th><th>Required</th><th>Available</th><th>Shortage</th><th>Coverage</th><th>Reorder Lvl</th><th>Status</th><th>Alert</th><th>WO Refs</th></tr></thead>'
+      +'<thead><tr><th>#</th><th>Code</th><th>Name</th><th>Type</th><th>Required</th><th>Available</th><th>Shortage</th><th>Coverage</th><th>Reorder Lvl</th><th>Order Qty</th><th>Status</th><th>Alert</th><th>WO Refs</th></tr></thead>'
       +'<tbody>'+rows+'</tbody></table></div>'
       +'<div style="display:flex;gap:10px;margin-top:12px;">'
       +'<button class="btn btn-secondary btn-sm" onclick="exportCSV()">&#128229; Export CSV</button>'
