@@ -237,8 +237,9 @@ let allWOs=[], allInventory=[], allBOMs=[], mrpResults=[];
 })();
 
 async function loadMRP(){
+  // 1. Load Work Orders
   const woFilter=document.getElementById("mrp-wo-filter").value;
-  let woQuery=sb.from("work_orders").select("id,wo_no,process_name,planned_qty,uom,status,routing_step_id");
+  let woQuery=sb.from("work_orders").select("id,wo_no,process_name,planned_qty,uom,status");
   if(woFilter==="pending") woQuery=woQuery.eq("status","Pending");
   else if(woFilter==="assigned") woQuery=woQuery.eq("status","Assigned");
   else if(woFilter==="inprogress") woQuery=woQuery.eq("status","In Progress");
@@ -246,15 +247,38 @@ async function loadMRP(){
   const {data:wos}=await woQuery.order("created_at",{ascending:false});
   allWOs=wos||[];
 
-  // Load inventory
+  // 2. Load inventory
   const {data:inv}=await sb.from("inventory").select("item_id,current_stock,available_stock,uom");
   allInventory=inv||[];
 
-  // Load all active default BOMs with their lines
-  const {data:boms}=await sb.from("bom_headers")
-    .select("id,item_id,output_qty,output_uom,bom_lines(item_id,qty,uom,scrap_percent,items(id,code,name,type,uom))")
-    .eq("status","Active").eq("is_default",true);
-  allBOMs=boms||[];
+  // 3. Load BOM headers (default ones)
+  const {data:bomHeaders}=await sb.from("bom_headers")
+    .select("id,item_id,output_qty,output_uom,status,is_default")
+    .eq("is_default",true);
+  const defaultBoms=bomHeaders||[];
+
+  // 4. Load BOM lines SEPARATELY (avoids nested RLS issues)
+  const {data:bomLines}=await sb.from("bom_lines")
+    .select("id,bom_id,item_id,qty,uom,scrap_percent");
+  const allLines=bomLines||[];
+
+  // 5. Load items for BOM lines
+  const lineItemIds=[...new Set(allLines.map(l=>l.item_id).filter(Boolean))];
+  let itemsMap={};
+  if(lineItemIds.length>0){
+    const {data:lineItems}=await sb.from("items")
+      .select("id,code,name,type,uom")
+      .in("id",lineItemIds);
+    (lineItems||[]).forEach(i=>itemsMap[i.id]=i);
+  }
+
+  // 6. Attach lines + items to BOMs
+  allBOMs=defaultBoms.map(b=>({
+    ...b,
+    bom_lines:allLines
+      .filter(l=>l.bom_id===b.id)
+      .map(l=>({...l,items:itemsMap[l.item_id]||null}))
+  }));
 }
 
 async function runMRP(){
@@ -326,10 +350,20 @@ async function runMRP(){
     }
   }
 
+  // Debug info
+  const totalLines=allBOMs.reduce((s,b)=>s+(b.bom_lines||[]).length,0);
+
   if(!Object.keys(reqMap).length){
     document.getElementById("mrp-result-wrap").innerHTML=`<div class="warn-box">
-      &#9888; Koi requirement calculate nahi hui.<br>
-      <small>Check karo: WOs active hain (${allWOs.length} found), BOMs active hain (${allBOMs.length} found), BOM lines hain?</small>
+      &#9888; Koi requirement calculate nahi hui.<br><br>
+      <strong>Debug Info:</strong><br>
+      • Work Orders found: <strong>${allWOs.length}</strong> (${allWOs.map(w=>w.wo_no).join(', ')})<br>
+      • Default BOMs found: <strong>${allBOMs.length}</strong><br>
+      • Total BOM Lines: <strong>${totalLines}</strong><br><br>
+      <strong>Fix karo:</strong><br>
+      ${allBOMs.length===0?'❌ Koi Default BOM nahi — BOM page pe jao, BOM edit karo, "Is Default BOM? = Yes" karo':''}
+      ${totalLines===0&&allBOMs.length>0?'❌ BOMs hain par lines nahi — BOM mein components add karo':''}
+      ${allWOs.length===0?'❌ Koi WO nahi — Work Orders banao':''}
     </div>`;
     return;
   }
