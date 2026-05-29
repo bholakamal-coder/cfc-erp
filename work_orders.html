@@ -290,7 +290,7 @@ async function loadWOs(){
   const wrap=document.getElementById("wo-wrap");
   wrap.innerHTML='<div class="loading">Loading...</div>';
   const {data,error}=await sb.from("work_orders")
-    .select("*, machines(code,name), dies(die_code)")
+    .select("*, machines(code,name), die:die_id(die_code)")
     .order("created_at",{ascending:false});
   if(error){wrap.innerHTML=`<div class="loading" style="color:#dc2626;">Error: ${error.message}</div>`;return;}
   allWOs=data||[];
@@ -339,7 +339,7 @@ function renderWOs(){
         <div style="display:flex;gap:16px;font-size:12px;color:#5a6878;margin-bottom:10px;flex-wrap:wrap;">
           <span>&#9881; ${w.process_name}</span>
           ${w.machines?`<span>&#127981; ${w.machines.code}</span>`:''}
-          ${w.dies?`<span>&#128299; ${w.dies.die_code}</span>`:''}
+          ${w.die?`<span>&#128299; ${w.die.die_code}</span>`:''}
           <span>Planned: ${w.planned_qty||0} ${w.uom||'PCS'}</span>
           <span style="color:#166534;">Done: ${w.completed_qty||0}</span>
         </div>
@@ -360,7 +360,7 @@ function renderWOs(){
           <td><strong style="font-family:monospace;">${w.wo_no||'—'}</strong></td>
           <td>${w.process_name}</td>
           <td style="font-size:12px;">${w.machines?w.machines.code:'—'}</td>
-          <td style="font-size:12px;">${w.dies?w.dies.die_code:'—'}</td>
+          <td style="font-size:12px;">${w.die?w.die.die_code:'—'}</td>
           <td style="text-align:center;">${w.planned_qty||0} ${w.uom||'PCS'}</td>
           <td style="text-align:center;color:#166534;">${w.completed_qty||0}</td>
           <td style="min-width:80px;">
