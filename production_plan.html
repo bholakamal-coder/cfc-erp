@@ -378,11 +378,50 @@ function searchCalcItem(){
   </div>`).join("");
   dd.style.display="block";
 }
-function selectCalcItem(id,code,name){
+async function selectCalcItem(id,code,name){
   document.getElementById("calc-item-search").value=code+" — "+name;
   document.getElementById("calc-item-id").value=id;
-  document.getElementById("calc-item-info").textContent="✓ "+name;
+  document.getElementById("calc-item-info").textContent="✓ "+name+" — loading SKU data...";
   document.getElementById("calc-item-dd").style.display="none";
+
+  // Auto-fill from sku_planning + BOM
+  const {data:sku}=await sb.from("sku_planning")
+    .select("*, dies(die_code,cavity_count,cycle_time_min), items!sku_planning_bp_item_id_fkey(code,name)")
+    .eq("item_id",id).single();
+
+  if(sku){
+    // Preform weight
+    if(sku.preform_weight_g)
+      document.getElementById("calc-preform-wt").value=sku.preform_weight_g;
+    // Cavity count
+    if(sku.cavity_count)
+      document.getElementById("calc-cavity").value=sku.cavity_count;
+    // Cycle time
+    if(sku.cycle_time_min)
+      document.getElementById("calc-cycle").value=sku.cycle_time_min;
+    // Pcs per set
+    if(sku.pcs_per_set)
+      document.getElementById("calc-pcs-per-set").value=sku.pcs_per_set;
+    // Oven/tray capacity
+    if(sku.tray_capacity)
+      document.getElementById("calc-oven-cap").value=sku.tray_capacity;
+  }
+
+  // Auto-fill premix from BOM lines
+  const {data:bom}=await sb.from("bom_headers")
+    .select("id,bom_lines(items(code,type))")
+    .eq("item_id",id).eq("is_default",true).single();
+
+  if(bom&&bom.bom_lines){
+    const premixLine=bom.bom_lines.find(l=>l.items&&l.items.type==="SFG"&&
+      ["726","706","715"].some(c=>l.items.code===c));
+    if(premixLine){
+      document.getElementById("calc-premix").value=premixLine.items.code;
+    }
+  }
+
+  const infoMsg="✓ "+name+(sku?" — SKU data loaded ✅":" — SKU data nahi mila");
+  document.getElementById("calc-item-info").textContent=infoMsg;
   runCalculator();
 }
 document.addEventListener("click",function(e){
