@@ -950,8 +950,7 @@ function exportBOM(){
     "BOM-"+String(b.id).padStart(4,"0"),b.item_code,b.item_name,b.item_type,
     "v"+b.version,b.output_qty,b.output_uom,b.status,b.is_default?"Yes":"No",b.line_count
   ]));
-  const csv=rows.map(r=>r.map(c=>'"'+(c??"")+'"').join(",")).join("
-");
+  const csv=rows.map(r=>r.map(c=>'"'+(c??"")+'"').join(",")).join("\n");
   const a=document.createElement("a");
   a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
   a.download="bom_"+new Date().toISOString().slice(0,10)+".csv";
