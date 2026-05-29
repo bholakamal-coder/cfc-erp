@@ -105,6 +105,22 @@ tr:hover td{background:#fafbfc;}
 .confirm-box h4{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:8px;}
 .confirm-box p{font-size:13.5px;color:#5a6878;margin-bottom:20px;}
 .confirm-box .actions{display:flex;gap:10px;justify-content:center;}
+
+/* QUICK ADD POPUP */
+.quick-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:400;align-items:center;justify-content:center;}
+.quick-overlay.open{display:flex;}
+.quick-popup{background:#fff;border-radius:14px;width:100%;max-width:480px;padding:0;box-shadow:0 24px 60px rgba(0,0,0,0.18);}
+.quick-header{padding:20px 24px 16px;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;justify-content:space-between;}
+.quick-header h3{font-size:17px;font-weight:700;color:var(--navy);}
+.quick-close{font-size:22px;cursor:pointer;color:#8a95a0;background:none;border:none;padding:2px 6px;border-radius:4px;}
+.quick-close:hover{background:#f0f2f5;}
+.quick-body{padding:20px 24px;}
+.quick-field{margin-bottom:16px;}
+.quick-field label{display:block;font-size:13px;font-weight:600;color:#4a5568;margin-bottom:6px;}
+.quick-field input,.quick-field select{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:10px 14px;font-size:14px;color:#1a2635;background:#f9fafb;outline:none;font-family:inherit;transition:border-color 0.15s;}
+.quick-field input:focus,.quick-field select:focus{border-color:var(--red);background:#fff;box-shadow:0 0 0 3px rgba(204,34,0,0.08);}
+.quick-footer{padding:16px 24px;border-top:1px solid #f0f4f8;display:flex;align-items:center;justify-content:space-between;}
+.quick-req{color:var(--red);}
 .sku-dropdown{display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #dde3ea;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.1);z-index:50;max-height:180px;overflow-y:auto;}
 .sku-dropdown.open{display:block;}
 .sku-dd-item{padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f4f8;}
@@ -195,7 +211,7 @@ tr:hover td{background:#fafbfc;}
       <input type="file" id="import-file" accept=".csv" style="display:none;" onchange="importCSV(event)"/>
       <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()">&#11014; Import</button>
       <button class="btn btn-secondary" onclick="exportCSV()">&#11015; Export</button>
-      <button class="btn btn-primary" onclick="openAddModal()">+ Add Item</button>
+      <button class="btn btn-primary" onclick="openQuickAdd()">+ Add Item</button>
     </div>
   </div>
 
@@ -587,6 +603,65 @@ tr:hover td{background:#fafbfc;}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- QUICK ADD POPUP -->
+<div class="quick-overlay" id="quick-overlay">
+  <div class="quick-popup">
+    <div class="quick-header">
+      <h3 id="quick-title">New Item</h3>
+      <button class="quick-close" onclick="closeQuick()">&#10005;</button>
+    </div>
+    <div class="quick-body">
+      <div class="quick-field">
+        <label>Item Code <span class="quick-req">*</span></label>
+        <input type="text" id="q-code" placeholder="e.g. CD-BP-001" autocomplete="off"/>
+      </div>
+      <div class="quick-field">
+        <label>Item Name</label>
+        <input type="text" id="q-name" placeholder="e.g. Ceramic Brake Pad"/>
+      </div>
+      <div class="quick-field">
+        <label>Item Type <span class="quick-req">*</span></label>
+        <select id="q-type">
+          <option value="">-- Select --</option>
+          <option value="RM">RM — Raw Material</option>
+          <option value="SFG">SFG — Semi Finished Good</option>
+          <option value="FG">FG — Finished Good</option>
+          <option value="Consumable">Consumable</option>
+          <option value="Packing">Packing</option>
+        </select>
+      </div>
+      <div class="quick-field">
+        <label>Default UOM <span class="quick-req">*</span></label>
+        <select id="q-uom">
+          <option value="Nos">Nos</option>
+          <option value="PCS">PCS</option>
+          <option value="Set">Set</option>
+          <option value="Kg">Kg</option>
+          <option value="Litre">Litre</option>
+          <option value="Metre">Metre</option>
+          <option value="Box">Box</option>
+        </select>
+      </div>
+      <div class="quick-field">
+        <label>Category</label>
+        <select id="q-category">
+          <option value="">-- Select --</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
+        <input type="checkbox" id="q-maintain-stock" checked style="width:16px;height:16px;accent-color:var(--red);"/>
+        <label for="q-maintain-stock" style="font-size:13.5px;color:#1a2635;cursor:pointer;margin:0;">Maintain Stock</label>
+      </div>
+    </div>
+    <div class="quick-footer">
+      <button class="btn btn-secondary" onclick="openFullFormFromQuick()">
+        &#128065; Edit Full Form
+      </button>
+      <button class="btn btn-primary" id="quick-save-btn" onclick="saveQuickItem()">Save</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const SUPABASE_URL="https://sdopdeqepjoshbzrpbmi.supabase.co";
@@ -1392,6 +1467,71 @@ function exportCSV(){
   a.download="items_"+new Date().toISOString().slice(0,10)+".csv";
   a.click();
 }
+
+// ===================== QUICK ADD =====================
+function openQuickAdd(){
+  document.getElementById("q-code").value="";
+  document.getElementById("q-name").value="";
+  document.getElementById("q-type").value="";
+  document.getElementById("q-uom").value="Nos";
+  document.getElementById("q-maintain-stock").checked=true;
+  // Populate categories
+  const qcat=document.getElementById("q-category");
+  qcat.innerHTML='<option value="">-- Select --</option>'+
+    categories.map(c=>`<option value="${c.id}">${c.name}</option>`).join("");
+  document.getElementById("quick-overlay").classList.add("open");
+  setTimeout(()=>document.getElementById("q-code").focus(),100);
+}
+
+function closeQuick(){
+  document.getElementById("quick-overlay").classList.remove("open");
+}
+
+function openFullFormFromQuick(){
+  // Transfer quick values to full form
+  const code=document.getElementById("q-code").value.trim();
+  const name=document.getElementById("q-name").value.trim();
+  const type=document.getElementById("q-type").value;
+  const uom=document.getElementById("q-uom").value;
+  const catId=document.getElementById("q-category").value;
+  closeQuick();
+  openAddModal();
+  // Fill full form
+  setTimeout(()=>{
+    if(code) document.getElementById("f-code").value=code;
+    if(name) document.getElementById("f-name").value=name;
+    if(type) document.getElementById("f-type").value=type;
+    if(uom) document.getElementById("f-uom").value=uom;
+    if(catId) document.getElementById("f-category").value=catId;
+  },100);
+}
+
+async function saveQuickItem(){
+  const code=document.getElementById("q-code").value.trim();
+  const name=document.getElementById("q-name").value.trim();
+  const type=document.getElementById("q-type").value;
+  const uom=document.getElementById("q-uom").value;
+  const category_id=document.getElementById("q-category").value||null;
+  if(!code||!type||!uom){showToast("Code, Type aur UOM required hain.","error");return;}
+  const btn=document.getElementById("quick-save-btn");
+  btn.disabled=true;btn.textContent="Saving...";
+  const {error}=await sb.from("items").insert([{
+    code, name:name||code,
+    type, uom,
+    category_id:category_id?parseInt(category_id):null,
+    is_active:true,
+    tax_rate:18,
+  }]);
+  btn.disabled=false;btn.textContent="Save";
+  if(error){showToast("Error: "+error.message,"error");return;}
+  showToast("Item saved! Full form mein details add kar sakte hain.","success");
+  closeQuick();
+  loadItems();
+}
+
+// Override openAddModal to show quick popup first
+const _origOpenAddModal=openAddModal;
+window.openAddModalFull=function(){_origOpenAddModal();}
 
 function showToast(msg,type=""){
   const t=document.getElementById("toast");

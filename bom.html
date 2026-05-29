@@ -155,6 +155,27 @@ tr:hover td{background:#fafbfc;}
 .confirm-box .actions{display:flex;gap:10px;justify-content:center;}
 
 /* TOAST */
+/* QUICK ADD POPUP */
+.quick-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:400;align-items:center;justify-content:center;}
+.quick-overlay.open{display:flex;}
+.quick-popup{background:#fff;border-radius:14px;width:100%;max-width:480px;box-shadow:0 24px 60px rgba(0,0,0,0.18);}
+.quick-header{padding:20px 24px 16px;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;justify-content:space-between;}
+.quick-header h3{font-size:17px;font-weight:700;color:var(--navy);}
+.quick-close{font-size:22px;cursor:pointer;color:#8a95a0;background:none;border:none;padding:2px 6px;border-radius:4px;}
+.quick-close:hover{background:#f0f2f5;}
+.quick-body{padding:20px 24px;}
+.quick-field{margin-bottom:16px;}
+.quick-field label{display:block;font-size:13px;font-weight:600;color:#4a5568;margin-bottom:6px;}
+.quick-field input,.quick-field select{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:10px 14px;font-size:14px;color:#1a2635;background:#f9fafb;outline:none;font-family:inherit;}
+.quick-field input:focus,.quick-field select:focus{border-color:var(--red);background:#fff;box-shadow:0 0 0 3px rgba(204,34,0,0.08);}
+.quick-footer{padding:16px 24px;border-top:1px solid #f0f4f8;display:flex;align-items:center;justify-content:space-between;}
+.quick-req{color:var(--red);}
+.quick-search-wrap{position:relative;}
+.quick-dd{display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.12);z-index:50;max-height:200px;overflow-y:auto;}
+.quick-dd.open{display:block;}
+.quick-dd-item{padding:9px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;gap:8px;}
+.quick-dd-item:last-child{border-bottom:none;}
+.quick-dd-item:hover{background:#f4f6f9;}
 .toast{position:fixed;bottom:24px;right:24px;background:#1a2635;color:#fff;padding:12px 18px;border-radius:8px;font-size:13.5px;z-index:999;opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateY(0);}
 .toast.success{background:#166534;}
@@ -186,7 +207,7 @@ tr:hover td{background:#fafbfc;}
     </div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-secondary" onclick="exportBOM()">&#11015; Export</button>
-      <button class="btn btn-primary" onclick="openEditor()">+ Create BOM</button>
+      <button class="btn btn-primary" onclick="openQuickBOM()">+ Create BOM</button>
     </div>
   </div>
 
@@ -369,6 +390,63 @@ tr:hover td{background:#fafbfc;}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- QUICK CREATE BOM POPUP -->
+<div class="quick-overlay" id="quick-overlay">
+  <div class="quick-popup">
+    <div class="quick-header">
+      <h3>New BOM</h3>
+      <button class="quick-close" onclick="closeQuickBOM()">&#10005;</button>
+    </div>
+    <div class="quick-body">
+      <div class="quick-field">
+        <label>Finished / SFG Item <span class="quick-req">*</span></label>
+        <div class="quick-search-wrap">
+          <input type="text" id="q-item-search" placeholder="FG ya SFG item search karein..." oninput="quickSearchItem()" autocomplete="off"/>
+          <div class="quick-dd" id="q-item-dd"></div>
+        </div>
+        <input type="hidden" id="q-item-id"/>
+        <span id="q-item-info" style="font-size:12px;color:#166534;margin-top:4px;display:block;"></span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="quick-field">
+          <label>Output Qty <span class="quick-req">*</span></label>
+          <input type="number" id="q-output-qty" value="1" min="0.01" step="0.01"/>
+        </div>
+        <div class="quick-field">
+          <label>Output UOM <span class="quick-req">*</span></label>
+          <select id="q-output-uom">
+            <option value="PCS">PCS</option>
+            <option value="Set">Set</option>
+            <option value="Nos">Nos</option>
+            <option value="Kg">Kg</option>
+            <option value="Box">Box</option>
+          </select>
+        </div>
+        <div class="quick-field">
+          <label>Status</label>
+          <select id="q-status">
+            <option value="Draft">Draft</option>
+            <option value="Active">Active</option>
+          </select>
+        </div>
+        <div class="quick-field">
+          <label>Is Default BOM?</label>
+          <select id="q-is-default">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="quick-footer">
+      <button class="btn btn-secondary" onclick="openFullBOMFromQuick()">
+        &#128065; Edit Full Form
+      </button>
+      <button class="btn btn-primary" id="q-save-btn" onclick="saveQuickBOM()">Save &amp; Add Components</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const SUPABASE_URL="https://sdopdeqepjoshbzrpbmi.supabase.co";
@@ -880,6 +958,100 @@ function exportBOM(){
   a.click();
 }
 
+// ===================== QUICK BOM =====================
+function openQuickBOM(){
+  document.getElementById("q-item-search").value="";
+  document.getElementById("q-item-id").value="";
+  document.getElementById("q-item-info").textContent="";
+  document.getElementById("q-output-qty").value=1;
+  document.getElementById("q-output-uom").value="PCS";
+  document.getElementById("q-status").value="Draft";
+  document.getElementById("q-is-default").value="true";
+  document.getElementById("quick-overlay").classList.add("open");
+  setTimeout(()=>document.getElementById("q-item-search").focus(),100);
+}
+
+function closeQuickBOM(){
+  document.getElementById("quick-overlay").classList.remove("open");
+}
+
+function quickSearchItem(){
+  const q=document.getElementById("q-item-search").value.toLowerCase();
+  const dd=document.getElementById("q-item-dd");
+  if(q.length<1){dd.classList.remove("open");return;}
+  const results=allItems.filter(x=>
+    (x.type==="FG"||x.type==="SFG")&&
+    ((x.code||"").toLowerCase().includes(q)||(x.name||"").toLowerCase().includes(q))
+  ).slice(0,8);
+  if(!results.length){dd.classList.remove("open");return;}
+  dd.innerHTML=results.map(x=>`
+    <div class="quick-dd-item" onclick="selectQuickItem(${x.id},'${x.code}','${(x.name||"").replace(/'/g,"\'")}','${x.uom||"PCS"}','${x.type}')">
+      <span style="font-family:monospace;font-size:11px;background:#f0f4f8;padding:1px 5px;border-radius:3px;color:#5a6878;">${x.code}</span>
+      <span>${x.name}</span>
+      <span style="margin-left:auto;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:${x.type==="FG"?"#fff0ee":"#f0fdf4"};color:${x.type==="FG"?"#cc2200":"#166534"};">${x.type}</span>
+    </div>`).join("");
+  dd.classList.add("open");
+}
+
+function selectQuickItem(id, code, name, uom, type){
+  document.getElementById("q-item-search").value=code+" — "+name;
+  document.getElementById("q-item-id").value=id;
+  document.getElementById("q-item-info").textContent="✓ "+type+" | Default UOM: "+uom;
+  document.getElementById("q-output-uom").value=uom||"PCS";
+  document.getElementById("q-item-dd").classList.remove("open");
+}
+
+async function saveQuickBOM(){
+  const item_id=parseInt(document.getElementById("q-item-id").value)||null;
+  if(!item_id){showToast("Item select karein.","error");return;}
+  const btn=document.getElementById("q-save-btn");
+  btn.disabled=true;btn.textContent="Saving...";
+  const {data:{session}}=await sb.auth.getSession();
+  const payload={
+    item_id,
+    output_qty:parseFloat(document.getElementById("q-output-qty").value)||1,
+    output_uom:document.getElementById("q-output-uom").value,
+    status:document.getElementById("q-status").value,
+    is_default:document.getElementById("q-is-default").value==="true",
+    version:1,
+    created_by:session?.user?.id||null,
+  };
+  // Auto version
+  const {data:vdata}=await sb.from("bom_headers").select("version").eq("item_id",item_id).order("version",{ascending:false}).limit(1);
+  if(vdata&&vdata.length) payload.version=vdata[0].version+1;
+
+  const {data:ins,error}=await sb.from("bom_headers").insert([payload]).select().single();
+  btn.disabled=false;btn.textContent="Save & Add Components";
+  if(error){showToast("Error: "+error.message,"error");return;}
+  showToast("BOM created! Ab components add karein.","success");
+  closeQuickBOM();
+  await loadBOMs();
+  // Auto open full editor for this BOM
+  editBOM(ins.id);
+}
+
+function openFullBOMFromQuick(){
+  const item_id=document.getElementById("q-item-id").value;
+  const itemSearch=document.getElementById("q-item-search").value;
+  const outputQty=document.getElementById("q-output-qty").value;
+  const outputUom=document.getElementById("q-output-uom").value;
+  const status=document.getElementById("q-status").value;
+  closeQuickBOM();
+  openEditor();
+  // Pre-fill full form
+  setTimeout(()=>{
+    if(item_id){
+      document.getElementById("h-item-id").value=item_id;
+      document.getElementById("h-item-search").value=itemSearch;
+      document.getElementById("h-item-info").textContent=document.getElementById("q-item-info").textContent;
+    }
+    document.getElementById("h-output-qty").value=outputQty||1;
+    document.getElementById("h-output-uom").value=outputUom||"PCS";
+    document.getElementById("h-status").value=status||"Draft";
+    if(item_id) autoSetVersion(parseInt(item_id));
+  },100);
+}
+
 function showToast(msg,type=""){
   const t=document.getElementById("toast");
   t.textContent=msg;t.className="toast show "+type;
@@ -891,6 +1063,11 @@ async function handleLogout(){await sb.auth.signOut();window.location.href="inde
 document.addEventListener("click",e=>{
   if(!e.target.closest(".search-wrap"))
     document.querySelectorAll(".item-dd").forEach(d=>d.classList.remove("open"));
+  if(!e.target.closest(".quick-search-wrap"))
+    document.querySelectorAll(".quick-dd").forEach(d=>d.classList.remove("open"));
+});
+document.getElementById("quick-overlay").addEventListener("click",function(e){
+  if(e.target===this)closeQuickBOM();
 });
 document.getElementById("confirm-modal").addEventListener("click",function(e){if(e.target===this)closeConfirm();});
 document.getElementById("global-search").addEventListener("input",function(){
