@@ -105,6 +105,7 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a263
 <a class="nav-item" href="machines.html"><span class="icon">&#9881;&#65039;</span> Machine Master</a>
 <a class="nav-item" href="work_orders.html"><span class="icon">&#127981;</span> Work Orders</a>
 <a class="nav-item" href="production_plan.html"><span class="icon">&#128203;</span> Production Plan</a>
+<a class="nav-item" href="mrp.html"><span class="icon">&#128200;</span> MRP</a>
 <a class="nav-item" href="#"><span class="icon">&#128101;</span> Labour Planning</a>
 <a class="nav-item" href="#"><span class="icon">&#128196;</span> Job Cards</a>
 </div></div>
@@ -199,6 +200,41 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a263
     </a>
   </div>
 
+  <!-- FINANCIAL STATS ROW -->
+  <div class="section-title">&#128200; Financial Overview</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px;" id="fin-stats">
+    <div class="stat-card" style="border-left:4px solid #854d0e;">
+      <div class="stat-top"><span class="stat-label">WIP — Work In Progress</span><span class="stat-icon">&#127981;</span></div>
+      <div class="stat-value" id="stat-wip">—</div>
+      <div class="stat-sub neutral" id="stat-wip-sub">Loading...</div>
+    </div>
+    <div class="stat-card" style="border-left:4px solid #166534;">
+      <div class="stat-top"><span class="stat-label">Total Receivable</span><span class="stat-icon">&#129534;</span></div>
+      <div class="stat-value" id="stat-recv">—</div>
+      <div class="stat-sub neutral" id="stat-recv-sub">Loading...</div>
+    </div>
+    <div class="stat-card" style="border-left:4px solid #991b1b;">
+      <div class="stat-top"><span class="stat-label">Total Payable</span><span class="stat-icon">&#128715;</span></div>
+      <div class="stat-value" id="stat-pay">—</div>
+      <div class="stat-sub neutral" id="stat-pay-sub">Loading...</div>
+    </div>
+    <div class="stat-card" style="border-left:4px solid #1e40af;">
+      <div class="stat-top"><span class="stat-label">Avg Receivable Days</span><span class="stat-icon">&#128197;</span></div>
+      <div class="stat-value" id="stat-recv-days">—</div>
+      <div class="stat-sub neutral" id="stat-recv-days-sub">Days outstanding</div>
+    </div>
+    <div class="stat-card" style="border-left:4px solid #7c3aed;">
+      <div class="stat-top"><span class="stat-label">Overdue Invoices</span><span class="stat-icon">&#9888;&#65039;</span></div>
+      <div class="stat-value" id="stat-overdue">—</div>
+      <div class="stat-sub neutral" id="stat-overdue-sub">Loading...</div>
+    </div>
+    <div class="stat-card" style="border-left:4px solid #0891b2;">
+      <div class="stat-top"><span class="stat-label">Open Sales Orders</span><span class="stat-icon">&#128188;</span></div>
+      <div class="stat-value" id="stat-so">—</div>
+      <div class="stat-sub neutral" id="stat-so-sub">Loading...</div>
+    </div>
+  </div>
+
   <!-- MODULES -->
   <div class="section-title">Quick Access</div>
   <div class="modules-grid">
@@ -264,7 +300,70 @@ const sb=createClient(SUPABASE_URL,SUPABASE_KEY);
 
 async function refreshAll(){
   document.getElementById("last-refresh").textContent="Last updated: "+new Date().toLocaleTimeString("en-IN");
-  await Promise.all([loadStats(),loadWOPanel(),loadStockPanel(),loadPlanPanel(),loadItemsPanel()]);
+  await Promise.all([loadStats(),loadFinStats(),loadWOPanel(),loadStockPanel(),loadPlanPanel(),loadItemsPanel()]);
+}
+
+async function loadFinStats(){
+  try{
+    // WIP — In Progress Work Orders
+    const {data:wip}=await sb.from("work_orders").select("planned_qty,completed_qty,uom,status").in("status",["Pending","Assigned","In Progress"]);
+    const wipCount=(wip||[]).length;
+    const wipPcs=(wip||[]).reduce((s,w)=>{
+      const rem=parseFloat(w.planned_qty||0)-parseFloat(w.completed_qty||0);
+      return s+(rem>0?rem:0);
+    },0);
+    document.getElementById("stat-wip").textContent=wipCount;
+    document.getElementById("stat-wip-sub").textContent=wipPcs.toLocaleString()+" pcs remaining";
+    document.getElementById("stat-wip").style.color=wipCount>0?"#854d0e":"#166534";
+
+    // Receivable — unpaid invoices
+    const {data:invs}=await sb.from("invoices").select("total_amount,status,due_date,invoice_date").in("status",["Sent","Partially Paid","Overdue"]);
+    const totalRecv=(invs||[]).reduce((s,i)=>s+parseFloat(i.total_amount||0),0);
+    const overdue=(invs||[]).filter(i=>i.status==="Overdue"||new Date(i.due_date)<new Date()).length;
+    document.getElementById("stat-recv").textContent="₹"+formatAmt(totalRecv);
+    document.getElementById("stat-recv-sub").textContent=(invs||[]).length+" invoices pending";
+    document.getElementById("stat-recv").style.color=totalRecv>0?"#166534":"#8a95a0";
+
+    // Avg receivable days
+    const today=new Date();
+    const days=(invs||[]).filter(i=>i.invoice_date).map(i=>{
+      const diff=Math.floor((today-new Date(i.invoice_date))/(1000*60*60*24));
+      return diff;
+    });
+    const avgDays=days.length?Math.round(days.reduce((a,b)=>a+b,0)/days.length):0;
+    document.getElementById("stat-recv-days").textContent=avgDays;
+    document.getElementById("stat-recv-days").style.color=avgDays>45?"#dc2626":avgDays>30?"#854d0e":"#166534";
+    document.getElementById("stat-recv-days-sub").textContent=avgDays>45?"⚠️ High — follow up needed":avgDays>30?"Watch closely":"Good";
+
+    // Overdue
+    document.getElementById("stat-overdue").textContent=overdue;
+    document.getElementById("stat-overdue").style.color=overdue>0?"#dc2626":"#166534";
+    document.getElementById("stat-overdue-sub").textContent=overdue>0?"Immediate follow up!":"All on time";
+
+    // Payable — pending POs
+    const {data:pos}=await sb.from("purchase_orders").select("total_amount,status").in("status",["Approved","Ordered","Partially Received"]);
+    const totalPay=(pos||[]).reduce((s,p)=>s+parseFloat(p.total_amount||0),0);
+    document.getElementById("stat-pay").textContent="₹"+formatAmt(totalPay);
+    document.getElementById("stat-pay-sub").textContent=(pos||[]).length+" POs pending";
+    document.getElementById("stat-pay").style.color=totalPay>0?"#991b1b":"#8a95a0";
+
+    // Open Sales Orders
+    const {data:sos}=await sb.from("sales_orders").select("total_amount,status").in("status",["Confirmed","In Production","Ready","Partially Dispatched"]);
+    const soAmt=(sos||[]).reduce((s,o)=>s+parseFloat(o.total_amount||0),0);
+    document.getElementById("stat-so").textContent=(sos||[]).length;
+    document.getElementById("stat-so-sub").textContent="₹"+formatAmt(soAmt)+" order value";
+    document.getElementById("stat-so").style.color=(sos||[]).length>0?"#0891b2":"#8a95a0";
+
+  }catch(e){
+    console.warn("Financial stats error:",e);
+  }
+}
+
+function formatAmt(n){
+  if(n>=10000000) return (n/10000000).toFixed(1)+"Cr";
+  if(n>=100000) return (n/100000).toFixed(1)+"L";
+  if(n>=1000) return (n/1000).toFixed(1)+"K";
+  return n.toFixed(0);
 }
 
 async function loadStats(){
