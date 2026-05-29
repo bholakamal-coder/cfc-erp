@@ -560,6 +560,8 @@ function searchInputItem(n){
   const q=document.getElementById(`inp-search-${n}`).value.toLowerCase();
   const dd=document.getElementById(`inp-dd-${n}`);
   if(q.length<1){dd.style.display="none";return;}
+  const inp=document.getElementById(`inp-search-${n}`);
+  if(inp){const r=inp.getBoundingClientRect();dd.style.position="fixed";dd.style.top=(r.bottom+2)+"px";dd.style.left=r.left+"px";dd.style.width=Math.max(r.width,280)+"px";dd.style.zIndex="9999";}
   const res=allItems.filter(x=>(x.code||"").toLowerCase().includes(q)||(x.name||"").toLowerCase().includes(q)).slice(0,8);
   if(!res.length){dd.style.display="none";return;}
   dd.innerHTML=res.map(x=>`<div onclick="selectInput(${n},${x.id},'${x.code}','${x.uom||'PCS'}')" 
@@ -581,6 +583,8 @@ function searchOutputItem(){
   const q=document.getElementById("rs-output-search").value.toLowerCase();
   const dd=document.getElementById("rs-output-dd");
   if(q.length<1){dd.style.display="none";return;}
+  const inp=document.getElementById("rs-output-search");
+  if(inp){const r=inp.getBoundingClientRect();dd.style.position="fixed";dd.style.top=(r.bottom+2)+"px";dd.style.left=r.left+"px";dd.style.width=Math.max(r.width,280)+"px";dd.style.zIndex="9999";}
   const res=allItems.filter(x=>(x.code||"").toLowerCase().includes(q)||(x.name||"").toLowerCase().includes(q)).slice(0,8);
   if(!res.length){dd.style.display="none";return;}
   dd.innerHTML=res.map(x=>`<div onclick="selectOutput(${x.id},'${x.code}','${x.name}','${x.uom||'PCS'}')" 
