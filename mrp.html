@@ -262,6 +262,13 @@ async function loadMRP(){
     .select("id,bom_id,item_id,qty,uom,scrap_percent");
   const allLines=bomLines||[];
 
+  // 4b. Load reorder levels from sku_planning
+  const {data:skuData}=await sb.from("sku_planning")
+    .select("item_id,reorder_level,reorder_qty,min_stock");
+  const skuMap={};
+  (skuData||[]).forEach(s=>skuMap[s.item_id]=s);
+  window._skuMap=skuMap;
+
   // 5. Load items for BOM lines
   const lineItemIds=[...new Set(allLines.map(l=>l.item_id).filter(Boolean))];
   let itemsMap={};
@@ -335,11 +342,16 @@ async function runMRP(){
 
         if(!reqMap[iid]){
           const inv=allInventory.find(x=>x.item_id===iid);
+          const sku=window._skuMap?.[iid];
+          const avail=inv?parseFloat(inv.available_stock??inv.current_stock??0):0;
           reqMap[iid]={
             item_id:iid,code:item.code,name:item.name,
             type:item.type,uom:item.uom||line.uom,
             required:0,
-            available:inv?parseFloat(inv.available_stock??inv.current_stock??0):0,
+            available:avail,
+            reorder_level:parseFloat(sku?.reorder_level||0),
+            reorder_qty:parseFloat(sku?.reorder_qty||0),
+            min_stock:parseFloat(sku?.min_stock||0),
             wo_refs:[]
           };
         }
@@ -371,11 +383,18 @@ async function runMRP(){
   mrpResults=Object.values(reqMap).map(r=>{
     const shortage=r.required-r.available;
     const pct=r.required>0?Math.min(100,Math.round((r.available/r.required)*100)):100;
-    return {...r, shortage, pct,
-      status: r.required<=0?"NA": shortage<=0?"OK": r.available>0?"Partial":"Shortage"
-    };
+    const belowReorder=r.reorder_level>0&&r.available<=r.reorder_level;
+    const belowMin=r.min_stock>0&&r.available<r.min_stock;
+    let status;
+    if(r.required<=0) status="NA";
+    else if(shortage<=0) status="OK";
+    else if(r.available>0) status="Partial";
+    else status="Shortage";
+    // Override if below reorder even if stock ok
+    let reorderAlert=belowMin?"Below Min":belowReorder?"Reorder":"";
+    return {...r, shortage, pct, status, reorderAlert, belowReorder, belowMin};
   }).sort((a,b)=>{
-    const order={Shortage:0,Partial:1,OK:2,NA:3};
+    const order={Shortage:0,Partial:1,"Below Min":1,OK:2,NA:3};
     return (order[a.status]||3)-(order[b.status]||3);
   });
 
@@ -409,6 +428,14 @@ async function runMRP(){
       <small>${shortItems.map(r=>r.code).join(", ")}</small>
     </div>`;
   }
+  // Reorder alerts
+  const reorderItems=mrpResults.filter(r=>r.belowReorder||r.belowMin);
+  if(reorderItems.length>0){
+    summaryHtml+=`<div class="warn-box" style="background:#fefce8;border-color:#fde047;color:#854d0e;">
+      &#128204; <strong>${reorderItems.length} items reorder level se neeche hain</strong> — Purchase Order banana chahiye!<br>
+      <small>${reorderItems.map(r=>r.code+" ("+r.available.toFixed(1)+" &lt; "+r.reorder_level+")").join(", ")}</small>
+    </div>`;
+  }
   if(partial>0){
     summaryHtml+=`<div class="warn-box">
       &#9888; <strong>${partial} items mein partial stock hai</strong> — Kuch requirement poori nahi hogi.<br>
@@ -427,7 +454,7 @@ async function runMRP(){
       <thead><tr>
         <th>#</th><th>Code</th><th>Name</th><th>Type</th>
         <th>Required</th><th>Available</th><th>Shortage</th>
-        <th>Coverage</th><th>Status</th><th>WO References</th>
+        <th>Reorder Lvl</th><th>Coverage</th><th>Status</th><th>Reorder Alert</th><th>WO References</th>
       </tr></thead>
       <tbody>
         ${display.map((r,i)=>`<tr style="${r.status==="Shortage"?"background:#fff5f5;":r.status==="Partial"?"background:#fffbeb;":""}">
@@ -440,6 +467,10 @@ async function runMRP(){
           <td style="color:${r.shortage>0?"#dc2626":"#166534"};font-weight:700;">
             ${r.shortage>0?"+"+r.shortage.toFixed(2)+" ❌":"OK ✓"}
           </td>
+          <td style="font-size:12px;">
+            ${r.reorder_level>0?`<span style="color:${r.belowReorder?"#dc2626":"#5a6878"};">${r.reorder_level} ${r.uom}</span>`:"—"}
+            ${r.min_stock>0?`<br><span style="font-size:10px;color:#8a95a0;">Min: ${r.min_stock}</span>`:""}
+          </td>
           <td style="min-width:100px;">
             <div class="progress-bar">
               <div class="progress-fill" style="width:${r.pct}%;background:${r.pct>=100?"#22c55e":r.pct>50?"#f59e0b":"#ef4444"};"></div>
@@ -447,6 +478,7 @@ async function runMRP(){
             <span style="font-size:10px;color:#8a95a0;">${r.pct}%</span>
           </td>
           <td><span class="pill pill-${r.status==="OK"?"ok":r.status==="Shortage"?"short":r.status==="Partial"?"low":"na"}">${r.status}</span></td>
+          <td>${r.reorderAlert?`<span style="background:${r.belowMin?"#fee2e2":"#fef9c3"};color:${r.belowMin?"#991b1b":"#854d0e"};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">⚠️ ${r.reorderAlert}</span>`:"—"}</td>
           <td style="font-size:11px;color:#5a6878;max-width:150px;">${r.wo_refs.slice(0,3).join(", ")}${r.wo_refs.length>3?"...":""}</td>
         </tr>`).join("")}
       </tbody>
