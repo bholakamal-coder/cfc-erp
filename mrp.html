@@ -244,15 +244,33 @@ async function runMRP(){
         })};
     });
 
-    if(!allWOs.length){wrap.innerHTML='<div class="warn-box">Koi active Work Order nahi. WO banao (Pending/In Progress).</div>';return;}
-    if(!allBOMs.length){wrap.innerHTML='<div class="warn-box">Koi Default BOM nahi. BOM page pe is_default=Yes karo.</div>';return;}
-    var tl=allBOMs.reduce(function(s,b){return s+b.bom_lines.length;},0);
-    if(!tl){wrap.innerHTML='<div class="warn-box">BOM mein components nahi hain. BOM page pe components add karo.</div>';return;}
-
     var tf=document.getElementById('mrp-type-filter').value;
     var rMap={};
 
-    allWOs.forEach(function(wo){
+    // PART A: Reorder level check — WO ho ya na ho, sabhi items check karo
+    allInventory.forEach(function(inv){
+      var sku=allSkuMap[inv.item_id]||null;
+      if(!sku)return;
+      var rl=parseFloat(sku.reorder_level||0);
+      var ms=parseFloat(sku.min_stock||0);
+      if(rl<=0&&ms<=0)return; // no reorder level set
+      var av=parseFloat(inv.available_stock!==null&&inv.available_stock!==undefined?inv.available_stock:inv.current_stock||0)||0;
+      var br=rl>0&&av<=rl;
+      var bm=ms>0&&av<ms;
+      if(!br&&!bm)return; // stock ok
+      if(!rMap[inv.item_id]){
+        rMap[inv.item_id]={
+          id:inv.item_id,code:'...',name:'...',type:'',uom:'',
+          req:0,av:av,
+          rl:rl,rq2:parseFloat(sku.reorder_qty||0),ms:ms,
+          wos:['Reorder Alert']
+        };
+      }
+    });
+
+    // PART B: WO-based requirement check
+    if(allWOs.length>0&&allBOMs.length>0){
+      allWOs.forEach(function(wo){
       var wq2=parseFloat(wo.planned_qty)||0;
       if(!wq2)return;
       allBOMs.forEach(function(bom){
@@ -284,8 +302,17 @@ async function runMRP(){
       });
     });
 
+    // Load item details for reorder-only items
+    var missingIds=Object.keys(rMap).filter(function(id){return rMap[id].code==='...';}).map(Number);
+    if(missingIds.length>0){
+      var mires=await sc.from('items').select('id,code,name,type,uom').in('id',missingIds);
+      (mires.data||[]).forEach(function(item){
+        if(rMap[item.id]){rMap[item.id].code=item.code;rMap[item.id].name=item.name;rMap[item.id].type=item.type;rMap[item.id].uom=item.uom||'PCS';}
+      });
+    }
+
     if(!Object.keys(rMap).length){
-      wrap.innerHTML='<div class="warn-box">Requirement calculate nahi hui. WOs:'+allWOs.length+' BOMs:'+allBOMs.length+' Lines:'+tl+'</div>';return;
+      wrap.innerHTML='<div class="warn-box">Koi item nahi mila. Inventory mein stock add karo ya reorder level set karo.</div>';return;
     }
 
     mrpResults=Object.values(rMap).map(function(r){
