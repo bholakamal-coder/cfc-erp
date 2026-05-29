@@ -810,17 +810,21 @@ async function editBOM(id){
   // Load lines
   document.getElementById("lines-tbody").innerHTML="";
   const {data:lines}=await sb.from("bom_lines").select("*, items(code,name,type,uom)").eq("bom_id",id).order("line_no");
-  (lines||[]).forEach(l=>addLine() && (() => {
+  (lines||[]).forEach(l=>{
+    addLine();
     const n=lineCount;
-    document.getElementById("ls-"+n).value=(l.items?.code||"")+" — "+(l.items?.name||"");
+    const code=l.items?l.items.code:"";
+    const name=l.items?l.items.name:"";
+    const itype=l.items?l.items.type:"";
+    document.getElementById("ls-"+n).value=code+(name?" — "+name:"");
     document.getElementById("li-"+n).value=l.item_id;
-    document.getElementById("lu-"+n).value=l.uom;
-    document.getElementById("lq-"+n).value=l.qty;
+    document.getElementById("lu-"+n).value=l.uom||"PCS";
+    document.getElementById("lq-"+n).value=l.qty||1;
     document.getElementById("lsc-"+n).value=l.scrap_percent||0;
     document.getElementById("lo-"+n).checked=l.is_optional||false;
     document.getElementById("ln-"+n).value=l.notes||"";
-    document.getElementById("lt-"+n).textContent=l.items?.type||"";
-  })());
+    document.getElementById("lt-"+n).textContent=itype;
+  });
   updateLineBadge();
   updateTotals();
 
