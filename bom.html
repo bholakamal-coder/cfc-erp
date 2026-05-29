@@ -100,7 +100,7 @@ tr:hover td{background:#fafbfc;}
 
 /* ITEM SEARCH */
 .search-wrap{position:relative;}
-.item-dd{display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #dde3ea;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,0.12);z-index:50;max-height:200px;overflow-y:auto;}
+.item-dd{display:none;position:fixed;background:#fff;border:1px solid #dde3ea;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,0.18);z-index:9999;max-height:220px;overflow-y:auto;min-width:320px;}
 .item-dd.open{display:block;}
 .dd-item{padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;gap:8px;}
 .dd-item:last-child{border-bottom:none;}
@@ -607,6 +607,8 @@ function searchFGItems(){
   const q=document.getElementById("h-item-search").value.toLowerCase();
   const dd=document.getElementById("h-item-dd");
   if(q.length<1){dd.classList.remove("open");return;}
+  const hinp=document.getElementById("h-item-search");
+  if(hinp){const r=hinp.getBoundingClientRect();dd.style.top=(r.bottom+2)+"px";dd.style.left=r.left+"px";dd.style.width=Math.max(r.width,320)+"px";}
   const results=allItems.filter(x=>
     (x.type==="FG"||x.type==="SFG")&&
     ((x.code||"").toLowerCase().includes(q)||(x.name||"").toLowerCase().includes(q))
@@ -677,6 +679,14 @@ function searchComponent(n, typeFilter){
   const dd=document.getElementById("ld-"+n);
   if(!dd)return;
   if(q.length<1){dd.classList.remove("open");return;}
+  // Position dropdown using input field coordinates
+  const inp=document.getElementById("ls-"+n);
+  if(inp){
+    const rect=inp.getBoundingClientRect();
+    dd.style.top=(rect.bottom+2)+"px";
+    dd.style.left=rect.left+"px";
+    dd.style.width=Math.max(rect.width,320)+"px";
+  }
   let items=(allItems||[]).slice();
   items=items.filter(x=>x.type!=="FG");
   if(typeFilter==="RM") items=items.filter(x=>x.type==="RM");
