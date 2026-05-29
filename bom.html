@@ -205,8 +205,10 @@ tr:hover td{background:#fafbfc;}
       <h1>&#128295; BOM Master</h1>
       <p>Bill of Materials — FG &amp; SFG items ke components define karein</p>
     </div>
-    <div style="display:flex;gap:8px;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-secondary" onclick="openImportModal()">&#11014; Import</button>
       <button class="btn btn-secondary" onclick="exportBOM()">&#11015; Export</button>
+      <button class="btn btn-secondary" onclick="downloadTemplate()">&#128196; Template</button>
       <button class="btn btn-primary" onclick="openQuickBOM()">+ Create BOM</button>
     </div>
   </div>
@@ -379,6 +381,63 @@ tr:hover td{background:#fafbfc;}
   </div>
 
 </div></div>
+
+<!-- IMPORT MODAL -->
+<div class="quick-overlay" id="import-overlay">
+  <div class="quick-popup" style="max-width:600px;">
+    <div class="quick-header">
+      <h3>&#11014; Import BOM from CSV</h3>
+      <button class="quick-close" onclick="closeImportModal()">&#10005;</button>
+    </div>
+    <div class="quick-body" style="padding-bottom:8px;">
+
+      <!-- TABS -->
+      <div style="display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:16px;">
+        <button id="imp-tab-1" onclick="switchImportTab(1)" style="padding:8px 16px;font-size:13px;font-weight:600;color:var(--red);background:none;border:none;cursor:pointer;border-bottom:2px solid var(--red);margin-bottom:-2px;">
+          Sheet 1: BOM Headers
+        </button>
+        <button id="imp-tab-2" onclick="switchImportTab(2)" style="padding:8px 16px;font-size:13px;font-weight:600;color:#8a95a0;background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;">
+          Sheet 2: BOM Lines
+        </button>
+      </div>
+
+      <!-- TAB 1: Headers -->
+      <div id="imp-pane-1">
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px;font-size:12.5px;color:#1e40af;margin-bottom:12px;">
+          &#128196; <strong>Sheet 1 — BOM Headers:</strong> Ek row = ek BOM<br/>
+          Columns: <code>item_code, output_qty, output_uom, version, status, is_default, notes</code>
+        </div>
+        <div class="quick-field">
+          <label>Headers CSV File</label>
+          <input type="file" id="imp-header-file" accept=".csv" onchange="previewHeaderCSV(event)" style="border:1.5px dashed #dde3ea;border-radius:8px;padding:12px;background:#f9fafb;cursor:pointer;"/>
+        </div>
+        <div id="imp-header-preview"></div>
+      </div>
+
+      <!-- TAB 2: Lines -->
+      <div id="imp-pane-2" style="display:none;">
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px;font-size:12.5px;color:#166534;margin-bottom:12px;">
+          &#128196; <strong>Sheet 2 — BOM Lines:</strong> Multiple rows per BOM<br/>
+          Columns: <code>item_code (FG/SFG), component_code, qty, uom, scrap_percent, is_optional, notes</code><br/>
+          <span style="font-size:11px;opacity:0.8;">item_code = BOM ka FG/SFG item (Sheet 1 se match hoga)</span>
+        </div>
+        <div class="quick-field">
+          <label>Lines CSV File</label>
+          <input type="file" id="imp-lines-file" accept=".csv" onchange="previewLinesCSV(event)" style="border:1.5px dashed #dde3ea;border-radius:8px;padding:12px;background:#f9fafb;cursor:pointer;"/>
+        </div>
+        <div id="imp-lines-preview"></div>
+      </div>
+
+      <!-- IMPORT STATUS -->
+      <div id="imp-status" style="margin-top:8px;"></div>
+
+    </div>
+    <div class="quick-footer">
+      <button class="btn btn-secondary" onclick="closeImportModal()">Cancel</button>
+      <button class="btn btn-primary" id="imp-btn" onclick="runImport()" style="display:none;">&#11014; Import Now</button>
+    </div>
+  </div>
+</div>
 
 <!-- DELETE CONFIRM -->
 <div class="confirm-overlay" id="confirm-modal">
@@ -1051,6 +1110,184 @@ function openFullBOMFromQuick(){
   },100);
 }
 
+// ===================== IMPORT BOM =====================
+let importHeaderRows=[], importLineRows=[];
+
+function openImportModal(){
+  importHeaderRows=[];importLineRows=[];
+  document.getElementById("imp-header-file").value="";
+  document.getElementById("imp-lines-file").value="";
+  document.getElementById("imp-header-preview").innerHTML="";
+  document.getElementById("imp-lines-preview").innerHTML="";
+  document.getElementById("imp-status").innerHTML="";
+  document.getElementById("imp-btn").style.display="none";
+  switchImportTab(1);
+  document.getElementById("import-overlay").classList.add("open");
+}
+
+function closeImportModal(){
+  document.getElementById("import-overlay").classList.remove("open");
+}
+
+function switchImportTab(n){
+  document.getElementById("imp-pane-1").style.display=n===1?"block":"none";
+  document.getElementById("imp-pane-2").style.display=n===2?"block":"none";
+  document.getElementById("imp-tab-1").style.color=n===1?"var(--red)":"#8a95a0";
+  document.getElementById("imp-tab-1").style.borderBottomColor=n===1?"var(--red)":"transparent";
+  document.getElementById("imp-tab-2").style.color=n===2?"var(--red)":"#8a95a0";
+  document.getElementById("imp-tab-2").style.borderBottomColor=n===2?"var(--red)":"transparent";
+}
+
+function parseCSV(text){
+  const lines=text.trim().split(/\r?\n/);
+  const headers=lines[0].split(",").map(h=>h.replace(/"/g,"").trim().toLowerCase().replace(/ /g,"_"));
+  return lines.slice(1).filter(l=>l.trim()).map(line=>{
+    const vals=line.split(",").map(v=>v.replace(/"/g,"").trim());
+    const row={};headers.forEach((h,i)=>{row[h]=vals[i]||"";});
+    return row;
+  });
+}
+
+function previewHeaderCSV(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    importHeaderRows=parseCSV(e.target.result);
+    const preview=document.getElementById("imp-header-preview");
+    if(!importHeaderRows.length){preview.innerHTML="<div style='color:#dc2626;font-size:13px;'>No data found.</div>";return;}
+    preview.innerHTML=`
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 12px;font-size:13px;color:#166534;margin-bottom:8px;">
+        &#10003; <strong>${importHeaderRows.length} BOMs</strong> ready to import
+      </div>
+      <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead style="background:#f8fafc;">
+          <tr>${Object.keys(importHeaderRows[0]).map(k=>`<th style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap;">${k}</th>`).join("")}</tr>
+        </thead>
+        <tbody>
+          ${importHeaderRows.slice(0,3).map(r=>`<tr>${Object.values(r).map(v=>`<td style="padding:5px 8px;border-bottom:1px solid #f0f4f8;">${v}</td>`).join("")}</tr>`).join("")}
+          ${importHeaderRows.length>3?`<tr><td colspan="99" style="padding:5px 8px;color:#8a95a0;font-size:11px;">...and ${importHeaderRows.length-3} more</td></tr>`:""}
+        </tbody>
+      </table></div>`;
+    checkImportReady();
+  };
+  reader.readAsText(file);
+}
+
+function previewLinesCSV(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    importLineRows=parseCSV(e.target.result);
+    const preview=document.getElementById("imp-lines-preview");
+    if(!importLineRows.length){preview.innerHTML="<div style='color:#dc2626;font-size:13px;'>No data found.</div>";return;}
+    preview.innerHTML=`
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 12px;font-size:13px;color:#166534;margin-bottom:8px;">
+        &#10003; <strong>${importLineRows.length} component rows</strong> ready to import
+      </div>
+      <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead style="background:#f8fafc;">
+          <tr>${Object.keys(importLineRows[0]).map(k=>`<th style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap;">${k}</th>`).join("")}</tr>
+        </thead>
+        <tbody>
+          ${importLineRows.slice(0,3).map(r=>`<tr>${Object.values(r).map(v=>`<td style="padding:5px 8px;border-bottom:1px solid #f0f4f8;">${v}</td>`).join("")}</tr>`).join("")}
+          ${importLineRows.length>3?`<tr><td colspan="99" style="padding:5px 8px;color:#8a95a0;font-size:11px;">...and ${importLineRows.length-3} more</td></tr>`:""}
+        </tbody>
+      </table></div>`;
+    checkImportReady();
+  };
+  reader.readAsText(file);
+}
+
+function checkImportReady(){
+  const ready=importHeaderRows.length>0&&importLineRows.length>0;
+  document.getElementById("imp-btn").style.display=ready?"inline-flex":"none";
+  if(ready){
+    document.getElementById("imp-status").innerHTML=`
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:10px;font-size:12.5px;color:#854d0e;margin-top:8px;">
+        &#9888; Import karega: <strong>${importHeaderRows.length} BOMs</strong> with <strong>${importLineRows.length} component lines</strong>.<br/>
+        Agar item_code match nahi hua toh woh row skip ho jayegi.
+      </div>`;
+  }
+}
+
+async function runImport(){
+  const btn=document.getElementById("imp-btn");
+  btn.disabled=true;btn.textContent="Importing...";
+  const {data:{session}}=await sb.auth.getSession();
+  let success=0,skipped=0,errors=[];
+
+  for(const hRow of importHeaderRows){
+    const itemCode=(hRow.item_code||"").trim();
+    if(!itemCode){skipped++;continue;}
+    // Find item by code
+    const item=allItems.find(x=>x.code.toLowerCase()===itemCode.toLowerCase());
+    if(!item){skipped++;errors.push(`Item not found: ${itemCode}`);continue;}
+    // Get version
+    let version=parseInt(hRow.version)||1;
+    const {data:existing}=await sb.from("bom_headers").select("version").eq("item_id",item.id).order("version",{ascending:false}).limit(1);
+    if(existing&&existing.length) version=existing[0].version+1;
+    // Insert header
+    const {data:ins,error:hErr}=await sb.from("bom_headers").insert([{
+      item_id:item.id,
+      output_qty:parseFloat(hRow.output_qty)||1,
+      output_uom:hRow.output_uom||item.uom||"PCS",
+      version,
+      status:hRow.status||"Draft",
+      is_default:hRow.is_default==="true"||hRow.is_default==="1"||hRow.is_default==="yes",
+      notes:hRow.notes||null,
+      created_by:session?.user?.id||null,
+    }]).select().single();
+    if(hErr){errors.push(`BOM insert failed for ${itemCode}: ${hErr.message}`);skipped++;continue;}
+    // Insert matching lines
+    const bomLines=importLineRows.filter(l=>(l.item_code||"").toLowerCase()===itemCode.toLowerCase());
+    let lineNo=1;
+    for(const lRow of bomLines){
+      const compCode=(lRow.component_code||"").trim();
+      const compItem=allItems.find(x=>x.code.toLowerCase()===compCode.toLowerCase());
+      if(!compItem) continue;
+      await sb.from("bom_lines").insert([{
+        bom_id:ins.id,
+        line_no:lineNo++,
+        item_id:compItem.id,
+        qty:parseFloat(lRow.qty)||1,
+        uom:lRow.uom||compItem.uom||"PCS",
+        scrap_percent:parseFloat(lRow.scrap_percent)||0,
+        is_optional:lRow.is_optional==="true"||lRow.is_optional==="1",
+        notes:lRow.notes||null,
+      }]);
+    }
+    success++;
+  }
+
+  btn.disabled=false;btn.textContent="&#11014; Import Now";
+  const statusEl=document.getElementById("imp-status");
+  statusEl.innerHTML=`
+    <div style="background:${success>0?"#f0fdf4":"#fef2f2"};border:1px solid ${success>0?"#bbf7d0":"#fecaca"};border-radius:6px;padding:10px;font-size:13px;color:${success>0?"#166534":"#991b1b"};margin-top:8px;">
+      ${success>0?`&#10003; <strong>${success} BOMs</strong> import ho gaye!`:""} 
+      ${skipped>0?`&#9888; ${skipped} rows skip hue.`:""}
+      ${errors.length>0?`<br/><span style="font-size:11px;">${errors.slice(0,3).join("<br/>")}</span>`:""}
+    </div>`;
+  if(success>0){
+    await loadBOMs();
+    setTimeout(()=>closeImportModal(),2000);
+  }
+}
+
+function downloadTemplate(){
+  // Header template
+  const headerCSV=`item_code,output_qty,output_uom,version,status,is_default,notes\nPLNV0101S,1,Set,1,Active,true,Main BOM`;
+  const linesCSV=`item_code,component_code,qty,uom,scrap_percent,is_optional,notes\nPLNV0101S,RM-CERAMIC-001,185,g,2,false,Mix material\nPLNV0101S,BP-RAW-001,1,Nos,0,false,Back plate`;
+  // Download both
+  [["bom_import_headers_template.csv",headerCSV],["bom_import_lines_template.csv",linesCSV]].forEach(([name,csv])=>{
+    const a=document.createElement("a");
+    a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
+    a.download=name;
+    a.click();
+  });
+}
+
 function showToast(msg,type=""){
   const t=document.getElementById("toast");
   t.textContent=msg;t.className="toast show "+type;
@@ -1067,6 +1304,9 @@ document.addEventListener("click",e=>{
 });
 document.getElementById("quick-overlay").addEventListener("click",function(e){
   if(e.target===this)closeQuickBOM();
+});
+document.getElementById("import-overlay").addEventListener("click",function(e){
+  if(e.target===this)closeImportModal();
 });
 document.getElementById("confirm-modal").addEventListener("click",function(e){if(e.target===this)closeConfirm();});
 document.getElementById("global-search").addEventListener("input",function(){
