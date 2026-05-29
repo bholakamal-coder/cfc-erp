@@ -300,7 +300,8 @@ async function runMRP(){
           if(rMap[id].wos.indexOf(wo.wo_no)<0)rMap[id].wos.push(wo.wo_no);
         });
       });
-    });
+    }); // end allWOs forEach
+    } // end if allWOs+BOMs
 
     // Load item details for reorder-only items
     var missingIds=Object.keys(rMap).filter(function(id){return rMap[id].code==='...';}).map(Number);
