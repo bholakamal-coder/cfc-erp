@@ -364,8 +364,8 @@ async function runMRP(){
       +'<tbody>'+rows+'</tbody></table></div>'
       +'<div style="display:flex;gap:10px;margin-top:12px;">'
       +'<button class="btn btn-secondary btn-sm" onclick="exportCSV()">&#128229; Export CSV</button>'
-      +'<button class="btn btn-secondary btn-sm" onclick="document.getElementById('mrp-type-filter').value='shortage';runMRP();">&#10060; Shortages Only</button>'
-      +'<button class="btn btn-secondary btn-sm" onclick="document.getElementById('mrp-type-filter').value='reorder';runMRP();">&#128204; Reorder Only</button>'
+      +'<button class="btn btn-secondary btn-sm" onclick="document.getElementById(&quot;mrp-type-filter&quot;).value=&quot;shortage&quot;;runMRP();">&#10060; Shortages Only</button>'
+      +'<button class="btn btn-secondary btn-sm" onclick="document.getElementById(&quot;mrp-type-filter&quot;).value=&quot;reorder&quot;;runMRP();">&#128204; Reorder Only</button>'
       +'</div>';
 
   }catch(e){
