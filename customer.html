@@ -291,11 +291,10 @@ async function saveRecord(){
   const payload={code,name,contact_person:document.getElementById('f-contact').value.trim()||null,
     phone:document.getElementById('f-phone').value.trim()||null,email:document.getElementById('f-email').value.trim()||null,
     gstin:document.getElementById('f-gstin').value.trim()||null,pan:document.getElementById('f-pan').value.trim()||null,
-    credit_days:parseInt(document.getElementById('f-credit').value)||30,credit_limit:parseFloat(document.getElementById('f-climit').value)||0,
+    credit_days:parseInt(document.getElementById('f-credit').value)||30,credit_limit:0,
     address:document.getElementById('f-address').value.trim()||null,city:document.getElementById('f-city').value.trim()||null,
     state:document.getElementById('f-state').value.trim()||null,pincode:document.getElementById('f-pin').value.trim()||null,
-    bank_name:document.getElementById('f-bank').value.trim()||null,bank_account:document.getElementById('f-acc').value.trim()||null,
-    bank_ifsc:document.getElementById('f-ifsc').value.trim()||null,is_active:document.getElementById('f-status').value==='true'};
+    credit_limit:0,is_active:document.getElementById('f-status').value==='true'};
   let error;
   if(editingId)({error}=await sb.from('customers').update(payload).eq('id',editingId));
   else({error}=await sb.from('customers').insert([payload]));
