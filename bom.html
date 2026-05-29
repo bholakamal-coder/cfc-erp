@@ -641,6 +641,7 @@ async function autoSetVersion(itemId){
 function addLine(filter){
   lineCount++;
   const n=lineCount;
+  const typeFilter=(filter&&filter.type)?filter.type:'';
   const tbody=document.getElementById("lines-tbody");
   const tr=document.createElement("tr");
   tr.id="line-"+n;
@@ -648,7 +649,7 @@ function addLine(filter){
     <td class="line-no">${n}</td>
     <td class="col-item">
       <div class="search-wrap">
-        <input type="text" id="ls-${n}" placeholder="Item search..." oninput="searchComponent(${n},'${filter?.type||''}')" autocomplete="off"/>
+        <input type="text" id="ls-${n}" placeholder="Item search..." oninput="searchComponent(${n},'${typeFilter}')" autocomplete="off"/>
         <div class="item-dd" id="ld-${n}"></div>
       </div>
       <input type="hidden" id="li-${n}"/>
@@ -672,22 +673,26 @@ function removeLine(n){
 }
 
 function searchComponent(n, typeFilter){
-  const q=document.getElementById("ls-"+n).value.toLowerCase();
+  const q=(document.getElementById("ls-"+n).value||"").toLowerCase().trim();
   const dd=document.getElementById("ld-"+n);
+  if(!dd)return;
   if(q.length<1){dd.classList.remove("open");return;}
-  let items=allItems;
-  // BOM lines: RM + SFG + Consumable + Packing (not FG)
+  let items=(allItems||[]).slice();
   items=items.filter(x=>x.type!=="FG");
   if(typeFilter==="RM") items=items.filter(x=>x.type==="RM");
-  if(typeFilter==="SFG") items=items.filter(x=>x.type==="SFG");
+  else if(typeFilter==="SFG") items=items.filter(x=>x.type==="SFG");
   const results=items.filter(x=>
     (x.code||"").toLowerCase().includes(q)||(x.name||"").toLowerCase().includes(q)
-  ).slice(0,10);
-  if(!results.length){dd.classList.remove("open");return;}
+  ).slice(0,12);
+  if(!results.length){
+    dd.innerHTML='<div style="padding:10px 14px;font-size:12px;color:#8a95a0;">Koi item nahi mila</div>';
+    dd.classList.add("open");
+    return;
+  }
   dd.innerHTML=results.map(x=>`
-    <div class="dd-item" onclick="selectComponent(${n},${x.id},'${x.code}','${(x.name||"").replace(/'/g,"\'")}','${x.uom||"PCS"}','${x.type}')">
+    <div class="dd-item" onclick="selectComponent(${n},${x.id},'${x.code}','${(x.name||"").replace(/'/g,"\\'").replace(/"/g,"&quot;")}','${x.uom||"PCS"}','${x.type}')">
       <span class="dd-code">${x.code}</span>
-      <span>${x.name}</span>
+      <span style="flex:1;">${x.name}</span>
       <span class="dd-type dd-type-${(x.type||"rm").toLowerCase()}">${x.type}</span>
     </div>`).join("");
   dd.classList.add("open");
