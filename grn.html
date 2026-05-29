@@ -3,10 +3,9 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Stock Ledger — CFC ERP v2</title>
+<title>GRN — Goods Receipt Note — CFC ERP v2</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+<style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{--red:#cc2200;--red-dark:#a81c00;--navy:#1c2d42;--sidebar-w:240px;--topbar-h:56px;}
 body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a2635;display:flex;min-height:100vh;}
 /* SIDEBAR-ACCORDION */
@@ -40,9 +39,7 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a263
 /* END-SIDEBAR */
 .topbar{position:fixed;top:0;left:var(--sidebar-w);right:0;height:var(--topbar-h);background:#fff;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;padding:0 24px;gap:16px;z-index:90;}
 .topbar-title{font-size:16px;font-weight:600;color:var(--navy);flex:1;}
-.topbar-search{display:flex;align-items:center;background:#f4f6f9;border:1px solid #e2e8f0;border-radius:6px;padding:6px 12px;gap:7px;width:220px;}
-.topbar-search input{border:none;background:none;outline:none;font-size:13px;width:100%;padding:0;}
-.user-chip{display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 8px;border-radius:6px;}
+.user-chip{display:flex;align-items:center;gap:8px;cursor:pointer;}
 .user-avatar{width:30px;height:30px;background:var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;}
 .user-name{font-size:13px;font-weight:500;color:var(--navy);}
 .main{margin-left:var(--sidebar-w);padding-top:var(--topbar-h);flex:1;}
@@ -53,58 +50,45 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a263
 .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:6px;font-size:13.5px;font-weight:600;cursor:pointer;border:none;transition:all 0.15s;}
 .btn-primary{background:var(--red);color:#fff;}.btn-primary:hover{background:var(--red-dark);}
 .btn-secondary{background:#fff;color:var(--navy);border:1px solid #dde3ea;}.btn-secondary:hover{background:#f4f6f9;}
-.btn-danger{background:#fee2e2;color:#991b1b;border:none;}
-.btn-success{background:#dcfce7;color:#166534;border:none;}
-.btn-warning{background:#fef9c3;color:#854d0e;border:none;}
+.btn-danger{background:#fee2e2;color:#991b1b;border:none;}.btn-success{background:#dcfce7;color:#166534;border:none;}
+.btn-warning{background:#fef9c3;color:#854d0e;border:none;}.btn-info{background:#dbeafe;color:#1e40af;border:none;}
 .btn-sm{padding:5px 10px;font-size:12px;}.btn-xs{padding:3px 8px;font-size:11px;}
-.card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;}
 .filter-bar{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;}
 .filter-bar input,.filter-bar select{border:1px solid #dde3ea;border-radius:6px;padding:7px 11px;font-size:13px;color:#1a2635;background:#f9fafb;outline:none;}
-.filter-bar input{width:200px;}
 .filter-count{margin-left:auto;font-size:13px;color:#8a95a0;font-weight:500;}
-.table-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;}
+.table-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:16px;}
 table{width:100%;border-collapse:collapse;}
 thead{background:#f8fafc;}
 th{padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:#5a6878;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid #e2e8f0;white-space:nowrap;}
-td{padding:10px 12px;font-size:13px;color:#1a2635;border-bottom:1px solid #f0f4f8;vertical-align:middle;}
-tr:last-child td{border-bottom:none;}
-tr:hover td{background:#fafbfc;}
+td{padding:10px 12px;font-size:13px;border-bottom:1px solid #f0f4f8;vertical-align:middle;}
+tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
+.pill{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;}
 .loading{text-align:center;padding:40px;color:#8a95a0;font-size:14px;}
 .empty-state{text-align:center;padding:60px 20px;color:#8a95a0;}
 .empty-state .big{font-size:40px;margin-bottom:12px;}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:#fff;border-radius:12px;width:100%;max-width:700px;box-shadow:0 24px 60px rgba(0,0,0,0.18);max-height:92vh;overflow-y:auto;}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;justify-content:space-between;}
+.modal-header h3{font-size:17px;font-weight:700;color:var(--navy);}
+.modal-close{font-size:22px;cursor:pointer;color:#8a95a0;background:none;border:none;}
+.modal-body{padding:20px 24px;}
+.modal-footer{padding:16px 24px;border-top:1px solid #f0f4f8;display:flex;justify-content:flex-end;gap:10px;}
 .form-field{margin-bottom:14px;}
 .form-field label{display:block;font-size:13px;font-weight:600;color:#4a5568;margin-bottom:5px;}
 .form-field input,.form-field select,.form-field textarea{width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:9px 12px;font-size:13.5px;color:#1a2635;background:#f9fafb;outline:none;font-family:inherit;}
 .form-field input:focus,.form-field select:focus{border-color:var(--red);background:#fff;}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .req{color:var(--red);}
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;align-items:center;justify-content:center;}
-.modal-overlay.open{display:flex;}
-.modal-box{background:#fff;border-radius:12px;width:100%;max-width:560px;box-shadow:0 24px 60px rgba(0,0,0,0.18);max-height:92vh;overflow-y:auto;}
-.modal-header{padding:20px 24px 16px;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;justify-content:space-between;}
-.modal-header h3{font-size:17px;font-weight:700;color:var(--navy);}
-.modal-close{font-size:22px;cursor:pointer;color:#8a95a0;background:none;border:none;}
-.modal-body{padding:20px 24px;}
-.modal-footer{padding:16px 24px;border-top:1px solid #f0f4f8;display:flex;justify-content:flex-end;gap:10px;}
 .toast{position:fixed;bottom:24px;right:24px;background:#1a2635;color:#fff;padding:12px 18px;border-radius:8px;font-size:13.5px;z-index:999;opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateY(0);}
 .toast.success{background:#166534;}.toast.error{background:#991b1b;}
-.pill{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;}
-
-.txn-in{color:#166534;font-weight:700;}
-.txn-out{color:#991b1b;font-weight:700;}
-.stock-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;}
-.stock-val{font-size:22px;font-weight:700;color:var(--navy);}
-.stock-lbl{font-size:11px;color:#8a95a0;margin-top:2px;}
-.tab-bar{display:flex;gap:4px;background:#f4f6f9;padding:4px;border-radius:8px;margin-bottom:20px;}
-.tab-btn{padding:7px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;color:#5a6878;}
-.tab-btn.active{background:#fff;color:var(--navy);box-shadow:0 1px 3px rgba(0,0,0,0.1);}
-.tab-panel{display:none;}.tab-panel.active{display:block;}
-.qty-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;}
-.qty-ok{background:#dcfce7;color:#166534;}
-.qty-low{background:#fef9c3;color:#854d0e;}
-.qty-zero{background:#fee2e2;color:#991b1b;}
-</style>
+.section-hdr{font-size:12px;font-weight:700;color:#8a95a0;letter-spacing:1px;text-transform:uppercase;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid #f0f4f8;}
+.lines-table{width:100%;border-collapse:collapse;font-size:13px;}
+.lines-table th{padding:8px 10px;background:#f8fafc;font-size:11px;font-weight:700;color:#5a6878;text-transform:uppercase;border-bottom:1px solid #e2e8f0;}
+.lines-table td{padding:8px 10px;border-bottom:1px solid #f0f4f8;}
+.lines-table input,.lines-table select{border:1px solid #dde3ea;border-radius:5px;padding:5px 8px;font-size:12px;width:100%;background:#f9fafb;outline:none;}
+.info-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 16px;font-size:13px;color:#1e40af;margin-bottom:16px;}</style>
 </head>
 <body>
 <aside class="sidebar">
@@ -173,372 +157,185 @@ tr:hover td{background:#fafbfc;}
 </div></div>
 <div class="sidebar-bottom"><a href="#"><span>&#9881;&#65039;</span> Settings</a><a href="#" onclick="handleLogout()"><span>&#128682;</span> Logout</a></div></aside>
 <div class="topbar">
-  <div class="topbar-title">Stock Ledger</div>
-  <div class="topbar-search"><span style="color:#b0bec5;">&#128269;</span><input type="text" id="global-search" placeholder="Item search..."/></div>
+  <div class="topbar-title">GRN — Goods Receipt Note</div>
   <div class="user-chip"><div class="user-avatar" id="user-avatar">A</div><div class="user-name" id="user-name">Admin</div></div>
 </div>
-
 <div class="main"><div class="content">
   <div class="page-header">
-    <div><h1>&#128202; Stock Ledger</h1><p>Current stock aur har transaction ka record</p></div>
-    <button class="btn btn-primary" onclick="openAdjModal()">+ Stock Adjustment</button>
+    <div><h1>&#128229; GRN — Goods Receipt Note</h1><p>PO ke against maal receive karo — stock auto update hoga</p></div>
+    <button class="btn btn-primary" onclick="openModal()">+ Create</button>
   </div>
-
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
-    <div class="stock-card"><div class="stock-val" id="stat-items">—</div><div class="stock-lbl">Total Items</div></div>
-    <div class="stock-card"><div class="stock-val" style="color:#166534;" id="stat-instock">—</div><div class="stock-lbl">In Stock</div></div>
-    <div class="stock-card"><div class="stock-val" style="color:#991b1b;" id="stat-zero">—</div><div class="stock-lbl">Zero Stock</div></div>
-    <div class="stock-card"><div class="stock-val" style="color:#854d0e;" id="stat-txns">—</div><div class="stock-lbl">Today Txns</div></div>
-  </div>
-
-  <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('current','this')">&#128230; Current Stock</button>
-    <button class="tab-btn" onclick="switchTab('ledger','this')">&#128196; Ledger (All Txns)</button>
-  </div>
-
-  <!-- CURRENT STOCK TAB -->
-  <div class="tab-panel active" id="tab-current">
-    <div class="filter-bar">
-      <input type="text" id="stock-search" placeholder="Item code ya naam..." oninput="filterStock()"/>
-      <select id="stock-type" onchange="filterStock()">
-        <option value="">All Types</option>
-        <option value="RM">RM</option>
-        <option value="SFG">SFG</option>
-        <option value="FG">FG</option>
-        <option value="Consumable">Consumable</option>
-        <option value="Packing">Packing</option>
-      </select>
-      <select id="stock-filter" onchange="filterStock()">
-        <option value="">All Stock</option>
-        <option value="instock">In Stock</option>
-        <option value="zero">Zero Stock</option>
-        <option value="low">Low Stock</option>
-      </select>
-      <span class="filter-count" id="stock-count">Loading...</span>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr>
-          <th>#</th><th>Code</th><th>Name</th><th>Type</th><th>UOM</th>
-          <th>Current Stock</th><th>Reserved</th><th>Available</th><th>Avg Cost</th><th>Last Updated</th>
-        </tr></thead>
-        <tbody id="stock-tbody"><tr><td colspan="10"><div class="loading">Loading...</div></td></tr></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- LEDGER TAB -->
-  <div class="tab-panel" id="tab-ledger">
-    <div class="filter-bar">
-      <input type="text" id="ledger-search" placeholder="Item ya reference..." oninput="filterLedger()"/>
-      <select id="ledger-type" onchange="filterLedger()">
-        <option value="">All Types</option>
-        <option value="GRN">GRN</option>
-        <option value="Production Issue">Production Issue</option>
-        <option value="Production Receipt">Production Receipt</option>
-        <option value="Sales Dispatch">Sales Dispatch</option>
-        <option value="Adjustment">Adjustment</option>
-        <option value="Opening Stock">Opening Stock</option>
-        <option value="Transfer">Transfer</option>
-        <option value="Scrap">Scrap</option>
-      </select>
-      <input type="date" id="ledger-from" onchange="filterLedger()" style="width:140px;"/>
-      <input type="date" id="ledger-to" onchange="filterLedger()" style="width:140px;"/>
-      <span class="filter-count" id="ledger-count">Loading...</span>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr>
-          <th>#</th><th>Date</th><th>Item</th><th>Txn Type</th>
-          <th>Qty</th><th>Rate</th><th>Value</th><th>Reference</th><th>Notes</th>
-        </tr></thead>
-        <tbody id="ledger-tbody"><tr><td colspan="9"><div class="loading">Loading...</div></td></tr></tbody>
-      </table>
-    </div>
-  </div>
+  <div class="filter-bar">
+  <input type="text" id="search-inp" placeholder="GRN No ya PO No..." oninput="applyFilter()"/>
+  <select id="filter-status" onchange="applyFilter()">
+    <option value="">All Status</option>
+    <option value="Draft">Draft</option><option value="QC Pending">QC Pending</option>
+    <option value="QC Done">QC Done</option><option value="Stock Updated">Stock Updated</option>
+    <option value="Cancelled">Cancelled</option>
+  </select>
+  <span class="filter-count" id="filter-count">Loading...</span>
+</div>
+<div class="table-wrap"><table>
+  <thead><tr><th>#</th><th>GRN No</th><th>PO No</th><th>Supplier</th><th>Date</th><th>Sup Invoice</th><th>Status</th><th>Actions</th></tr></thead>
+  <tbody id="main-tbody"><tr><td colspan="8"><div class="loading">Loading...</div></td></tr></tbody>
+</table></div>
 </div></div>
-
-<!-- ADJUSTMENT MODAL -->
-<div class="modal-overlay" id="adj-modal">
+<div class="modal-overlay" id="main-modal">
   <div class="modal-box">
-    <div class="modal-header">
-      <h3>Stock Adjustment</h3>
-      <button class="modal-close" onclick="closeAdjModal()">&#10005;</button>
-    </div>
+    <div class="modal-header"><h3>Create GRN</h3><button class="modal-close" onclick="closeModal()">&#10005;</button></div>
     <div class="modal-body">
-      <div class="form-field">
-        <label>Item <span class="req">*</span></label>
-        <div style="position:relative;">
-          <input type="text" id="adj-item-search" placeholder="Item search..." oninput="searchAdjItem()" autocomplete="off"/>
-          <div id="adj-item-dd" style="display:none;position:fixed;background:#fff;border:1px solid #dde3ea;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,0.12);z-index:9999;max-height:200px;overflow-y:auto;min-width:280px;"></div>
-        </div>
-        <input type="hidden" id="adj-item-id"/>
-        <span id="adj-item-info" style="font-size:11px;color:#166534;display:block;margin-top:3px;"></span>
+      <div class="form-row">
+        <div class="form-field"><label>Purchase Order <span class="req">*</span></label>
+          <select id="f-po" onchange="loadPOLines()"><option value="">-- Select Approved PO --</option></select></div>
+        <div class="form-field"><label>Receipt Date</label><input type="date" id="f-date"/></div>
       </div>
       <div class="form-row">
-        <div class="form-field">
-          <label>Txn Type <span class="req">*</span></label>
-          <select id="adj-type">
-            <option value="Adjustment">Adjustment</option>
-            <option value="Opening Stock">Opening Stock</option>
-            <option value="Production Receipt">Production Receipt</option>
-            <option value="Scrap">Scrap</option>
-            <option value="Transfer">Transfer</option>
-          </select>
-        </div>
-        <div class="form-field">
-          <label>Qty <span class="req">*</span> <small style="color:#8a95a0;">(negative for out)</small></label>
-          <input type="number" id="adj-qty" value="0" step="0.001"/>
-        </div>
+        <div class="form-field"><label>Supplier Invoice No</label><input type="text" id="f-inv-no" placeholder="Supplier invoice no."/></div>
+        <div class="form-field"><label>Supplier DC No</label><input type="text" id="f-dc-no" placeholder="Delivery challan no."/></div>
       </div>
-      <div class="form-row">
-        <div class="form-field">
-          <label>Rate (per unit)</label>
-          <input type="number" id="adj-rate" value="0" step="0.01"/>
-        </div>
-        <div class="form-field">
-          <label>Warehouse</label>
-          <select id="adj-warehouse"></select>
-        </div>
-      </div>
-      <div class="form-field">
-        <label>Reference No</label>
-        <input type="text" id="adj-ref" placeholder="e.g. GRN-001, WO-001..."/>
-      </div>
-      <div class="form-field">
-        <label>Notes</label>
-        <textarea id="adj-notes" rows="2" placeholder="Adjustment reason..."></textarea>
-      </div>
+      <div class="form-field"><label>Notes</label><textarea id="f-notes" rows="2"></textarea></div>
+      <div class="section-hdr">Items to Receive</div>
+      <div id="po-lines-wrap"><div class="info-box">&#128161; PO select karo — items load honge</div></div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeAdjModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveAdjustment()">Save</button>
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-warning" onclick="saveGRN('Draft')">Save Draft</button>
+      <button class="btn btn-primary" onclick="saveGRN('QC Pending')">Save & Receive</button>
     </div>
   </div>
 </div>
-
 <div class="toast" id="toast"></div>
-
-<script>
-const SUPABASE_URL='https://sdopdeqepjoshbzrpbmi.supabase.co';
+<script>const SUPABASE_URL='https://sdopdeqepjoshbzrpbmi.supabase.co';
 const SUPABASE_KEY='sb_publishable_eWBMrAFa7Yyvtlb-7-8IGA_KxfE7v_8';
 const {createClient}=supabase;
 const sb=createClient(SUPABASE_URL,SUPABASE_KEY);
-
-let allStock=[],filteredStock=[],allLedger=[],filteredLedger=[],allItems=[],allWarehouses=[];
-
 (async()=>{
   const {data:{session}}=await sb.auth.getSession();
-  if(!session){window.location.href="index.html";return;}
-  const email=session.user.email||"";
-  document.getElementById("user-avatar").textContent=email.substring(0,2).toUpperCase();
-  document.getElementById("user-name").textContent=email.split("@")[0];
-  await Promise.all([loadItems(),loadWarehouses()]);
-  await loadStock();
-  loadLedger();
+  if(!session){window.location.href='index.html';return;}
+  const email=session.user.email||'';
+  document.getElementById('user-avatar').textContent=email.substring(0,2).toUpperCase();
+  document.getElementById('user-name').textContent=email.split('@')[0];
+  await init();
 })();
-
-async function loadItems(){
-  const {data}=await sb.from("items").select("id,code,name,type,uom").eq("is_active",true).order("code");
-  allItems=data||[];
+async function handleLogout(){await sb.auth.signOut();window.location.href='index.html';}
+function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+type;setTimeout(()=>t.className='toast',3500);}
+function genNo(prefix){const n=new Date();return prefix+'-'+n.getFullYear()+String(n.getMonth()+1).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9000+1000));}
+let allGRNs=[],filtered=[],allPOs=[],allWH=[];
+async function init(){
+  document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
+  const {data:pos}=await sb.from('purchase_orders').select('id,po_no,suppliers(name)').in('status',['Approved','Ordered','Partially Received']).order('po_no');
+  allPOs=pos||[];
+  document.getElementById('f-po').innerHTML='<option value="">-- Select Approved PO --</option>'+allPOs.map(p=>`<option value="${p.id}">${p.po_no} — ${p.suppliers?.name||''}</option>`).join('');
+  const {data:wh}=await sb.from('warehouses').select('id,code,name').eq('is_active',true).order('code');
+  allWH=wh||[];
+  await loadData();
 }
-async function loadWarehouses(){
-  const {data}=await sb.from("warehouses").select("id,code,name").eq("is_active",true).order("code");
-  allWarehouses=data||[];
-  const sel=document.getElementById("adj-warehouse");
-  sel.innerHTML='<option value="">-- Select --</option>'+allWarehouses.map(w=>`<option value="${w.id}">${w.code} — ${w.name}</option>`).join("");
+async function loadData(){
+  const {data,error}=await sb.from('grn').select('*,purchase_orders(po_no),suppliers(name)').order('created_at',{ascending:false});
+  if(error){document.getElementById('main-tbody').innerHTML=`<tr><td colspan="8"><div class="loading" style="color:#dc2626;">Error: ${error.message}</div></td></tr>`;return;}
+  allGRNs=data||[];applyFilter();
 }
-
-async function loadStock(){
-  const {data,error}=await sb.from("inventory").select("*, items(code,name,type,uom), warehouses(code,name)").order("item_id");
-  if(error){document.getElementById("stock-tbody").innerHTML=`<tr><td colspan="10"><div class="loading" style="color:#dc2626;">Error: ${error.message}</div></td></tr>`;return;}
-  allStock=data||[];
-  const today=new Date().toDateString();
-  document.getElementById("stat-items").textContent=allStock.length;
-  document.getElementById("stat-instock").textContent=allStock.filter(s=>s.current_stock>0).length;
-  document.getElementById("stat-zero").textContent=allStock.filter(s=>s.current_stock<=0).length;
-  filterStock();
+function applyFilter(){
+  const s=document.getElementById('search-inp').value.toLowerCase();
+  const st=document.getElementById('filter-status').value;
+  filtered=allGRNs.filter(r=>(!s||(r.grn_no||'').toLowerCase().includes(s)||(r.purchase_orders?.po_no||'').toLowerCase().includes(s))&&(!st||r.status===st));
+  document.getElementById('filter-count').textContent=filtered.length+' GRNs';
+  const SC={Draft:'#f1f5f9','QC Pending':'#fef9c3','QC Done':'#dbeafe','Stock Updated':'#dcfce7',Cancelled:'#fee2e2'};
+  const TC={Draft:'#475569','QC Pending':'#854d0e','QC Done':'#1e40af','Stock Updated':'#166534',Cancelled:'#991b1b'};
+  const tbody=document.getElementById('main-tbody');
+  if(!filtered.length){tbody.innerHTML='<tr><td colspan="8"><div class="empty-state"><div class="big">&#128229;</div><p>Koi GRN nahi.</p></div></td></tr>';return;}
+  tbody.innerHTML=filtered.map((r,i)=>`<tr>
+    <td style="color:#b0bec5;font-size:12px;">${i+1}</td>
+    <td><strong style="font-family:monospace;">${r.grn_no}</strong></td>
+    <td style="font-family:monospace;font-size:12px;">${r.purchase_orders?.po_no||'—'}</td>
+    <td>${r.suppliers?.name||'—'}</td>
+    <td style="font-size:12px;">${r.receipt_date?new Date(r.receipt_date).toLocaleDateString('en-IN'):'—'}</td>
+    <td style="font-size:12px;">${r.supplier_invoice_no||'—'}</td>
+    <td><span class="pill" style="background:${SC[r.status]||'#f1f5f9'};color:${TC[r.status]||'#475569'};">${r.status}</span></td>
+    <td>${r.status==='QC Pending'?`<button class="btn btn-success btn-xs" onclick="updateStock(${r.id})">&#9989; Update Stock</button>`:(r.status==='Stock Updated'?'<span style="font-size:11px;color:#166534;">&#10003; Done</span>':'')}</td>
+  </tr>`).join('');
 }
-
-function filterStock(){
-  const s=document.getElementById("stock-search").value.toLowerCase();
-  const t=document.getElementById("stock-type").value;
-  const f=document.getElementById("stock-filter").value;
-  filteredStock=allStock.filter(r=>{
-    const item=r.items||{};
-    if(s&&!(item.code||"").toLowerCase().includes(s)&&!(item.name||"").toLowerCase().includes(s))return false;
-    if(t&&item.type!==t)return false;
-    if(f==="instock"&&r.current_stock<=0)return false;
-    if(f==="zero"&&r.current_stock>0)return false;
-    if(f==="low"&&r.current_stock>5)return false;
-    return true;
+async function loadPOLines(){
+  const poId=document.getElementById('f-po').value;
+  const wrap=document.getElementById('po-lines-wrap');
+  if(!poId){wrap.innerHTML='<div class="info-box">&#128161; PO select karo</div>';return;}
+  wrap.innerHTML='<div class="loading">Loading...</div>';
+  const {data:lines}=await sb.from('purchase_order_lines').select('*,items(code,name,uom)').eq('po_id',poId);
+  if(!lines||!lines.length){wrap.innerHTML='<div class="info-box">Is PO mein koi items nahi.</div>';return;}
+  const whOpts=allWH.map(w=>`<option value="${w.id}">${w.code}</option>`).join('');
+  wrap.innerHTML=`<table class="lines-table"><thead><tr><th>Item</th><th>PO Qty</th><th>Rcvd</th><th>Receive Now</th><th>Accepted</th><th>Rejected</th><th>Rate</th><th>WH</th></tr></thead><tbody>
+    ${lines.map(l=>`<tr>
+      <td><strong style="font-size:12px;font-family:monospace;">${l.items?.code||''}</strong><br><span style="font-size:11px;color:#5a6878;">${l.items?.name||''}</span>
+        <input type="hidden" id="pol-${l.id}" value="${l.id}"/><input type="hidden" id="itm-${l.id}" value="${l.item_id}"/><input type="hidden" id="uom-${l.id}" value="${l.uom}"/></td>
+      <td style="text-align:center;">${l.qty} ${l.uom}</td>
+      <td style="text-align:center;color:#854d0e;">${l.received_qty||0}</td>
+      <td><input type="number" id="rcv-${l.id}" value="${Math.max(0,(l.qty||0)-(l.received_qty||0))}" min="0" step="0.001" style="width:80px;" oninput="syncAcc(${l.id})"/></td>
+      <td><input type="number" id="acc-${l.id}" value="${Math.max(0,(l.qty||0)-(l.received_qty||0))}" min="0" step="0.001" style="width:80px;"/></td>
+      <td><input type="number" id="rej-${l.id}" value="0" min="0" step="0.001" style="width:70px;"/></td>
+      <td><input type="number" id="rte-${l.id}" value="${l.rate||0}" step="0.01" style="width:80px;"/></td>
+      <td><select id="wh-${l.id}" style="width:80px;"><option value="">—</option>${whOpts}</select></td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+function syncAcc(lid){
+  const rcv=parseFloat(document.getElementById('rcv-'+lid).value)||0;
+  const rej=parseFloat(document.getElementById('rej-'+lid).value)||0;
+  document.getElementById('acc-'+lid).value=Math.max(0,rcv-rej).toFixed(3);
+}
+async function saveGRN(status){
+  const poId=document.getElementById('f-po').value;
+  if(!poId){showToast('PO select karein.','error');return;}
+  const grn_no=genNo('GRN');
+  const {data:grn,error:ge}=await sb.from('grn').insert([{
+    grn_no,po_id:parseInt(poId),
+    receipt_date:document.getElementById('f-date').value||new Date().toISOString().split('T')[0],
+    supplier_invoice_no:document.getElementById('f-inv-no').value.trim()||null,
+    supplier_dc_no:document.getElementById('f-dc-no').value.trim()||null,
+    notes:document.getElementById('f-notes').value.trim()||null,status
+  }]).select().single();
+  if(ge){showToast('Error: '+ge.message,'error');return;}
+  const gLines=[];
+  document.querySelectorAll('[id^="rcv-"]').forEach(el=>{
+    const lid=el.id.replace('rcv-','');
+    const rcv=parseFloat(el.value)||0;if(rcv<=0)return;
+    gLines.push({grn_id:grn.id,
+      po_line_id:parseInt(document.getElementById('pol-'+lid)?.value)||null,
+      item_id:parseInt(document.getElementById('itm-'+lid)?.value)||null,
+      received_qty:rcv,
+      accepted_qty:parseFloat(document.getElementById('acc-'+lid)?.value)||rcv,
+      rejected_qty:parseFloat(document.getElementById('rej-'+lid)?.value)||0,
+      uom:document.getElementById('uom-'+lid)?.value||'PCS',
+      rate:parseFloat(document.getElementById('rte-'+lid)?.value)||0,
+      warehouse_id:document.getElementById('wh-'+lid)?.value?parseInt(document.getElementById('wh-'+lid).value):null
+    });
   });
-  document.getElementById("stock-count").textContent=filteredStock.length+" items";
-  renderStock();
+  if(gLines.length) await sb.from('grn_lines').insert(gLines);
+  showToast(status==='QC Pending'?'GRN saved! "Update Stock" karo.':'Draft saved: '+grn_no,'success');
+  closeModal();loadData();
 }
-
-function renderStock(){
-  const tbody=document.getElementById("stock-tbody");
-  if(!filteredStock.length){
-    tbody.innerHTML='<tr><td colspan="10"><div class="empty-state"><div class="big">&#128230;</div><p>Koi stock record nahi hai.</p></div></td></tr>';
-    return;
+async function updateStock(grnId){
+  if(!confirm('Stock update hoga — undo nahi hoga. Continue?'))return;
+  const {data:lines}=await sb.from('grn_lines').select('*').eq('grn_id',grnId);
+  if(!lines||!lines.length){showToast('Koi lines nahi.','error');return;}
+  for(const l of lines){
+    if(!l.item_id||!l.accepted_qty||l.accepted_qty<=0)continue;
+    const {data:inv}=await sb.from('inventory').select('id,current_stock').eq('item_id',l.item_id).maybeSingle();
+    if(inv){await sb.from('inventory').update({current_stock:parseFloat(inv.current_stock||0)+l.accepted_qty,last_updated:new Date().toISOString()}).eq('id',inv.id);}
+    else{await sb.from('inventory').insert([{item_id:l.item_id,warehouse_id:l.warehouse_id,current_stock:l.accepted_qty,uom:l.uom||'PCS'}]);}
+    await sb.from('stock_ledger').insert([{item_id:l.item_id,warehouse_id:l.warehouse_id,txn_type:'GRN',qty:l.accepted_qty,rate:l.rate||0,value:l.accepted_qty*(l.rate||0),reference_no:'GRN-'+grnId}]);
   }
-  const TYPE_COLOR={RM:"#dbeafe",SFG:"#f0fdf4",FG:"#fff0ee",Consumable:"#fefce8",Packing:"#fdf4ff"};
-  tbody.innerHTML=filteredStock.map((r,i)=>{
-    const item=r.items||{};
-    const stock=parseFloat(r.current_stock)||0;
-    const avail=parseFloat(r.available_stock)||0;
-    const reserved=parseFloat(r.reserved_stock)||0;
-    const qcls=stock<=0?"qty-zero":stock<=5?"qty-low":"qty-ok";
-    return `<tr>
-      <td style="color:#b0bec5;font-size:12px;">${i+1}</td>
-      <td><strong style="font-family:monospace;">${item.code||"—"}</strong></td>
-      <td>${item.name||"—"}</td>
-      <td><span style="background:${TYPE_COLOR[item.type]||"#f1f5f9"};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${item.type||"—"}</span></td>
-      <td style="color:#5a6878;">${item.uom||r.uom||"—"}</td>
-      <td><span class="qty-badge ${qcls}">${stock.toLocaleString()}</span></td>
-      <td style="color:#854d0e;">${reserved>0?reserved.toLocaleString():"—"}</td>
-      <td style="color:#166534;font-weight:600;">${avail.toLocaleString()}</td>
-      <td style="font-size:12px;color:#5a6878;">₹${parseFloat(r.avg_cost||0).toFixed(2)}</td>
-      <td style="font-size:11px;color:#8a95a0;">${r.last_updated?new Date(r.last_updated).toLocaleDateString("en-IN"):"—"}</td>
-    </tr>`;
-  }).join("");
+  await sb.from('grn').update({status:'Stock Updated'}).eq('id',grnId);
+  showToast('Stock updated!','success');loadData();
 }
-
-async function loadLedger(){
-  const tbody=document.getElementById("ledger-tbody");
-  tbody.innerHTML='<tr><td colspan="9"><div class="loading">Loading...</div></td></tr>';
-  const {data,error}=await sb.from("stock_ledger")
-    .select("*, items(code,name,type)")
-    .order("created_at",{ascending:false}).limit(200);
-  if(error){tbody.innerHTML=`<tr><td colspan="9"><div class="loading" style="color:#dc2626;">Error: ${error.message}</div></td></tr>`;return;}
-  allLedger=data||[];
-  document.getElementById("stat-txns").textContent=allLedger.filter(l=>new Date(l.created_at).toDateString()===new Date().toDateString()).length;
-  filterLedger();
+function openModal(){
+  document.getElementById('f-po').value='';document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('f-inv-no').value='';document.getElementById('f-dc-no').value='';document.getElementById('f-notes').value='';
+  document.getElementById('po-lines-wrap').innerHTML='<div class="info-box">&#128161; PO select karo — items load honge</div>';
+  document.getElementById('main-modal').classList.add('open');
 }
-
-function filterLedger(){
-  const s=document.getElementById("ledger-search").value.toLowerCase();
-  const t=document.getElementById("ledger-type").value;
-  const from=document.getElementById("ledger-from").value;
-  const to=document.getElementById("ledger-to").value;
-  filteredLedger=allLedger.filter(l=>{
-    const item=l.items||{};
-    if(s&&!(item.code||"").toLowerCase().includes(s)&&!(item.name||"").toLowerCase().includes(s)&&!(l.reference_no||"").toLowerCase().includes(s))return false;
-    if(t&&l.txn_type!==t)return false;
-    if(from&&l.created_at<from)return false;
-    if(to&&l.created_at>to+"T23:59:59")return false;
-    return true;
-  });
-  document.getElementById("ledger-count").textContent=filteredLedger.length+" txns";
-  renderLedger();
-}
-
-function renderLedger(){
-  const tbody=document.getElementById("ledger-tbody");
-  if(!filteredLedger.length){
-    tbody.innerHTML='<tr><td colspan="9"><div class="empty-state"><div class="big">&#128196;</div><p>Koi transaction nahi mili.</p></div></td></tr>';
-    return;
-  }
-  const TXN_COLOR={GRN:"#dcfce7",  "Opening Stock":"#dbeafe","Production Receipt":"#f0fdf4","Sales Dispatch":"#fee2e2","Scrap":"#fef9c3","Adjustment":"#f1f5f9","Transfer":"#fdf4ff","Production Issue":"#fff0ee"};
-  tbody.innerHTML=filteredLedger.map((l,i)=>{
-    const item=l.items||{};
-    const isIn=parseFloat(l.qty)>0;
-    return `<tr>
-      <td style="color:#b0bec5;font-size:12px;">${i+1}</td>
-      <td style="font-size:12px;">${new Date(l.created_at).toLocaleDateString("en-IN")}<br><span style="color:#8a95a0;font-size:10px;">${new Date(l.created_at).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})}</span></td>
-      <td><strong style="font-family:monospace;font-size:12px;">${item.code||"—"}</strong><br><span style="font-size:11px;color:#5a6878;">${item.name||""}</span></td>
-      <td><span style="background:${TXN_COLOR[l.txn_type]||"#f1f5f9"};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${l.txn_type}</span></td>
-      <td class="${isIn?"txn-in":"txn-out"}">${isIn?"+":""}${parseFloat(l.qty).toLocaleString()}</td>
-      <td style="font-size:12px;">₹${parseFloat(l.rate||0).toFixed(2)}</td>
-      <td style="font-size:12px;">₹${parseFloat(l.value||0).toFixed(2)}</td>
-      <td style="font-size:11px;color:#5a6878;">${l.reference_no||"—"}</td>
-      <td style="font-size:11px;color:#8a95a0;max-width:150px;">${l.notes||"—"}</td>
-    </tr>`;
-  }).join("");
-}
-
-function switchTab(tab,btn){
-  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
-  document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
-  document.getElementById("tab-"+tab).classList.add("active");
-  event.currentTarget.classList.add("active");
-}
-
-// ADJ MODAL
-function searchAdjItem(){
-  const q=document.getElementById("adj-item-search").value.toLowerCase();
-  const dd=document.getElementById("adj-item-dd");
-  if(q.length<1){dd.style.display="none";return;}
-  const inp=document.getElementById("adj-item-search");
-  const r=inp.getBoundingClientRect();
-  dd.style.top=(r.bottom+2)+"px";dd.style.left=r.left+"px";dd.style.width=Math.max(r.width,280)+"px";
-  const res=allItems.filter(x=>(x.code||"").toLowerCase().includes(q)||(x.name||"").toLowerCase().includes(q)).slice(0,8);
-  if(!res.length){dd.style.display="none";return;}
-  dd.innerHTML=res.map(x=>`<div onclick="selectAdjItem(${x.id},'${x.code}','${x.name}','${x.uom||''}')"
-    style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f4f8;display:flex;gap:8px;">
-    <span style="font-family:monospace;font-size:11px;background:#f0f4f8;padding:1px 5px;border-radius:3px;">${x.code}</span>
-    <span>${x.name}</span>
-    <span style="margin-left:auto;font-size:10px;color:#8a95a0;">${x.type}</span>
-  </div>`).join("");
-  dd.style.display="block";
-}
-function selectAdjItem(id,code,name,uom){
-  document.getElementById("adj-item-search").value=code+" — "+name;
-  document.getElementById("adj-item-id").value=id;
-  document.getElementById("adj-item-info").textContent="✓ "+name+" | UOM: "+uom;
-  document.getElementById("adj-item-dd").style.display="none";
-}
-
-function openAdjModal(){
-  document.getElementById("adj-item-search").value="";
-  document.getElementById("adj-item-id").value="";
-  document.getElementById("adj-item-info").textContent="";
-  document.getElementById("adj-qty").value=0;
-  document.getElementById("adj-rate").value=0;
-  document.getElementById("adj-ref").value="";
-  document.getElementById("adj-notes").value="";
-  document.getElementById("adj-modal").classList.add("open");
-}
-function closeAdjModal(){document.getElementById("adj-modal").classList.remove("open");}
-
-async function saveAdjustment(){
-  const item_id=parseInt(document.getElementById("adj-item-id").value)||null;
-  const qty=parseFloat(document.getElementById("adj-qty").value)||0;
-  if(!item_id||qty===0){showToast("Item aur Qty zaroori hai (0 nahi)","error");return;}
-  const rate=parseFloat(document.getElementById("adj-rate").value)||0;
-  const warehouse_id=document.getElementById("adj-warehouse").value||null;
-  const txn_type=document.getElementById("adj-type").value;
-  const reference_no=document.getElementById("adj-ref").value.trim()||null;
-  const notes=document.getElementById("adj-notes").value.trim()||null;
-
-  // Insert stock ledger
-  const {error:le}=await sb.from("stock_ledger").insert([{
-    item_id,warehouse_id:warehouse_id?parseInt(warehouse_id):null,
-    txn_type,qty,rate,value:qty*rate,reference_no,notes
-  }]);
-  if(le){showToast("Ledger Error: "+le.message,"error");return;}
-
-  // Update inventory
-  const {data:inv}=await sb.from("inventory").select("id,current_stock").eq("item_id",item_id).single();
-  if(inv){
-    await sb.from("inventory").update({current_stock:parseFloat(inv.current_stock||0)+qty,last_updated:new Date().toISOString()}).eq("id",inv.id);
-  } else {
-    await sb.from("inventory").insert([{item_id,warehouse_id:warehouse_id?parseInt(warehouse_id):null,current_stock:qty,uom:allItems.find(x=>x.id===item_id)?.uom||"PCS"}]);
-  }
-  showToast("Stock updated!","success");
-  closeAdjModal();
-  loadStock();loadLedger();
-}
-
-function showToast(msg,type=""){const t=document.getElementById("toast");t.textContent=msg;t.className="toast show "+type;setTimeout(()=>t.className="toast",3500);}
-async function handleLogout(){await sb.auth.signOut();window.location.href="index.html";}
-document.getElementById("adj-modal").addEventListener("click",function(e){if(e.target===this)closeAdjModal();});
-document.addEventListener("click",e=>{if(!e.target.closest("#adj-item-search"))document.getElementById("adj-item-dd").style.display="none";});
-document.getElementById("global-search").addEventListener("input",function(){document.getElementById("stock-search").value=this.value;filterStock();});
-</script>
-<script>
-(function(){
+function closeModal(){document.getElementById('main-modal').classList.remove('open');}
+document.getElementById('main-modal').addEventListener('click',function(e){if(e.target===this)closeModal();});</script>
+<script>(function(){
   var STORE='cfc_sb_open';
   function getOpen(){try{return JSON.parse(localStorage.getItem(STORE)||'[]');}catch(e){return[];}}
   function saveOpen(a){try{localStorage.setItem(STORE,JSON.stringify(a));}catch(e){}}
@@ -591,7 +388,5 @@ document.getElementById("global-search").addEventListener("input",function(){doc
   } else {
     initAccordion();
   }
-})();
-</script>
-</body>
-</html>
+})();</script>
+</body></html>
