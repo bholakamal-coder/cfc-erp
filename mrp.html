@@ -247,7 +247,9 @@ async function runMRP(){
     var tf=document.getElementById('mrp-type-filter').value;
     var rMap={};
 
-    // PART A: Reorder level check — WO ho ya na ho, sabhi items check karo
+    // PART A: Reorder level check — inventory items check karo
+    // Also check sku_planning items with no inventory entry
+    var checkedIds=[];
     allInventory.forEach(function(inv){
       var sku=allSkuMap[inv.item_id]||null;
       if(!sku)return;
@@ -262,9 +264,28 @@ async function runMRP(){
         rMap[inv.item_id]={
           id:inv.item_id,code:'...',name:'...',type:'',uom:'',
           req:0,av:av,
-          rl:rl,rq2:parseFloat(sku.reorder_qty||0),ms:ms,
+          rl:rl,rq:parseFloat(sku.reorder_qty||0),ms:ms,
           wos:['Reorder Alert']
         };
+      }
+      checkedIds.push(inv.item_id);
+    });
+
+    // Check sku_planning items with NO inventory entry (stock assumed 0)
+    Object.keys(allSkuMap).forEach(function(idStr){
+      var id=parseInt(idStr);
+      if(checkedIds.indexOf(id)>=0)return;
+      var sku=allSkuMap[id];
+      var rl=parseFloat(sku.reorder_level||0);
+      var ms=parseFloat(sku.min_stock||0);
+      if(rl<=0&&ms<=0)return;
+      var br=rl>0; // stock=0 always below reorder
+      var bm=ms>0; // stock=0 always below min
+      if(!br&&!bm)return;
+      if(!rMap[id]){
+        rMap[id]={id:id,code:'...',name:'...',type:'',uom:'',
+          req:0,av:0,rl:rl,rq:parseFloat(sku.reorder_qty||0),ms:ms,
+          wos:['Reorder Alert']};
       }
     });
 
@@ -385,10 +406,10 @@ async function runMRP(){
         +'<td><strong style="font-family:monospace;">'+r.code+'</strong></td>'
         +'<td>'+r.name+'</td>'
         +'<td><span style="background:'+(TBG[r.type]||'#f1f5f9')+';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">'+r.type+'</span></td>'
-        +'<td style="font-weight:600;">'+r.req.toFixed(2)+' '+r.uom+'</td>'
+        +'<td style="font-weight:600;color:'+(r.req<=0?'#b0bec5':'inherit')+';">'+(r.req<=0?'—':r.req.toFixed(2)+' '+r.uom)+'</td>'
         +'<td style="color:'+(r.av<=0?'#dc2626':r.av<r.req?'#854d0e':'#166534')+';font-weight:600;">'+r.av.toFixed(2)+' '+r.uom+'</td>'
-        +'<td style="color:'+(r.sh>0?'#dc2626':'#166534')+';font-weight:700;">'+(r.sh>0?'+'+r.sh.toFixed(2)+' &#10060;':'OK &#10003;')+'</td>'
-        +'<td style="min-width:90px;"><div class="progress-bar"><div class="progress-fill" style="width:'+r.pct+'%;background:'+pc+';"></div></div><span style="font-size:10px;color:#8a95a0;">'+r.pct+'%</span></td>'
+        +'<td style="color:'+(r.req<=0?'#b0bec5':r.sh>0?'#dc2626':'#166534')+';font-weight:700;">'+(r.req<=0?'—':r.sh>0?'+'+r.sh.toFixed(2)+' &#10060;':'OK &#10003;')+'</td>'
+        +'<td style="min-width:90px;">'+(r.req<=0?'<span style="color:#b0bec5;font-size:12px;">—</span>':'<div class="progress-bar"><div class="progress-fill" style="width:'+r.pct+'%;background:'+pc+';"></div></div><span style="font-size:10px;color:#8a95a0;">'+r.pct+'%</span>')+'</td>'
         +'<td>'+rcell+'</td>'
         +'<td style="font-weight:600;color:#1e40af;">'+(r.rq>0?r.rq+' '+r.uom:'—')+'</td>'
         +'<td><span class="pill pill-'+(r.st==='OK'?'ok':r.st==='Shortage'?'short':r.st==='Partial'?'low':r.st==='Reorder'?'low':r.st==='Below Min'?'short':'na')+'">'+r.st+'</span></td>'
