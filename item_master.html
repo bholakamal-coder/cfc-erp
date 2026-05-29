@@ -406,7 +406,7 @@ tr:hover td{background:#fafbfc;}
             <input type="number" id="f-reorder" placeholder="0" min="0"/>
           </div>
           <div class="form-field">
-            <label>Max Order Qty</label>
+            <label>Reorder Qty <small style="color:#8a95a0;">(kitna order karna hai)</small></label>
             <input type="number" id="f-max-order" placeholder="0" min="0"/>
           </div>
           <div class="form-field">
@@ -417,7 +417,7 @@ tr:hover td{background:#fafbfc;}
         <div id="edit-inv-info"></div>
         <div style="margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:10px;font-size:12.5px;color:#78350f;">
           &#128161; Reorder Level = jab stock iss se neeche jaye toh alert aayega.<br/>
-          Max Order Qty = ek baar mein maximum order karne ki limit.<br/>
+          Reorder Qty = jab reorder alert aaye tab kitna order karna hai.<br/>
           Min Stock = minimum rakhna zaroori hai.
         </div>
       </div>
@@ -628,7 +628,7 @@ tr:hover td{background:#fafbfc;}
       <div id="import-status"></div>
       <div id="import-preview"></div>
       <div style="margin-top:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px;font-size:12px;color:#5a6878;">
-        <strong>CSV Columns:</strong> code, name, category_name, type, uom, hsn_code, tax_rate, reorder_level, max_order_qty, is_active, description, notes
+        <strong>CSV Columns:</strong> code, name, category_name, type, uom, hsn_code, tax_rate, reorder_level, reorder_qty, min_stock, is_active, description, notes
       </div>
     </div>
     <div class="modal-footer">
@@ -878,8 +878,8 @@ function renderTable(){
     const statusTxt=item.is_active!==false?"Active":"Inactive";
     const safeName=(item.name||"").replace(/'/g,"\'");
     const reorder=item.reorder_level??"-";
-    const maxOrd=item.max_order_qty??"-";
-    const reorderDisplay=`<span style="font-size:12px;">${reorder} / ${maxOrd}</span>`;
+    const reorderQty=item.max_order_qty??"-";
+    const reorderDisplay=`<span style="font-size:12px;">${reorder} / ${reorderQty}</span>`;
     const stock=item.current_stock??0;
     const wh=item.warehouse_code||"-";
     const stockColor=stock<=0?"color:#dc2626;":(item.reorder_level&&stock<=item.reorder_level?"color:#ca8a04;":"color:#166534;");
