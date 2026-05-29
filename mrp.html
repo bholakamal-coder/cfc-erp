@@ -117,9 +117,9 @@ tr:hover td{background:#fafbfc;}
 <div class="sb-group" data-gid="purchase">
 <div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128715;</span><span class="gh-label">Purchase</span></div><span class="gh-arrow">&#9658;</span></div>
 <div class="sb-group-body">
-<a class="nav-item" href="#"><span class="icon">&#128715;</span> Purchase Order</a>
-<a class="nav-item" href="#"><span class="icon">&#128666;</span> Supplier Master</a>
-<a class="nav-item" href="#"><span class="icon">&#128229;</span> GRN</a>
+<a class="nav-item" href="purchase_order.html"><span class="icon">&#128715;</span> Purchase Order</a>
+<a class="nav-item" href="supplier.html"><span class="icon">&#128666;</span> Supplier Master</a>
+<a class="nav-item" href="grn.html"><span class="icon">&#128229;</span> GRN</a>
 </div></div>
 <div class="sb-group" data-gid="inventory">
 <div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128202;</span><span class="gh-label">Inventory</span></div><span class="gh-arrow">&#9658;</span></div>
@@ -139,14 +139,14 @@ tr:hover td{background:#fafbfc;}
 <div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128218;</span><span class="gh-label">Packing</span></div><span class="gh-arrow">&#9658;</span></div>
 <div class="sb-group-body">
 <a class="nav-item" href="#"><span class="icon">&#128218;</span> Packing Order</a>
-<a class="nav-item" href="#"><span class="icon">&#128666;</span> Dispatch</a>
+<a class="nav-item" href="dispatch.html"><span class="icon">&#128666;</span> Dispatch</a>
 </div></div>
 <div class="sb-group" data-gid="sales">
 <div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128188;</span><span class="gh-label">Sales</span></div><span class="gh-arrow">&#9658;</span></div>
 <div class="sb-group-body">
-<a class="nav-item" href="#"><span class="icon">&#128188;</span> Sales Order</a>
+<a class="nav-item" href="sales_order.html"><span class="icon">&#128188;</span> Sales Order</a>
 <a class="nav-item" href="#"><span class="icon">&#129534;</span> Invoice</a>
-<a class="nav-item" href="#"><span class="icon">&#128101;</span> Customer Master</a>
+<a class="nav-item" href="customer.html"><span class="icon">&#128101;</span> Customer Master</a>
 </div></div>
 <div class="sb-group" data-gid="reports">
 <div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128200;</span><span class="gh-label">Reports</span></div><span class="gh-arrow">&#9658;</span></div>
@@ -237,14 +237,12 @@ let allWOs=[], allInventory=[], allBOMs=[], mrpResults=[];
 })();
 
 async function loadMRP(){
-  // Load WOs
   const woFilter=document.getElementById("mrp-wo-filter").value;
-  let woQuery=sb.from("work_orders").select("id,wo_no,process_name,planned_qty,uom,status,routing_step_id,routing_steps(process_name,routing_levels(code))");
+  let woQuery=sb.from("work_orders").select("id,wo_no,process_name,planned_qty,uom,status,routing_step_id");
   if(woFilter==="pending") woQuery=woQuery.eq("status","Pending");
   else if(woFilter==="assigned") woQuery=woQuery.eq("status","Assigned");
   else if(woFilter==="inprogress") woQuery=woQuery.eq("status","In Progress");
   else woQuery=woQuery.in("status",["Pending","Assigned","In Progress"]);
-
   const {data:wos}=await woQuery.order("created_at",{ascending:false});
   allWOs=wos||[];
 
@@ -252,61 +250,88 @@ async function loadMRP(){
   const {data:inv}=await sb.from("inventory").select("item_id,current_stock,available_stock,uom");
   allInventory=inv||[];
 
-  // Load all BOM headers + lines
+  // Load all active default BOMs with their lines
   const {data:boms}=await sb.from("bom_headers")
-    .select("id,item_id,output_qty,output_uom,bom_lines(item_id,qty,uom,items(code,name,type,uom))")
+    .select("id,item_id,output_qty,output_uom,bom_lines(item_id,qty,uom,scrap_percent,items(id,code,name,type,uom))")
     .eq("status","Active").eq("is_default",true);
   allBOMs=boms||[];
 }
 
 async function runMRP(){
+  document.getElementById("mrp-result-wrap").innerHTML='<div class="loading">&#9889; MRP running...</div>';
   await loadMRP();
   const typeFilter=document.getElementById("mrp-type-filter").value;
 
   if(!allWOs.length){
-    document.getElementById("mrp-result-wrap").innerHTML='<div class="warn-box">&#9888; Koi active Work Order nahi mila. Pehle Work Orders banao.</div>';
+    document.getElementById("mrp-result-wrap").innerHTML='<div class="warn-box">&#9888; Koi active Work Order nahi mila. Work Orders page pe jao aur WO banao.</div>';
+    return;
+  }
+  if(!allBOMs.length){
+    document.getElementById("mrp-result-wrap").innerHTML='<div class="warn-box">&#9888; Koi Active BOM nahi mila. BOM page pe jao aur BOMs activate karo.</div>';
     return;
   }
 
-  // Build requirements map: item_id -> {required, available, bom_ref}
+  // Build BOM map: item_id -> bom (for quick lookup)
+  const bomMap={};
+  allBOMs.forEach(b=>{ bomMap[b.item_id]=b; });
+
+  // Build requirements map
   const reqMap={};
+  let woMatched=0;
 
   for(const wo of allWOs){
-    // Find items related to this WO via routing step → find related FG items' BOMs
-    // For each WO, find BOM lines that match this process
-    // Strategy: check all Active BOMs and sum up requirements for planned_qty
+    const woQty=parseFloat(wo.planned_qty)||0;
+    if(woQty<=0) continue;
+
+    // Find BOM for this WO's output item
+    // WO process_name se match karo ya routing_step se
+    // Strategy: har BOM check karo jo is WO ke process se match kare
+    // Simple: agar WO ka process "Mixing" hai toh Premix items ke BOMs use karo
+    // Better: WO ke items ke BOMs use karo - inventory mein jo items hain unke BOMs
+
+    // Sabse reliable: sabhi Active BOMs ke requirements calculate karo
+    // aur WO qty se scale karo
     for(const bom of allBOMs){
       const outputQty=parseFloat(bom.output_qty)||1;
-      const woQty=parseFloat(wo.planned_qty)||0;
       const multiplier=woQty/outputQty;
+      if(multiplier<=0) continue;
 
       for(const line of (bom.bom_lines||[])){
         const item=line.items||{};
-        if(!item.code) continue;
-        // Apply type filter
+        if(!item.id||!item.code) continue;
+
+        // Type filter
         if(typeFilter==="RM" && item.type!=="RM") continue;
         if(typeFilter==="SFG" && item.type!=="SFG") continue;
-        if(typeFilter!=="all" && typeFilter!=="shortage" && item.type!==typeFilter) continue;
+        if(typeFilter==="shortage") {} // show all, filter later
 
-        const reqQty=parseFloat(line.qty||0)*multiplier;
-        const iid=line.item_id;
+        const scrap=parseFloat(line.scrap_percent||0)/100;
+        const reqQty=parseFloat(line.qty||0)*multiplier*(1+scrap);
+        const iid=item.id;
+
         if(!reqMap[iid]){
           const inv=allInventory.find(x=>x.item_id===iid);
           reqMap[iid]={
-            item_id:iid,
-            code:item.code,
-            name:item.name,
-            type:item.type,
-            uom:item.uom||line.uom,
+            item_id:iid,code:item.code,name:item.name,
+            type:item.type,uom:item.uom||line.uom,
             required:0,
-            available:parseFloat(inv?.available_stock||inv?.current_stock||0),
+            available:inv?parseFloat(inv.available_stock??inv.current_stock??0):0,
             wo_refs:[]
           };
         }
         reqMap[iid].required+=reqQty;
         if(!reqMap[iid].wo_refs.includes(wo.wo_no)) reqMap[iid].wo_refs.push(wo.wo_no);
+        woMatched++;
       }
     }
+  }
+
+  if(!Object.keys(reqMap).length){
+    document.getElementById("mrp-result-wrap").innerHTML=`<div class="warn-box">
+      &#9888; Koi requirement calculate nahi hui.<br>
+      <small>Check karo: WOs active hain (${allWOs.length} found), BOMs active hain (${allBOMs.length} found), BOM lines hain?</small>
+    </div>`;
+    return;
   }
 
   mrpResults=Object.values(reqMap).map(r=>{
