@@ -3,10 +3,9 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>MRP — Material Requirements Planning — CFC ERP v2</title>
+<title>MRP — CFC ERP v2</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+<style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{--red:#cc2200;--red-dark:#a81c00;--navy:#1c2d42;--sidebar-w:240px;--topbar-h:56px;}
 body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a2635;display:flex;min-height:100vh;}
 /* SIDEBAR-ACCORDION */
@@ -40,56 +39,45 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a263
 /* END-SIDEBAR */
 .topbar{position:fixed;top:0;left:var(--sidebar-w);right:0;height:var(--topbar-h);background:#fff;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;padding:0 24px;gap:16px;z-index:90;}
 .topbar-title{font-size:16px;font-weight:600;color:var(--navy);flex:1;}
-.topbar-search{display:flex;align-items:center;background:#f4f6f9;border:1px solid #e2e8f0;border-radius:6px;padding:6px 12px;gap:7px;width:220px;}
-.topbar-search input{border:none;background:none;outline:none;font-size:13px;width:100%;padding:0;}
-.user-chip{display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 8px;border-radius:6px;}
+.user-chip{display:flex;align-items:center;gap:8px;}
 .user-avatar{width:30px;height:30px;background:var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;}
 .user-name{font-size:13px;font-weight:500;color:var(--navy);}
 .main{margin-left:var(--sidebar-w);padding-top:var(--topbar-h);flex:1;}
 .content{padding:24px;}
-.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;}
-.page-header h1{font-size:20px;font-weight:700;color:var(--navy);}
-.page-header p{font-size:13px;color:#8a95a0;margin-top:2px;}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:6px;font-size:13.5px;font-weight:600;cursor:pointer;border:none;transition:all 0.15s;}
 .btn-primary{background:var(--red);color:#fff;}.btn-primary:hover{background:var(--red-dark);}
-.btn-secondary{background:#fff;color:var(--navy);border:1px solid #dde3ea;}.btn-secondary:hover{background:#f4f6f9;}
-.btn-sm{padding:5px 10px;font-size:12px;}.btn-xs{padding:3px 8px;font-size:11px;}
+.btn-secondary{background:#fff;color:var(--navy);border:1px solid #dde3ea;}
+.btn-sm{padding:5px 10px;font-size:12px;}
 .card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-bottom:16px;}
-.card-title{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
 .form-field{margin-bottom:14px;}
 .form-field label{display:block;font-size:13px;font-weight:600;color:#4a5568;margin-bottom:5px;}
-.form-field input,.form-field select{width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:9px 12px;font-size:13.5px;color:#1a2635;background:#f9fafb;outline:none;font-family:inherit;}
-.form-field input:focus,.form-field select:focus{border-color:var(--red);background:#fff;}
+.form-field select{width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:9px 12px;font-size:13.5px;color:#1a2635;background:#f9fafb;outline:none;}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.req{color:var(--red);}
 .table-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:16px;}
 table{width:100%;border-collapse:collapse;}
 thead{background:#f8fafc;}
 th{padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:#5a6878;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid #e2e8f0;white-space:nowrap;}
-td{padding:10px 12px;font-size:13px;color:#1a2635;border-bottom:1px solid #f0f4f8;vertical-align:middle;}
+td{padding:10px 12px;font-size:13px;border-bottom:1px solid #f0f4f8;vertical-align:middle;}
 tr:last-child td{border-bottom:none;}
 tr:hover td{background:#fafbfc;}
-.loading{text-align:center;padding:40px;color:#8a95a0;font-size:14px;}
-.empty-state{text-align:center;padding:60px 20px;color:#8a95a0;}
-.empty-state .big{font-size:40px;margin-bottom:12px;}
-.toast{position:fixed;bottom:24px;right:24px;background:#1a2635;color:#fff;padding:12px 18px;border-radius:8px;font-size:13.5px;z-index:999;opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none;}
-.toast.show{opacity:1;transform:translateY(0);}
-.toast.success{background:#166534;}.toast.error{background:#991b1b;}
 .pill{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;}
 .pill-ok{background:#dcfce7;color:#166534;}
 .pill-low{background:#fef9c3;color:#854d0e;}
 .pill-short{background:#fee2e2;color:#991b1b;}
 .pill-na{background:#f1f5f9;color:#64748b;}
-.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;}
+.loading{text-align:center;padding:40px;color:#8a95a0;font-size:14px;}
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:20px;}
 .stat-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;text-align:center;}
 .stat-val{font-size:24px;font-weight:800;color:var(--navy);}
 .stat-lbl{font-size:11px;color:#8a95a0;margin-top:2px;}
-.progress-bar{background:#f0f4f8;border-radius:20px;height:6px;overflow:hidden;margin-top:4px;}
-.progress-fill{height:100%;border-radius:20px;transition:width 0.3s;}
-.info-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 16px;font-size:13px;color:#1e40af;margin-bottom:16px;}
-.warn-box{background:#fefce8;border:1px solid #fde047;border-radius:8px;padding:12px 16px;font-size:13px;color:#854d0e;margin-bottom:16px;}
-.section-hdr{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#8a95a0;margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid #f0f4f8;}
-</style>
+.info-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 16px;font-size:13px;color:#1e40af;margin-bottom:12px;}
+.warn-box{background:#fefce8;border:1px solid #fde047;border-radius:8px;padding:12px 16px;font-size:13px;color:#854d0e;margin-bottom:12px;}
+.err-box{background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;font-size:13px;color:#991b1b;margin-bottom:12px;}
+.progress-bar{background:#f0f4f8;border-radius:20px;height:6px;overflow:hidden;margin-top:3px;}
+.progress-fill{height:100%;border-radius:20px;}
+.toast{position:fixed;bottom:24px;right:24px;background:#1a2635;color:#fff;padding:12px 18px;border-radius:8px;font-size:13.5px;z-index:999;opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.success{background:#166534;}.toast.error{background:#991b1b;}</style>
 </head>
 <body>
 <aside class="sidebar">
@@ -110,7 +98,7 @@ tr:hover td{background:#fafbfc;}
 <a class="nav-item" href="machines.html"><span class="icon">&#9881;&#65039;</span> Machine Master</a>
 <a class="nav-item" href="work_orders.html"><span class="icon">&#127981;</span> Work Orders</a>
 <a class="nav-item" href="production_plan.html"><span class="icon">&#128203;</span> Production Plan</a>
-<a class="nav-item active" href="mrp.html"><span class="icon">&#128200;</span> MRP</a>
+<a class="nav-item" href="mrp.html" class="nav-item active"><span class="icon">&#128200;</span> MRP</a>
 <a class="nav-item" href="#"><span class="icon">&#128101;</span> Labour Planning</a>
 <a class="nav-item" href="#"><span class="icon">&#128196;</span> Job Cards</a>
 </div></div>
@@ -159,362 +147,247 @@ tr:hover td{background:#fafbfc;}
 <div class="sidebar-bottom"><a href="#"><span>&#9881;&#65039;</span> Settings</a><a href="#" onclick="handleLogout()"><span>&#128682;</span> Logout</a></div></aside>
 <div class="topbar">
   <div class="topbar-title">MRP — Material Requirements Planning</div>
-  <div class="topbar-search"><span style="color:#b0bec5;">&#128269;</span><input type="text" id="global-search" placeholder="Item search..."/></div>
   <div class="user-chip"><div class="user-avatar" id="user-avatar">A</div><div class="user-name" id="user-name">Admin</div></div>
 </div>
-
 <div class="main"><div class="content">
-  <div class="page-header">
-    <div>
-      <h1>&#128200; MRP — Material Requirements Planning</h1>
-      <p>Work Order / Production ke against kaunsa RM / SFG kam hai — ek click mein pata karo</p>
-    </div>
-    <div style="display:flex;gap:8px;">
-      <button class="btn btn-secondary btn-sm" onclick="loadMRP()">&#8635; Refresh</button>
-      <button class="btn btn-primary" onclick="runMRP()">&#9654; Run MRP</button>
-    </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+    <div><h1 style="font-size:20px;font-weight:700;color:var(--navy);">&#128200; MRP</h1>
+    <p style="font-size:13px;color:#8a95a0;margin-top:2px;">Work Orders ke against RM/SFG requirement vs stock check</p></div>
+    <button class="btn btn-primary" onclick="runMRP()">&#9654; Run MRP</button>
   </div>
-
-  <!-- INPUT -->
   <div class="card">
-    <div class="card-title">&#127981; MRP Input — Kaunse orders ke liye check karein?</div>
     <div class="form-row">
-      <div class="form-field">
-        <label>Work Order Filter</label>
+      <div class="form-field"><label>Work Order Filter</label>
         <select id="mrp-wo-filter">
-          <option value="all">All Pending + In Progress WOs</option>
+          <option value="all">All Pending + In Progress</option>
           <option value="pending">Only Pending</option>
           <option value="assigned">Only Assigned</option>
           <option value="inprogress">Only In Progress</option>
-        </select>
-      </div>
-      <div class="form-field">
-        <label>Item Type Check</label>
+        </select></div>
+      <div class="form-field"><label>Show Items</label>
         <select id="mrp-type-filter">
-          <option value="all">RM + SFG + Consumable</option>
+          <option value="all">RM + SFG + All</option>
           <option value="RM">Only RM</option>
           <option value="SFG">Only SFG</option>
           <option value="shortage">Only Shortages</option>
-        </select>
-      </div>
+          <option value="reorder">Only Reorder Needed</option>
+        </select></div>
     </div>
-    <button class="btn btn-primary" style="width:100%;" onclick="runMRP()">&#9654; Run MRP — Check Stock vs Requirement</button>
+    <button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="runMRP()">&#9654; Run MRP — Check Stock vs Requirement</button>
   </div>
-
-  <!-- STATS -->
   <div class="stat-row" id="mrp-stats" style="display:none;">
-    <div class="stat-card"><div class="stat-val" id="mrp-stat-total">—</div><div class="stat-lbl">Total Items</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:#166534;" id="mrp-stat-ok">—</div><div class="stat-lbl">Stock OK</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:#dc2626;" id="mrp-stat-short">—</div><div class="stat-lbl">Shortage</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:#854d0e;" id="mrp-stat-low">—</div><div class="stat-lbl">Partial</div></div>
-    <div class="stat-card"><div class="stat-val" id="mrp-stat-wo">—</div><div class="stat-lbl">WOs Checked</div></div>
+    <div class="stat-card"><div class="stat-val" id="s-total">—</div><div class="stat-lbl">Total Items</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:#166534;" id="s-ok">—</div><div class="stat-lbl">Stock OK</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:#dc2626;" id="s-short">—</div><div class="stat-lbl">Shortage</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:#854d0e;" id="s-partial">—</div><div class="stat-lbl">Partial</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:#6d28d9;" id="s-reorder">—</div><div class="stat-lbl">Reorder</div></div>
+    <div class="stat-card"><div class="stat-val" id="s-wo">—</div><div class="stat-lbl">WOs</div></div>
   </div>
-
-  <!-- RESULTS -->
-  <div id="mrp-result-wrap">
-    <div class="info-box">&#128161; Work Orders select karo aur <strong>Run MRP</strong> karo — system automatically BOM se required qty calculate karega aur current stock se compare karega.</div>
-  </div>
-
+  <div id="mrp-wrap"><div class="info-box">&#128161; Run MRP button dabao.</div></div>
 </div></div>
-
 <div class="toast" id="toast"></div>
 
 <script>
-const SUPABASE_URL='https://sdopdeqepjoshbzrpbmi.supabase.co';
-const SUPABASE_KEY='sb_publishable_eWBMrAFa7Yyvtlb-7-8IGA_KxfE7v_8';
-const {createClient}=supabase;
-const sb=createClient(SUPABASE_URL,SUPABASE_KEY);
+var SB_URL='https://sdopdeqepjoshbzrpbmi.supabase.co';
+var SB_KEY='sb_publishable_eWBMrAFa7Yyvtlb-7-8IGA_KxfE7v_8';
+var sc=supabase.createClient(SB_URL,SB_KEY);
+var allWOs=[],allInventory=[],allBOMs=[],allSkuMap={},mrpResults=[];
 
-let allWOs=[], allInventory=[], allBOMs=[], mrpResults=[];
-
-(async()=>{
-  const {data:{session}}=await sb.auth.getSession();
-  if(!session){window.location.href="index.html";return;}
-  const email=session.user.email||"";
-  document.getElementById("user-avatar").textContent=email.substring(0,2).toUpperCase();
-  document.getElementById("user-name").textContent=email.split("@")[0];
-  await loadMRP();
+(async function init(){
+  try{
+    var s=await sc.auth.getSession();
+    if(!s.data.session){window.location.href='index.html';return;}
+    var em=s.data.session.user.email||'';
+    document.getElementById('user-avatar').textContent=em.substring(0,2).toUpperCase();
+    document.getElementById('user-name').textContent=em.split('@')[0];
+    runMRP();
+  }catch(e){console.error(e);}
 })();
 
-async function loadMRP(){
-  // 1. Load Work Orders
-  const woFilter=document.getElementById("mrp-wo-filter").value;
-  let woQuery=sb.from("work_orders").select("id,wo_no,process_name,planned_qty,uom,status");
-  if(woFilter==="pending") woQuery=woQuery.eq("status","Pending");
-  else if(woFilter==="assigned") woQuery=woQuery.eq("status","Assigned");
-  else if(woFilter==="inprogress") woQuery=woQuery.eq("status","In Progress");
-  else woQuery=woQuery.in("status",["Pending","Assigned","In Progress"]);
-  const {data:wos}=await woQuery.order("created_at",{ascending:false});
-  allWOs=wos||[];
-
-  // 2. Load inventory
-  const {data:inv}=await sb.from("inventory").select("item_id,current_stock,available_stock,uom");
-  allInventory=inv||[];
-
-  // 3. Load BOM headers (default ones)
-  const {data:bomHeaders}=await sb.from("bom_headers")
-    .select("id,item_id,output_qty,output_uom,status,is_default")
-    .eq("is_default",true);
-  const defaultBoms=bomHeaders||[];
-
-  // 4. Load BOM lines SEPARATELY (avoids nested RLS issues)
-  const {data:bomLines}=await sb.from("bom_lines")
-    .select("id,bom_id,item_id,qty,uom,scrap_percent");
-  const allLines=bomLines||[];
-
-  // 4b. Load reorder levels from sku_planning
-  const {data:skuData}=await sb.from("sku_planning")
-    .select("item_id,reorder_level,reorder_qty,min_stock");
-  const skuMap={};
-  (skuData||[]).forEach(s=>skuMap[s.item_id]=s);
-  window._skuMap=skuMap;
-
-  // 5. Load items for BOM lines
-  const lineItemIds=[...new Set(allLines.map(l=>l.item_id).filter(Boolean))];
-  let itemsMap={};
-  if(lineItemIds.length>0){
-    const {data:lineItems}=await sb.from("items")
-      .select("id,code,name,type,uom")
-      .in("id",lineItemIds);
-    (lineItems||[]).forEach(i=>itemsMap[i.id]=i);
-  }
-
-  // 6. Attach lines + items to BOMs
-  allBOMs=defaultBoms.map(b=>({
-    ...b,
-    bom_lines:allLines
-      .filter(l=>l.bom_id===b.id)
-      .map(l=>({...l,items:itemsMap[l.item_id]||null}))
-  }));
-}
-
 async function runMRP(){
-  document.getElementById("mrp-result-wrap").innerHTML='<div class="loading">&#9889; MRP running...</div>';
-  await loadMRP();
-  const typeFilter=document.getElementById("mrp-type-filter").value;
+  var wrap=document.getElementById('mrp-wrap');
+  wrap.innerHTML='<div class="loading">MRP running...</div>';
+  try{
+    var wf=document.getElementById('mrp-wo-filter').value;
+    var wq=sc.from('work_orders').select('id,wo_no,planned_qty,uom,status');
+    if(wf==='pending')wq=wq.eq('status','Pending');
+    else if(wf==='assigned')wq=wq.eq('status','Assigned');
+    else if(wf==='inprogress')wq=wq.eq('status','In Progress');
+    else wq=wq.in('status',['Pending','Assigned','In Progress']);
+    var wr=await wq; allWOs=wr.data||[];
 
-  if(!allWOs.length){
-    document.getElementById("mrp-result-wrap").innerHTML='<div class="warn-box">&#9888; Koi active Work Order nahi mila. Work Orders page pe jao aur WO banao.</div>';
-    return;
-  }
-  if(!allBOMs.length){
-    document.getElementById("mrp-result-wrap").innerHTML='<div class="warn-box">&#9888; Koi Active BOM nahi mila. BOM page pe jao aur BOMs activate karo.</div>';
-    return;
-  }
+    var ir=await sc.from('inventory').select('item_id,current_stock,available_stock');
+    allInventory=ir.data||[];
 
-  // Build BOM map: item_id -> bom (for quick lookup)
-  const bomMap={};
-  allBOMs.forEach(b=>{ bomMap[b.item_id]=b; });
+    var bhr=await sc.from('bom_headers').select('id,item_id,output_qty,is_default').eq('is_default',true);
+    var bomH=bhr.data||[];
 
-  // Build requirements map
-  const reqMap={};
-  let woMatched=0;
+    var blr=await sc.from('bom_lines').select('id,bom_id,item_id,qty,uom,scrap_percent');
+    var bomL=blr.data||[];
 
-  for(const wo of allWOs){
-    const woQty=parseFloat(wo.planned_qty)||0;
-    if(woQty<=0) continue;
-
-    // Find BOM for this WO's output item
-    // WO process_name se match karo ya routing_step se
-    // Strategy: har BOM check karo jo is WO ke process se match kare
-    // Simple: agar WO ka process "Mixing" hai toh Premix items ke BOMs use karo
-    // Better: WO ke items ke BOMs use karo - inventory mein jo items hain unke BOMs
-
-    // Sabse reliable: sabhi Active BOMs ke requirements calculate karo
-    // aur WO qty se scale karo
-    for(const bom of allBOMs){
-      const outputQty=parseFloat(bom.output_qty)||1;
-      const multiplier=woQty/outputQty;
-      if(multiplier<=0) continue;
-
-      for(const line of (bom.bom_lines||[])){
-        const item=line.items||{};
-        if(!item.id||!item.code) continue;
-
-        // Type filter
-        if(typeFilter==="RM" && item.type!=="RM") continue;
-        if(typeFilter==="SFG" && item.type!=="SFG") continue;
-        if(typeFilter==="shortage") {} // show all, filter later
-
-        const scrap=parseFloat(line.scrap_percent||0)/100;
-        const reqQty=parseFloat(line.qty||0)*multiplier*(1+scrap);
-        const iid=item.id;
-
-        if(!reqMap[iid]){
-          const inv=allInventory.find(x=>x.item_id===iid);
-          const sku=window._skuMap?.[iid];
-          const avail=inv?parseFloat(inv.available_stock??inv.current_stock??0):0;
-          reqMap[iid]={
-            item_id:iid,code:item.code,name:item.name,
-            type:item.type,uom:item.uom||line.uom,
-            required:0,
-            available:avail,
-            reorder_level:parseFloat(sku?.reorder_level||0),
-            reorder_qty:parseFloat(sku?.reorder_qty||0),
-            min_stock:parseFloat(sku?.min_stock||0),
-            wo_refs:[]
-          };
-        }
-        reqMap[iid].required+=reqQty;
-        if(!reqMap[iid].wo_refs.includes(wo.wo_no)) reqMap[iid].wo_refs.push(wo.wo_no);
-        woMatched++;
-      }
+    var itemIds=[];
+    bomL.forEach(function(l){if(l.item_id&&itemIds.indexOf(l.item_id)<0)itemIds.push(l.item_id);});
+    var iMap={};
+    if(itemIds.length){
+      var ii=await sc.from('items').select('id,code,name,type,uom').in('id',itemIds);
+      (ii.data||[]).forEach(function(x){iMap[x.id]=x;});
     }
+
+    var skr=await sc.from('sku_planning').select('item_id,reorder_level,reorder_qty,min_stock');
+    allSkuMap={};
+    (skr.data||[]).forEach(function(x){allSkuMap[x.item_id]=x;});
+
+    allBOMs=bomH.map(function(b){
+      return {id:b.id,item_id:b.item_id,output_qty:b.output_qty,
+        bom_lines:bomL.filter(function(l){return l.bom_id===b.id;}).map(function(l){
+          return {item_id:l.item_id,qty:l.qty,uom:l.uom,scrap_percent:l.scrap_percent,items:iMap[l.item_id]||null};
+        })};
+    });
+
+    if(!allWOs.length){wrap.innerHTML='<div class="warn-box">Koi active Work Order nahi. WO banao (Pending/In Progress).</div>';return;}
+    if(!allBOMs.length){wrap.innerHTML='<div class="warn-box">Koi Default BOM nahi. BOM page pe is_default=Yes karo.</div>';return;}
+    var tl=allBOMs.reduce(function(s,b){return s+b.bom_lines.length;},0);
+    if(!tl){wrap.innerHTML='<div class="warn-box">BOM mein components nahi hain. BOM page pe components add karo.</div>';return;}
+
+    var tf=document.getElementById('mrp-type-filter').value;
+    var rMap={};
+
+    allWOs.forEach(function(wo){
+      var wq2=parseFloat(wo.planned_qty)||0;
+      if(!wq2)return;
+      allBOMs.forEach(function(bom){
+        var oq=parseFloat(bom.output_qty)||1;
+        var mul=wq2/oq;
+        bom.bom_lines.forEach(function(line){
+          var item=line.items;
+          if(!item||!item.id)return;
+          if(tf==='RM'&&item.type!=='RM')return;
+          if(tf==='SFG'&&item.type!=='SFG')return;
+          var sc2=parseFloat(line.scrap_percent||0)/100;
+          var rq=parseFloat(line.qty||0)*mul*(1+sc2);
+          var id=item.id;
+          if(!rMap[id]){
+            var inv=null;
+            for(var k=0;k<allInventory.length;k++){if(allInventory[k].item_id===id){inv=allInventory[k];break;}}
+            var av=inv?parseFloat(inv.available_stock!==null&&inv.available_stock!==undefined?inv.available_stock:inv.current_stock||0)||0:0;
+            var sku=allSkuMap[id]||null;
+            rMap[id]={id:id,code:item.code,name:item.name,type:item.type,uom:item.uom||line.uom,
+              req:0,av:av,
+              rl:sku?parseFloat(sku.reorder_level||0):0,
+              rq2:sku?parseFloat(sku.reorder_qty||0):0,
+              ms:sku?parseFloat(sku.min_stock||0):0,
+              wos:[]};
+          }
+          rMap[id].req+=rq;
+          if(rMap[id].wos.indexOf(wo.wo_no)<0)rMap[id].wos.push(wo.wo_no);
+        });
+      });
+    });
+
+    if(!Object.keys(rMap).length){
+      wrap.innerHTML='<div class="warn-box">Requirement calculate nahi hui. WOs:'+allWOs.length+' BOMs:'+allBOMs.length+' Lines:'+tl+'</div>';return;
+    }
+
+    mrpResults=Object.values(rMap).map(function(r){
+      var sh=r.req-r.av;
+      var pct=r.req>0?Math.min(100,Math.round(r.av/r.req*100)):100;
+      var st=r.req<=0?'NA':sh<=0?'OK':r.av>0?'Partial':'Shortage';
+      var bm=r.ms>0&&r.av<r.ms;
+      var br=r.rl>0&&r.av<=r.rl;
+      var ra=bm?'Below Min':br?'Reorder':'';
+      return {code:r.code,name:r.name,type:r.type,uom:r.uom,req:r.req,av:r.av,sh:sh,pct:pct,st:st,bm:bm,br:br,ra:ra,rl:r.rl,ms:r.ms,wos:r.wos};
+    });
+
+    mrpResults.sort(function(a,b){
+      var o={Shortage:0,Partial:1,OK:2,NA:3};
+      return (o[a.st]||3)-(o[b.st]||3);
+    });
+
+    var disp=mrpResults;
+    if(tf==='shortage')disp=mrpResults.filter(function(r){return r.st==='Shortage'||r.st==='Partial';});
+    if(tf==='reorder')disp=mrpResults.filter(function(r){return r.br||r.bm;});
+
+    var tot=mrpResults.length;
+    var ok=mrpResults.filter(function(r){return r.st==='OK';}).length;
+    var sht=mrpResults.filter(function(r){return r.st==='Shortage';}).length;
+    var par=mrpResults.filter(function(r){return r.st==='Partial';}).length;
+    var reo=mrpResults.filter(function(r){return r.br||r.bm;}).length;
+
+    document.getElementById('mrp-stats').style.display='grid';
+    document.getElementById('s-total').textContent=tot;
+    document.getElementById('s-ok').textContent=ok;
+    document.getElementById('s-short').textContent=sht;
+    document.getElementById('s-partial').textContent=par;
+    document.getElementById('s-reorder').textContent=reo;
+    document.getElementById('s-wo').textContent=allWOs.length;
+
+    var sum='';
+    if(sht>0){
+      var sc3=mrpResults.filter(function(r){return r.st==='Shortage';}).map(function(r){return r.code;});
+      sum+='<div class="err-box">&#128680; <strong>'+sht+' items ZERO stock</strong> — Production ruk sakti hai!<br><small>'+sc3.join(', ')+'</small></div>';
+    }
+    if(par>0)sum+='<div class="warn-box">&#9888; <strong>'+par+' items partial stock</strong></div>';
+    if(reo>0){
+      var rc=mrpResults.filter(function(r){return r.br||r.bm;}).map(function(r){return r.code+'('+r.av.toFixed(0)+'<'+r.rl+')';});
+      sum+='<div class="warn-box" style="background:#faf5ff;border-color:#d8b4fe;color:#6d28d9;">&#128204; <strong>'+reo+' items reorder needed</strong><br><small>'+rc.join(', ')+'</small></div>';
+    }
+    if(!sht&&!par&&!reo)sum+='<div class="info-box" style="background:#f0fdf4;border-color:#86efac;color:#166534;">&#10003; Sabhi items stock sufficient hai!</div>';
+
+    if(!disp.length){wrap.innerHTML=sum+'<div style="text-align:center;padding:40px;color:#8a95a0;">Filter ke hisaab se koi item nahi.</div>';return;}
+
+    var TBG={RM:'#dbeafe',SFG:'#dcfce7',FG:'#fff0ee',Consumable:'#fef9c3',Packing:'#fdf4ff'};
+    var rows=disp.map(function(r,i){
+      var rbg=r.st==='Shortage'?'#fff5f5':r.st==='Partial'?'#fffbeb':r.br?'#faf5ff':'';
+      var pc=r.pct>=100?'#22c55e':r.pct>50?'#f59e0b':'#ef4444';
+      var rcell=r.rl>0?'<span style="color:'+(r.br?'#dc2626':'#5a6878')+';">'+r.rl+' '+r.uom+'</span>'+(r.ms?'<br><small style="color:#8a95a0">Min:'+r.ms+'</small>':''):'—';
+      var acell=r.ra?'<span style="background:'+(r.bm?'#fee2e2':'#faf5ff')+';color:'+(r.bm?'#991b1b':'#6d28d9')+';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">&#9888; '+r.ra+'</span>':'—';
+      return '<tr style="background:'+rbg+';">'
+        +'<td style="color:#b0bec5;font-size:12px;">'+(i+1)+'</td>'
+        +'<td><strong style="font-family:monospace;">'+r.code+'</strong></td>'
+        +'<td>'+r.name+'</td>'
+        +'<td><span style="background:'+(TBG[r.type]||'#f1f5f9')+';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">'+r.type+'</span></td>'
+        +'<td style="font-weight:600;">'+r.req.toFixed(2)+' '+r.uom+'</td>'
+        +'<td style="color:'+(r.av<=0?'#dc2626':r.av<r.req?'#854d0e':'#166534')+';font-weight:600;">'+r.av.toFixed(2)+' '+r.uom+'</td>'
+        +'<td style="color:'+(r.sh>0?'#dc2626':'#166534')+';font-weight:700;">'+(r.sh>0?'+'+r.sh.toFixed(2)+' &#10060;':'OK &#10003;')+'</td>'
+        +'<td style="min-width:90px;"><div class="progress-bar"><div class="progress-fill" style="width:'+r.pct+'%;background:'+pc+';"></div></div><span style="font-size:10px;color:#8a95a0;">'+r.pct+'%</span></td>'
+        +'<td>'+rcell+'</td>'
+        +'<td><span class="pill pill-'+(r.st==='OK'?'ok':r.st==='Shortage'?'short':r.st==='Partial'?'low':'na')+'">'+r.st+'</span></td>'
+        +'<td>'+acell+'</td>'
+        +'<td style="font-size:11px;color:#5a6878;max-width:140px;">'+r.wos.slice(0,3).join(', ')+(r.wos.length>3?'...':'')+'</td>'
+        +'</tr>';
+    }).join('');
+
+    wrap.innerHTML=sum
+      +'<div style="font-size:12px;font-weight:700;color:#8a95a0;letter-spacing:1px;text-transform:uppercase;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid #f0f4f8;">'+disp.length+' Items</div>'
+      +'<div class="table-wrap"><table>'
+      +'<thead><tr><th>#</th><th>Code</th><th>Name</th><th>Type</th><th>Required</th><th>Available</th><th>Shortage</th><th>Coverage</th><th>Reorder Lvl</th><th>Status</th><th>Alert</th><th>WO Refs</th></tr></thead>'
+      +'<tbody>'+rows+'</tbody></table></div>'
+      +'<div style="display:flex;gap:10px;margin-top:12px;">'
+      +'<button class="btn btn-secondary btn-sm" onclick="exportCSV()">&#128229; Export CSV</button>'
+      +'<button class="btn btn-secondary btn-sm" onclick="document.getElementById('mrp-type-filter').value='shortage';runMRP();">&#10060; Shortages Only</button>'
+      +'<button class="btn btn-secondary btn-sm" onclick="document.getElementById('mrp-type-filter').value='reorder';runMRP();">&#128204; Reorder Only</button>'
+      +'</div>';
+
+  }catch(e){
+    wrap.innerHTML='<div class="err-box">Error: '+e.message+'</div>';
+    console.error('MRP:',e);
   }
-
-  // Debug info
-  const totalLines=allBOMs.reduce((s,b)=>s+(b.bom_lines||[]).length,0);
-
-  if(!Object.keys(reqMap).length){
-    document.getElementById("mrp-result-wrap").innerHTML=`<div class="warn-box">
-      &#9888; Koi requirement calculate nahi hui.<br><br>
-      <strong>Debug Info:</strong><br>
-      • Work Orders found: <strong>${allWOs.length}</strong> (${allWOs.map(w=>w.wo_no).join(', ')})<br>
-      • Default BOMs found: <strong>${allBOMs.length}</strong><br>
-      • Total BOM Lines: <strong>${totalLines}</strong><br><br>
-      <strong>Fix karo:</strong><br>
-      ${allBOMs.length===0?'❌ Koi Default BOM nahi — BOM page pe jao, BOM edit karo, "Is Default BOM? = Yes" karo':''}
-      ${totalLines===0&&allBOMs.length>0?'❌ BOMs hain par lines nahi — BOM mein components add karo':''}
-      ${allWOs.length===0?'❌ Koi WO nahi — Work Orders banao':''}
-    </div>`;
-    return;
-  }
-
-  mrpResults=Object.values(reqMap).map(r=>{
-    const shortage=r.required-r.available;
-    const pct=r.required>0?Math.min(100,Math.round((r.available/r.required)*100)):100;
-    const belowReorder=r.reorder_level>0&&r.available<=r.reorder_level;
-    const belowMin=r.min_stock>0&&r.available<r.min_stock;
-    let status;
-    if(r.required<=0) status="NA";
-    else if(shortage<=0) status="OK";
-    else if(r.available>0) status="Partial";
-    else status="Shortage";
-    // Override if below reorder even if stock ok
-    let reorderAlert=belowMin?"Below Min":belowReorder?"Reorder":"";
-    return {...r, shortage, pct, status, reorderAlert, belowReorder, belowMin};
-  }).sort((a,b)=>{
-    const order={Shortage:0,Partial:1,"Below Min":1,OK:2,NA:3};
-    return (order[a.status]||3)-(order[b.status]||3);
-  });
-
-  // Apply shortage filter
-  let display=mrpResults;
-  if(typeFilter==="shortage") display=mrpResults.filter(r=>r.status==="Shortage"||r.status==="Partial");
-
-  // Stats
-  const total=mrpResults.length;
-  const ok=mrpResults.filter(r=>r.status==="OK").length;
-  const short=mrpResults.filter(r=>r.status==="Shortage").length;
-  const partial=mrpResults.filter(r=>r.status==="Partial").length;
-  document.getElementById("mrp-stats").style.display="grid";
-  document.getElementById("mrp-stat-total").textContent=total;
-  document.getElementById("mrp-stat-ok").textContent=ok;
-  document.getElementById("mrp-stat-short").textContent=short;
-  document.getElementById("mrp-stat-low").textContent=partial;
-  document.getElementById("mrp-stat-wo").textContent=allWOs.length;
-
-  if(!display.length){
-    document.getElementById("mrp-result-wrap").innerHTML='<div class="info-box">&#10003; Sab items ka stock sufficient hai — koi shortage nahi!</div>';
-    return;
-  }
-
-  // Summary boxes
-  let summaryHtml="";
-  if(short>0){
-    const shortItems=mrpResults.filter(r=>r.status==="Shortage");
-    summaryHtml+=`<div class="warn-box" style="background:#fee2e2;border-color:#fca5a5;color:#991b1b;">
-      &#128680; <strong>${short} items mein ZERO stock hai</strong> — Production ruk sakti hai!<br>
-      <small>${shortItems.map(r=>r.code).join(", ")}</small>
-    </div>`;
-  }
-  // Reorder alerts
-  const reorderItems=mrpResults.filter(r=>r.belowReorder||r.belowMin);
-  if(reorderItems.length>0){
-    summaryHtml+=`<div class="warn-box" style="background:#fefce8;border-color:#fde047;color:#854d0e;">
-      &#128204; <strong>${reorderItems.length} items reorder level se neeche hain</strong> — Purchase Order banana chahiye!<br>
-      <small>${reorderItems.map(r=>r.code+" ("+r.available.toFixed(1)+" &lt; "+r.reorder_level+")").join(", ")}</small>
-    </div>`;
-  }
-  if(partial>0){
-    summaryHtml+=`<div class="warn-box">
-      &#9888; <strong>${partial} items mein partial stock hai</strong> — Kuch requirement poori nahi hogi.<br>
-    </div>`;
-  }
-  if(ok>0 && short===0 && partial===0){
-    summaryHtml+='<div class="info-box" style="background:#f0fdf4;border-color:#86efac;color:#166534;">&#10003; Sabhi items ka stock sufficient hai!</div>';
-  }
-
-  const TYPE_BG={RM:"#dbeafe",SFG:"#dcfce7",FG:"#fff0ee",Consumable:"#fef9c3",Packing:"#fdf4ff"};
-
-  document.getElementById("mrp-result-wrap").innerHTML=summaryHtml+`
-  <div class="section-hdr">Item-wise Requirement vs Stock</div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr>
-        <th>#</th><th>Code</th><th>Name</th><th>Type</th>
-        <th>Required</th><th>Available</th><th>Shortage</th>
-        <th>Reorder Lvl</th><th>Coverage</th><th>Status</th><th>Reorder Alert</th><th>WO References</th>
-      </tr></thead>
-      <tbody>
-        ${display.map((r,i)=>`<tr style="${r.status==="Shortage"?"background:#fff5f5;":r.status==="Partial"?"background:#fffbeb;":""}">
-          <td style="color:#b0bec5;font-size:12px;">${i+1}</td>
-          <td><strong style="font-family:monospace;">${r.code}</strong></td>
-          <td>${r.name}</td>
-          <td><span style="background:${TYPE_BG[r.type]||"#f1f5f9"};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${r.type}</span></td>
-          <td style="font-weight:600;">${r.required.toFixed(2)} ${r.uom}</td>
-          <td style="color:${r.available<=0?"#dc2626":r.available<r.required?"#854d0e":"#166534"};font-weight:600;">${r.available.toFixed(2)} ${r.uom}</td>
-          <td style="color:${r.shortage>0?"#dc2626":"#166534"};font-weight:700;">
-            ${r.shortage>0?"+"+r.shortage.toFixed(2)+" ❌":"OK ✓"}
-          </td>
-          <td style="font-size:12px;">
-            ${r.reorder_level>0?`<span style="color:${r.belowReorder?"#dc2626":"#5a6878"};">${r.reorder_level} ${r.uom}</span>`:"—"}
-            ${r.min_stock>0?`<br><span style="font-size:10px;color:#8a95a0;">Min: ${r.min_stock}</span>`:""}
-          </td>
-          <td style="min-width:100px;">
-            <div class="progress-bar">
-              <div class="progress-fill" style="width:${r.pct}%;background:${r.pct>=100?"#22c55e":r.pct>50?"#f59e0b":"#ef4444"};"></div>
-            </div>
-            <span style="font-size:10px;color:#8a95a0;">${r.pct}%</span>
-          </td>
-          <td><span class="pill pill-${r.status==="OK"?"ok":r.status==="Shortage"?"short":r.status==="Partial"?"low":"na"}">${r.status}</span></td>
-          <td>${r.reorderAlert?`<span style="background:${r.belowMin?"#fee2e2":"#fef9c3"};color:${r.belowMin?"#991b1b":"#854d0e"};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">⚠️ ${r.reorderAlert}</span>`:"—"}</td>
-          <td style="font-size:11px;color:#5a6878;max-width:150px;">${r.wo_refs.slice(0,3).join(", ")}${r.wo_refs.length>3?"...":""}</td>
-        </tr>`).join("")}
-      </tbody>
-    </table>
-  </div>
-  <div style="display:flex;gap:10px;margin-top:12px;">
-    <button class="btn btn-secondary btn-sm" onclick="exportMRP()">&#128229; Export CSV</button>
-    <button class="btn btn-warning btn-sm" onclick="showShortageOnly()">&#9888; Show Shortage Only</button>
-  </div>`;
 }
 
-function showShortageOnly(){
-  document.getElementById("mrp-type-filter").value="shortage";
-  runMRP();
+function exportCSV(){
+  if(!mrpResults.length){showToast('Pehle MRP run karo','error');return;}
+  var rows=[['Code','Name','Type','Required','Available','Shortage','Pct','Reorder Level','Status','Alert','WO Refs']];
+  mrpResults.forEach(function(r){rows.push([r.code,r.name,r.type,r.req.toFixed(2),r.av.toFixed(2),r.sh.toFixed(2),r.pct+'%',r.rl,r.st,r.ra,r.wos.join('|')]);});
+  var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob([csv],{type:'text/csv'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mrp_'+new Date().toISOString().split('T')[0]+'.csv';a.click();
+  showToast('CSV downloaded!','success');
 }
 
-function exportMRP(){
-  if(!mrpResults.length){showToast("Pehle MRP run karo","error");return;}
-  const rows=[["Code","Name","Type","Required","Available","Shortage","Coverage%","Status","WO Refs"]];
-  mrpResults.forEach(r=>rows.push([r.code,r.name,r.type,r.required.toFixed(2),r.available.toFixed(2),r.shortage.toFixed(2),r.pct+"%",r.status,r.wo_refs.join("|")]));
-  const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("
-");
-  const blob=new Blob([csv],{type:"text/csv"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="mrp_"+new Date().toISOString().split("T")[0]+".csv";
-  a.click();
-  showToast("CSV downloaded!","success");
-}
-
-function showToast(msg,type=""){const t=document.getElementById("toast");t.textContent=msg;t.className="toast show "+type;setTimeout(()=>t.className="toast",3500);}
-async function handleLogout(){await sb.auth.signOut();window.location.href="index.html";}
-document.getElementById("global-search").addEventListener("input",function(){});
+function showToast(msg,type){var t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+(type||'');setTimeout(function(){t.className='toast';},3500);}
+async function handleLogout(){await sc.auth.signOut();window.location.href='index.html';}
 </script>
-<script>
-(function(){
+<script>(function(){
   var STORE='cfc_sb_open';
   function getOpen(){try{return JSON.parse(localStorage.getItem(STORE)||'[]');}catch(e){return[];}}
   function saveOpen(a){try{localStorage.setItem(STORE,JSON.stringify(a));}catch(e){}}
@@ -567,7 +440,5 @@ document.getElementById("global-search").addEventListener("input",function(){});
   } else {
     initAccordion();
   }
-})();
-</script>
-</body>
-</html>
+})();</script>
+</body></html>
