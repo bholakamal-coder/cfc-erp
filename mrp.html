@@ -180,6 +180,7 @@ tr:hover td{background:#fafbfc;}
       <div class="form-field"><label>Show Items</label>
         <select id="mrp-type-filter">
           <option value="all">RM + SFG + All</option>
+          <option value="so">SO Pending Only</option>
           <option value="RM">Only RM</option>
           <option value="SFG">Only SFG</option>
           <option value="shortage">Only Shortages</option>
@@ -362,6 +363,24 @@ async function runMRP(){
     }); // end allWOs forEach
     } // end if allWOs+BOMs
 
+    // PART C: SO-based requirement check (pending SO qty vs inventory)
+    var soResp=await sc.from('sales_order_lines').select('item_id,qty,dispatched_qty,pending_qty,so_id,sales_orders(so_no,status,customer_id,customers(name))').in('sales_orders.status',['Confirmed','In Production','Ready','Partially Dispatched']);
+    var soLines=(soResp.data||[]).filter(function(l){return l.sales_orders&&l.sales_orders.status&&['Confirmed','In Production','Ready','Partially Dispatched'].indexOf(l.sales_orders.status)>=0;});
+    soLines.forEach(function(sol){
+      var item_id=sol.item_id;if(!item_id)return;
+      var pending=parseFloat(sol.pending_qty||0)||parseFloat(sol.qty||0);
+      if(pending<=0)return;
+      var inv=allInventory.find(function(i){return i.item_id===item_id;})||{current_stock:0,available_stock:0};
+      var av=parseFloat(inv.available_stock!==null&&inv.available_stock!==undefined?inv.available_stock:inv.current_stock||0)||0;
+      var soRef=(sol.sales_orders.so_no||'SO?')+' ('+(sol.sales_orders.customers&&sol.sales_orders.customers.name?sol.sales_orders.customers.name:'?')+')';
+      if(!rMap[item_id]){
+        rMap[item_id]={id:item_id,code:'...',name:'...',type:'',uom:'',req:pending,av:av,rl:0,rq:0,ms:0,wos:[soRef]};
+      } else {
+        rMap[item_id].req+=pending;
+        if(rMap[item_id].wos.indexOf(soRef)<0)rMap[item_id].wos.push(soRef);
+      }
+    });
+
     // Load item details for reorder-only items
     var missingIds=Object.keys(rMap).filter(function(id){return rMap[id].code==='...';}).map(Number);
     if(missingIds.length>0){
@@ -404,6 +423,7 @@ async function runMRP(){
     var disp=mrpResults;
     if(tf==='shortage')disp=mrpResults.filter(function(r){return r.st==='Shortage'||r.st==='Partial';});
     if(tf==='reorder')disp=mrpResults.filter(function(r){return r.br||r.bm;});
+    if(tf==='so')disp=mrpResults.filter(function(r){return r.req>0&&r.wos&&r.wos.some(function(w){return w.indexOf('SO')>=0||w.indexOf('Reorder')<0;});});
 
     var tot=mrpResults.length;
     var ok=mrpResults.filter(function(r){return r.st==='OK';}).length;
