@@ -22,7 +22,7 @@ window.CFC_CONFIG = {
   SUPABASE_KEY: 'sb_publishable_eWBMrAFa7Yyvtlb-7-8IGA_KxfE7v_8',
   APP_NAME:     'CFC ERP v2',
   COMPANY:      'CERADRIVE BRAKES',
-  VERSION:      '2.1.0',
+  VERSION:      '2.2.0',
   QUERY_LIMIT:  500,
   DEBOUNCE_MS:  300,
 };
@@ -190,6 +190,710 @@ document.addEventListener('click', function(e) {
   }
 });
 
+
+
+
+// ════════════════════════════════════════════════════════════════════════════
+// CFC ERP v2.1 — Import/Export System
+// Features:
+//   CFC_EXPORT.csv(data, filename, columns)  — export any data as CSV
+//   CFC_EXPORT.template(type)                — download import template
+//   CFC_IMPORT.show(type, onSuccess)         — smart import with header mapping
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── EXPORT MODULE ─────────────────────────────────────────────────────────────
+window.CFC_EXPORT = {
+
+  // columns: [{key, label}] — optional, if not provided uses object keys
+  csv(data, filename, columns) {
+    if (!data || !data.length) {
+      showToast('Export ke liye koi data nahi.', 'error');
+      return;
+    }
+    const cols = columns || Object.keys(data[0]).map(k => ({ key: k, label: k }));
+    const header = cols.map(c => '"' + c.label + '"').join(',');
+    const rows = data.map(row =>
+      cols.map(c => {
+        const val = row[c.key] ?? '';
+        return '"' + String(val).replace(/"/g, '""') + '"';
+      }).join(',')
+    );
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename + '_' + new Date().toISOString().split('T')[0] + '.csv';
+    a.click();
+    showToast('CSV exported: ' + data.length + ' records', 'success');
+  },
+
+  // Download blank template with correct headers + sample row
+  template(type) {
+    const cfg = CFC_IMPORT.SCHEMAS[type];
+    if (!cfg) { showToast('Template nahi mila.', 'error'); return; }
+    const header = cfg.fields.map(f => '"' + f.label + '"').join(',');
+    const sample = cfg.fields.map(f => '"' + (f.sample || '') + '"').join(',');
+    const notes  = cfg.fields.map(f => '"' + (f.required ? 'REQUIRED' : 'optional') + '"').join(',');
+    const csv = [
+      '# CFC ERP Import Template — ' + cfg.title,
+      '# Row 2 = field notes (delete before import)',
+      '# Row 3 = sample data (delete before import)',
+      header,
+      notes,
+      sample,
+    ].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'import_template_' + type + '.csv';
+    a.click();
+    showToast('Template downloaded!', 'success');
+  },
+};
+
+// ── IMPORT MODULE ─────────────────────────────────────────────────────────────
+window.CFC_IMPORT = {
+
+  // Schema for each importable type
+  // fields: [{key, label, required, sample, type, options}]
+  SCHEMAS: {
+    item: {
+      title: 'Items',
+      table: 'items',
+      fields: [
+        { key: 'code',     label: 'Item Code',  required: true,  sample: 'RM01',    type: 'text'   },
+        { key: 'name',     label: 'Item Name',  required: true,  sample: 'Raw Material Type 1', type: 'text' },
+        { key: 'type',     label: 'Type',       required: true,  sample: 'RM',      type: 'select', options: ['RM','FG','SFG','Consumable','Packing'] },
+        { key: 'uom',      label: 'UOM',        required: true,  sample: 'Kg',      type: 'text'   },
+        { key: 'hsn_code', label: 'HSN Code',   required: false, sample: '8708',    type: 'text'   },
+        { key: 'tax_rate', label: 'Tax Rate %', required: false, sample: '28',      type: 'number' },
+      ],
+      uniqueKey: 'code',
+      transform: row => ({ ...row, tax_rate: parseFloat(row.tax_rate)||28, is_active: true }),
+    },
+    customer: {
+      title: 'Customers',
+      table: 'customers',
+      fields: [
+        { key: 'code',    label: 'Customer Code', required: true,  sample: 'CUST001', type: 'text' },
+        { key: 'name',    label: 'Company Name',  required: true,  sample: 'ABC Pvt Ltd', type: 'text' },
+        { key: 'phone',   label: 'Phone',         required: false, sample: '9876543210', type: 'text' },
+        { key: 'email',   label: 'Email',         required: false, sample: 'abc@example.com', type: 'text' },
+        { key: 'gstin',   label: 'GSTIN',         required: false, sample: '22AAAAA0000A1Z5', type: 'text' },
+        { key: 'state',   label: 'State',         required: false, sample: 'Maharashtra', type: 'text' },
+        { key: 'address', label: 'Address',       required: false, sample: '123 Main St', type: 'text' },
+        { key: 'city',    label: 'City',          required: false, sample: 'Mumbai', type: 'text' },
+        { key: 'credit_days', label: 'Credit Days', required: false, sample: '30', type: 'number' },
+      ],
+      uniqueKey: 'code',
+      transform: row => ({ ...row, credit_days: parseInt(row.credit_days)||30, is_active: true }),
+    },
+    supplier: {
+      title: 'Suppliers',
+      table: 'suppliers',
+      fields: [
+        { key: 'code',          label: 'Supplier Code',  required: true,  sample: 'SUP001', type: 'text' },
+        { key: 'name',          label: 'Company Name',   required: true,  sample: 'XYZ Suppliers', type: 'text' },
+        { key: 'phone',         label: 'Phone',          required: false, sample: '9876543210', type: 'text' },
+        { key: 'email',         label: 'Email',          required: false, sample: 'xyz@example.com', type: 'text' },
+        { key: 'gstin',         label: 'GSTIN',          required: false, sample: '22BBBBB0000B1Z5', type: 'text' },
+        { key: 'state',         label: 'State',          required: false, sample: 'Gujarat', type: 'text' },
+        { key: 'address',       label: 'Address',        required: false, sample: '456 Market Rd', type: 'text' },
+        { key: 'payment_terms', label: 'Payment Terms',  required: false, sample: '30 days net', type: 'text' },
+      ],
+      uniqueKey: 'code',
+      transform: row => ({ ...row, is_active: true }),
+    },
+    worker: {
+      title: 'Workers',
+      table: 'workers',
+      fields: [
+        { key: 'code',        label: 'Worker Code',  required: true,  sample: 'WRK001', type: 'text' },
+        { key: 'name',        label: 'Full Name',    required: true,  sample: 'Ramesh Kumar', type: 'text' },
+        { key: 'role',        label: 'Role',         required: false, sample: 'Operator', type: 'select', options: ['Operator','Helper','Supervisor','QC','Store','Manager'] },
+        { key: 'department',  label: 'Department',   required: false, sample: 'Moulding', type: 'text' },
+        { key: 'shift',       label: 'Shift',        required: false, sample: 'Morning', type: 'text' },
+        { key: 'phone',       label: 'Phone',        required: false, sample: '9876543210', type: 'text' },
+        { key: 'daily_wage',  label: 'Daily Wage',   required: false, sample: '600', type: 'number' },
+        { key: 'joining_date',label: 'Joining Date', required: false, sample: '2024-01-15', type: 'date' },
+      ],
+      uniqueKey: 'code',
+      transform: row => ({ ...row, daily_wage: parseFloat(row.daily_wage)||0, is_active: true }),
+    },
+    machine: {
+      title: 'Machines',
+      table: 'machines',
+      fields: [
+        { key: 'code',               label: 'Machine Code',    required: true,  sample: 'MCH001', type: 'text' },
+        { key: 'name',               label: 'Machine Name',    required: true,  sample: 'Hydraulic Press 1', type: 'text' },
+        { key: 'process_name',       label: 'Process Name',    required: true,  sample: 'Moulding', type: 'text' },
+        { key: 'capacity_per_hour',  label: 'Capacity/Hr',     required: false, sample: '100', type: 'number' },
+        { key: 'make',               label: 'Make/Brand',      required: false, sample: 'BHEL', type: 'text' },
+        { key: 'model',              label: 'Model No',        required: false, sample: 'HP-200', type: 'text' },
+      ],
+      uniqueKey: 'code',
+      transform: row => ({ ...row, capacity_per_hour: parseFloat(row.capacity_per_hour)||null, is_active: true }),
+    },
+    die: {
+      title: 'Dies',
+      table: 'dies',
+      fields: [
+        { key: 'die_code',      label: 'Die Code',       required: true,  sample: 'DIE001', type: 'text' },
+        { key: 'die_name',      label: 'Die Name',       required: false, sample: 'HE10 Die Set', type: 'text' },
+        { key: 'cavity_count',  label: 'Cavity Count',   required: true,  sample: '2', type: 'number' },
+        { key: 'cycle_time_min',label: 'Cycle Time (min)',required: false, sample: '8.5', type: 'number' },
+      ],
+      uniqueKey: 'die_code',
+      transform: row => ({ ...row, cavity_count: parseInt(row.cavity_count)||1, cycle_time_min: parseFloat(row.cycle_time_min)||8.5, is_active: true }),
+    },
+  },
+
+  _type: null,
+  _onSuccess: null,
+  _fileHeaders: [],
+  _fileData: [],
+  _mapping: {},
+
+  show(type, onSuccess) {
+    this._type = type;
+    this._onSuccess = onSuccess || null;
+    const cfg = this.SCHEMAS[type];
+    if (!cfg) return;
+
+    let overlay = document.getElementById('cfc-import-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'cfc-import-overlay';
+      overlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;';
+      document.body.appendChild(overlay);
+    }
+
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:12px;width:100%;max-width:640px;
+                  box-shadow:0 24px 60px rgba(0,0,0,0.2);margin:auto;">
+        <div style="padding:18px 22px 14px;border-bottom:1px solid #f0f4f8;
+                    display:flex;align-items:center;justify-content:space-between;">
+          <h3 style="font-size:17px;font-weight:700;color:#1c2d42;">
+            📥 Import ${cfg.title}
+          </h3>
+          <button onclick="CFC_IMPORT.close()" 
+            style="font-size:22px;cursor:pointer;color:#8a95a0;background:none;border:none;">✕</button>
+        </div>
+
+        <div style="padding:20px 22px;" id="cfc-import-body">
+          <!-- Step 1: Upload -->
+          <div id="import-step1">
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;
+                        padding:12px 16px;font-size:13px;color:#1e40af;margin-bottom:16px;line-height:1.6;">
+              <strong>Step 1:</strong> Template download karo → Fill karo → Upload karo<br>
+              <strong>Step 2:</strong> Headers map karo (agar alag hain)<br>
+              <strong>Step 3:</strong> Preview dekho → Import karo
+            </div>
+
+            <button onclick="CFC_EXPORT.template('${type}')"
+              style="width:100%;padding:10px;border:2px dashed #bfdbfe;border-radius:8px;
+                     background:#f0f9ff;color:#1e40af;font-size:13.5px;font-weight:600;
+                     cursor:pointer;margin-bottom:14px;">
+              ⬇️ Download Import Template (${cfg.title})
+            </button>
+
+            <div style="border:2px dashed #dde3ea;border-radius:8px;padding:24px;
+                        text-align:center;cursor:pointer;background:#fafbfc;"
+                 onclick="document.getElementById('import-file-inp').click()"
+                 id="drop-zone"
+                 ondragover="event.preventDefault();this.style.borderColor='#cc2200'"
+                 ondragleave="this.style.borderColor='#dde3ea'"
+                 ondrop="event.preventDefault();this.style.borderColor='#dde3ea';CFC_IMPORT.handleFile(event.dataTransfer.files[0])">
+              <div style="font-size:32px;margin-bottom:8px;">📂</div>
+              <div style="font-size:14px;font-weight:600;color:#1c2d42;">CSV file yahan drop karo</div>
+              <div style="font-size:12px;color:#8a95a0;margin-top:4px;">ya click karke select karo</div>
+            </div>
+            <input type="file" id="import-file-inp" accept=".csv" style="display:none;"
+              onchange="CFC_IMPORT.handleFile(this.files[0])"/>
+          </div>
+
+          <!-- Step 2: Header Mapping (hidden initially) -->
+          <div id="import-step2" style="display:none;">
+            <div style="font-size:14px;font-weight:700;color:#1c2d42;margin-bottom:4px;">
+              🔗 Header Mapping
+            </div>
+            <div style="font-size:12.5px;color:#5a6878;margin-bottom:14px;">
+              Aapki file ke headers ko system ke fields se match karo
+            </div>
+            <div id="import-mapping-table"></div>
+            <div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end;">
+              <button onclick="CFC_IMPORT.reset()"
+                style="padding:8px 16px;border-radius:6px;border:1px solid #dde3ea;background:#fff;font-size:13px;cursor:pointer;">
+                ← Back
+              </button>
+              <button onclick="CFC_IMPORT.previewData()"
+                style="padding:8px 18px;border-radius:6px;border:none;background:#1e40af;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">
+                Preview →
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 3: Preview (hidden initially) -->
+          <div id="import-step3" style="display:none;">
+            <div style="font-size:14px;font-weight:700;color:#1c2d42;margin-bottom:4px;">
+              👁️ Import Preview
+            </div>
+            <div id="import-preview-info" style="font-size:12.5px;color:#5a6878;margin-bottom:12px;"></div>
+            <div id="import-preview-table" style="max-height:280px;overflow-y:auto;
+                 border:1px solid #e2e8f0;border-radius:8px;"></div>
+            <div id="import-errors" style="margin-top:10px;"></div>
+            <div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end;">
+              <button onclick="CFC_IMPORT.showStep(2)"
+                style="padding:8px 16px;border-radius:6px;border:1px solid #dde3ea;background:#fff;font-size:13px;cursor:pointer;">
+                ← Back
+              </button>
+              <button id="import-confirm-btn" onclick="CFC_IMPORT.doImport()"
+                style="padding:8px 20px;border-radius:6px;border:none;background:#cc2200;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">
+                ✅ Import Now
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    overlay.style.display = 'flex';
+    overlay.onclick = e => { if (e.target === overlay) this.close(); };
+  },
+
+  close() {
+    const el = document.getElementById('cfc-import-overlay');
+    if (el) el.style.display = 'none';
+    this._fileHeaders = [];
+    this._fileData = [];
+    this._mapping = {};
+  },
+
+  reset() {
+    this.showStep(1);
+    document.getElementById('import-file-inp').value = '';
+  },
+
+  showStep(n) {
+    [1,2,3].forEach(i => {
+      const el = document.getElementById('import-step' + i);
+      if (el) el.style.display = i === n ? 'block' : 'none';
+    });
+  },
+
+  handleFile(file) {
+    if (!file) return;
+    if (!file.name.endsWith('.csv')) {
+      showToast('Sirf CSV file allowed hai.', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      const text = e.target.result;
+      this.parseCSV(text);
+    };
+    reader.readAsText(file);
+  },
+
+  parseCSV(text) {
+    // Remove comment lines (start with #)
+    const lines = text.split('\n')
+      .map(l => l.trim())
+      .filter(l => l && !l.startsWith('#'));
+
+    if (lines.length < 2) {
+      showToast('File mein data nahi hai.', 'error');
+      return;
+    }
+
+    // Parse headers
+    this._fileHeaders = this.splitCSVRow(lines[0]);
+    
+    // Parse data rows (skip if first row looks like notes row — "REQUIRED/optional")
+    let dataStart = 1;
+    if (lines[1] && (lines[1].includes('REQUIRED') || lines[1].includes('optional'))) {
+      dataStart = 2; // skip notes row
+    }
+    if (lines[dataStart] && lines[dataStart].includes('sample') || 
+        (lines[dataStart] && this._fileHeaders.every((h,i) => {
+          const cell = this.splitCSVRow(lines[dataStart])[i];
+          return cell && (cell === 'sample' || !cell);
+        }))) {
+      dataStart++; // skip sample row too
+    }
+
+    this._fileData = lines.slice(dataStart)
+      .filter(l => l.trim())
+      .map(l => this.splitCSVRow(l));
+
+    // Auto-map headers
+    this.autoMap();
+    this.showMappingUI();
+    this.showStep(2);
+  },
+
+  splitCSVRow(row) {
+    const result = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < row.length; i++) {
+      const ch = row[i];
+      if (ch === '"') { inQ = !inQ; continue; }
+      if (ch === ',' && !inQ) { result.push(cur.trim()); cur = ''; continue; }
+      cur += ch;
+    }
+    result.push(cur.trim());
+    return result;
+  },
+
+  autoMap() {
+    const cfg = this.SCHEMAS[this._type];
+    this._mapping = {};
+
+    cfg.fields.forEach(field => {
+      // Try exact match first
+      let match = this._fileHeaders.findIndex(h => 
+        h.toLowerCase() === field.label.toLowerCase() ||
+        h.toLowerCase() === field.key.toLowerCase()
+      );
+      
+      // Try partial match
+      if (match === -1) {
+        match = this._fileHeaders.findIndex(h => {
+          const hl = h.toLowerCase().replace(/[^a-z0-9]/g,'');
+          const fl = field.label.toLowerCase().replace(/[^a-z0-9]/g,'');
+          const fk = field.key.toLowerCase().replace(/[^a-z0-9]/g,'');
+          return hl.includes(fk) || fk.includes(hl) || hl.includes(fl) || fl.includes(hl);
+        });
+      }
+
+      if (match !== -1) {
+        this._mapping[field.key] = match;
+      }
+    });
+  },
+
+  showMappingUI() {
+    const cfg = this.SCHEMAS[this._type];
+    const table = document.getElementById('import-mapping-table');
+
+    const headerOptions = ['<option value="-1">-- Skip --</option>',
+      ...this._fileHeaders.map((h, i) => `<option value="${i}">${h}</option>`)
+    ].join('');
+
+    table.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:#f8fafc;">
+            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#5a6878;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">
+              System Field
+            </th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#5a6878;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">
+              Your File Column
+            </th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#5a6878;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">
+              Status
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          ${cfg.fields.map(field => {
+            const mappedIdx = this._mapping[field.key] !== undefined ? this._mapping[field.key] : -1;
+            const isMapped = mappedIdx !== -1;
+            const isRequired = field.required;
+            const status = isMapped 
+              ? `<span style="color:#166534;font-weight:600;">✅ Mapped</span>`
+              : isRequired 
+                ? `<span style="color:#dc2626;font-weight:600;">❗ Required</span>`
+                : `<span style="color:#8a95a0;">— Skip</span>`;
+            
+            return `<tr style="border-bottom:1px solid #f0f4f8;">
+              <td style="padding:9px 12px;">
+                <strong>${field.label}</strong>
+                ${isRequired ? '<span style="color:#dc2626;font-size:11px;"> *</span>' : ''}
+              </td>
+              <td style="padding:9px 12px;">
+                <select id="map-${field.key}" onchange="CFC_IMPORT._mapping['${field.key}']=parseInt(this.value)"
+                  style="border:1px solid #dde3ea;border-radius:6px;padding:5px 8px;font-size:12.5px;background:#f9fafb;width:100%;">
+                  ${headerOptions.replace(
+                    `value="${mappedIdx}"`,
+                    `value="${mappedIdx}" selected`
+                  )}
+                </select>
+              </td>
+              <td style="padding:9px 12px;">${status}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      <div style="margin-top:10px;background:#f8fafc;border-radius:6px;padding:10px 12px;font-size:12px;color:#5a6878;">
+        📋 File mein <strong>${this._fileData.length}</strong> rows, <strong>${this._fileHeaders.length}</strong> columns detected
+      </div>`;
+  },
+
+  previewData() {
+    const cfg = this.SCHEMAS[this._type];
+    
+    // Validate required mappings
+    const missing = cfg.fields.filter(f => f.required && (this._mapping[f.key] === undefined || this._mapping[f.key] === -1));
+    if (missing.length) {
+      showToast('Required fields map nahi hue: ' + missing.map(f=>f.label).join(', '), 'error');
+      return;
+    }
+
+    // Build preview rows
+    const rows = this._fileData.slice(0, 5).map(row => {
+      const obj = {};
+      cfg.fields.forEach(f => {
+        const idx = this._mapping[f.key];
+        obj[f.key] = (idx !== undefined && idx !== -1) ? (row[idx] || '') : '';
+      });
+      return obj;
+    });
+
+    const allRows = this._fileData.map(row => {
+      const obj = {};
+      cfg.fields.forEach(f => {
+        const idx = this._mapping[f.key];
+        obj[f.key] = (idx !== undefined && idx !== -1) ? (row[idx] || '') : '';
+      });
+      return obj;
+    });
+
+    // Validate data
+    const errors = [];
+    allRows.forEach((row, i) => {
+      cfg.fields.filter(f => f.required).forEach(f => {
+        if (!row[f.key] || !row[f.key].trim()) {
+          errors.push(`Row ${i+2}: ${f.label} missing`);
+        }
+      });
+    });
+
+    // Show preview table
+    const previewCols = cfg.fields.filter(f => this._mapping[f.key] !== undefined && this._mapping[f.key] !== -1);
+    document.getElementById('import-preview-info').innerHTML = 
+      `<strong style="color:#166534;">${allRows.length} rows</strong> import honge &nbsp;|&nbsp; Showing first 5 rows:`;
+    
+    document.getElementById('import-preview-table').innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr style="background:#f8fafc;">
+          ${previewCols.map(f=>`<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#5a6878;text-transform:uppercase;border-bottom:1px solid #e2e8f0;white-space:nowrap;">${f.label}</th>`).join('')}
+        </tr></thead>
+        <tbody>
+          ${rows.map(row=>`<tr style="border-bottom:1px solid #f0f4f8;">
+            ${previewCols.map(f=>`<td style="padding:7px 10px;color:#1a2635;">${row[f.key]||'—'}</td>`).join('')}
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+
+    const errDiv = document.getElementById('import-errors');
+    if (errors.length) {
+      errDiv.innerHTML = `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:10px 14px;font-size:12px;color:#991b1b;">
+        ⚠️ ${errors.length} validation errors:<br>${errors.slice(0,5).map(e=>'• '+e).join('<br>')}
+        ${errors.length > 5 ? '<br>... aur ' + (errors.length-5) + ' more' : ''}
+      </div>`;
+    } else {
+      errDiv.innerHTML = `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 14px;font-size:12px;color:#166534;">✅ Sab rows valid hain — import ready!</div>`;
+    }
+
+    // Store all rows for import
+    this._processedRows = allRows;
+    this.showStep(3);
+  },
+
+  async doImport() {
+    const cfg = this.SCHEMAS[this._type];
+    const btn = document.getElementById('import-confirm-btn');
+    if (!this._processedRows || !this._processedRows.length) return;
+
+    // Step 1: Check for duplicates first
+    const uniqueVals = this._processedRows.map(r => r[cfg.uniqueKey]).filter(Boolean);
+    const { data: existingRecs } = await CFC_SB
+      .from(cfg.table)
+      .select(cfg.uniqueKey)
+      .in(cfg.uniqueKey, uniqueVals);
+
+    const existingSet = new Set((existingRecs||[]).map(r => r[cfg.uniqueKey]));
+    const duplicates = this._processedRows.filter(r => existingSet.has(r[cfg.uniqueKey]));
+    const newRows    = this._processedRows.filter(r => !existingSet.has(r[cfg.uniqueKey]));
+
+    // If duplicates found — show choice dialog
+    if (duplicates.length > 0) {
+      this._showDuplicateChoice(duplicates, newRows, cfg);
+      return;
+    }
+
+    // No duplicates — import all
+    await this._runImport(this._processedRows, 'insert', btn);
+  },
+
+  _showDuplicateChoice(duplicates, newRows, cfg) {
+    const dupKeys = duplicates.slice(0,5).map(r => r[cfg.uniqueKey]).join(', ');
+    const moreCount = duplicates.length > 5 ? ` ... aur ${duplicates.length-5} more` : '';
+
+    // Inject choice UI into preview area
+    const previewDiv = document.getElementById('import-preview-table');
+    const errDiv     = document.getElementById('import-errors');
+    const infoDiv    = document.getElementById('import-preview-info');
+
+    infoDiv.innerHTML = `<strong style="color:#dc2626;">⚠️ ${duplicates.length} duplicate records mili!</strong>`;
+
+    previewDiv.innerHTML = `
+      <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:14px 16px;font-size:13px;color:#854d0e;line-height:1.7;">
+        <strong>Duplicate ${cfg.uniqueKey}s:</strong><br>
+        <span style="font-family:monospace;font-size:12px;">${dupKeys}${moreCount}</span>
+      </div>
+
+      <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+
+        <div onclick="CFC_IMPORT._selectDupChoice('override',this)"
+          id="dup-override"
+          style="border:2px solid #e2e8f0;border-radius:10px;padding:14px 12px;cursor:pointer;text-align:center;transition:all 0.15s;">
+          <div style="font-size:26px;margin-bottom:6px;">🔄</div>
+          <div style="font-weight:700;font-size:13.5px;color:#1c2d42;">Override</div>
+          <div style="font-size:11.5px;color:#5a6878;margin-top:4px;line-height:1.4;">
+            Existing records update karo nayi values se
+          </div>
+          <div style="margin-top:8px;font-size:11px;background:#dbeafe;color:#1e40af;padding:3px 8px;border-radius:12px;display:inline-block;">
+            ${duplicates.length} update + ${newRows.length} new
+          </div>
+        </div>
+
+        <div onclick="CFC_IMPORT._selectDupChoice('skip',this)"
+          id="dup-skip"
+          style="border:2px solid #e2e8f0;border-radius:10px;padding:14px 12px;cursor:pointer;text-align:center;transition:all 0.15s;">
+          <div style="font-size:26px;margin-bottom:6px;">⏭️</div>
+          <div style="font-weight:700;font-size:13.5px;color:#1c2d42;">Skip</div>
+          <div style="font-size:11.5px;color:#5a6878;margin-top:4px;line-height:1.4;">
+            Duplicates skip karo, sirf naye records add karo
+          </div>
+          <div style="margin-top:8px;font-size:11px;background:#dcfce7;color:#166534;padding:3px 8px;border-radius:12px;display:inline-block;">
+            Sirf ${newRows.length} new add honge
+          </div>
+        </div>
+
+        <div onclick="CFC_IMPORT._selectDupChoice('cancel',this)"
+          id="dup-cancel"
+          style="border:2px solid #e2e8f0;border-radius:10px;padding:14px 12px;cursor:pointer;text-align:center;transition:all 0.15s;">
+          <div style="font-size:26px;margin-bottom:6px;">❌</div>
+          <div style="font-weight:700;font-size:13.5px;color:#1c2d42;">Cancel</div>
+          <div style="font-size:11.5px;color:#5a6878;margin-top:4px;line-height:1.4;">
+            Import cancel karo, kuch bhi mat karo
+          </div>
+          <div style="margin-top:8px;font-size:11px;background:#f1f5f9;color:#475569;padding:3px 8px;border-radius:12px;display:inline-block;">
+            0 changes
+          </div>
+        </div>
+      </div>`;
+
+    errDiv.innerHTML = '';
+
+    // Replace footer buttons
+    const footer = document.querySelector('#cfc-import-overlay [id="import-confirm-btn"]');
+    if (footer) footer.closest('div[style*="justify-content:flex-end"]').innerHTML = `
+      <span style="font-size:13px;color:#8a95a0;">Upar se ek option choose karo</span>
+      <button id="import-confirm-btn" disabled
+        style="padding:8px 20px;border-radius:6px;border:none;background:#ccc;
+               color:#fff;font-size:13px;font-weight:600;cursor:not-allowed;">
+        ✅ Proceed
+      </button>`;
+
+    this._duplicates = duplicates;
+    this._newRows    = newRows;
+  },
+
+  _selectDupChoice(choice, el) {
+    // Highlight selected card
+    ['dup-override','dup-skip','dup-cancel'].forEach(id => {
+      const card = document.getElementById(id);
+      if (card) {
+        card.style.borderColor = '#e2e8f0';
+        card.style.background  = '';
+      }
+    });
+    el.style.borderColor = '#cc2200';
+    el.style.background  = '#fff5f5';
+
+    this._dupChoice = choice;
+
+    // Enable proceed button
+    const btn = document.getElementById('import-confirm-btn');
+    if (btn) {
+      btn.disabled = false;
+      btn.style.background = '#cc2200';
+      btn.style.cursor = 'pointer';
+      btn.onclick = () => CFC_IMPORT._proceedWithChoice();
+    }
+  },
+
+  async _proceedWithChoice() {
+    const cfg = this.SCHEMAS[this._type];
+    const btn = document.getElementById('import-confirm-btn');
+    const choice = this._dupChoice;
+
+    if (choice === 'cancel') { this.close(); return; }
+
+    if (choice === 'skip') {
+      // Only import new rows
+      if (!this._newRows.length) {
+        showToast('Koi naya record nahi — sab duplicate hain.', '');
+        this.close();
+        return;
+      }
+      await this._runImport(this._newRows, 'insert', btn);
+    }
+
+    if (choice === 'override') {
+      // Insert new + upsert duplicates
+      await this._runImport(this._processedRows, 'upsert', btn);
+    }
+  },
+
+  async _runImport(rows, mode, btn) {
+    const cfg = this.SCHEMAS[this._type];
+    if (btn) { btn.disabled = true; btn.textContent = 'Importing...'; }
+
+    // Transform rows
+    const transformed = rows.map(row => {
+      const t = cfg.transform ? cfg.transform({...row}) : {...row};
+      Object.keys(t).forEach(k => { if (t[k] === '') t[k] = null; });
+      return t;
+    });
+
+    let imported = 0, errors = 0;
+    const batchSize = 50;
+
+    for (let i = 0; i < transformed.length; i += batchSize) {
+      const batch = transformed.slice(i, i + batchSize);
+      let result;
+
+      if (mode === 'upsert') {
+        result = await CFC_SB.from(cfg.table)
+          .upsert(batch, { onConflict: cfg.uniqueKey, ignoreDuplicates: false });
+      } else {
+        result = await CFC_SB.from(cfg.table).insert(batch);
+      }
+
+      if (result.error) {
+        console.error('Import error:', result.error);
+        errors += batch.length;
+        showToast('Error: ' + result.error.message, 'error');
+      } else {
+        imported += batch.length;
+      }
+    }
+
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Import Now'; }
+
+    if (!errors) {
+      const modeLabel = mode === 'upsert' ? 'imported/updated' : 'imported';
+      showToast(`✅ ${imported} records ${modeLabel}!`, 'success');
+      this.close();
+      if (this._onSuccess) this._onSuccess(imported);
+    }
+
+    if (window.CFC_LS) CFC_LS.clearCache(this._type);
+  },
+};
 
 
 // ── QUICK ADD POPUP — Add New record without leaving page ────────────────────

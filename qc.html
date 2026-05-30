@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Quality Control — CFC ERP v2.1</title>
+<title>Quality Control — CFC ERP v2.2</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -136,7 +136,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.1</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.2</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html" >&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -229,6 +229,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
     <option value="Fail">Fail</option>
     <option value="Hold">Hold</option>
   </select>
+  <button class="btn btn-secondary btn-sm" onclick="exportPage()" style="gap:5px;">&#128229; Export CSV</button>
   <span class="filter-count" id="filter-count">Loading...</span>
 </div>
 <div class="stat-row">
@@ -307,6 +308,15 @@ function debounce(fn,delay){
     clearTimeout(t);
     t=setTimeout(function(){fn.apply(ctx,args);},delay);
   };
+}
+
+function exportPage(){
+  var exportData = (allRows||[]).map(function(r){
+    return {
+      "Doc No": r["document_no"] || (r["document_no"] && r["document_no"]["document_no"]) || "", "Item": r["items.code"] || (r["items"] && r["items"]["code"]) || "", "Type": r["qc_type"] || (r["qc_type"] && r["qc_type"]["qc_type"]) || "", "Result": r["result"] || (r["result"] && r["result"]["result"]) || "", "Inspected": r["inspected_qty"] || (r["inspected_qty"] && r["inspected_qty"]["inspected_qty"]) || ""
+    };
+  });
+  CFC_EXPORT.csv(exportData, 'allRows');
 }
 function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+type;setTimeout(()=>t.className='toast',3500);}
 function genNo(prefix){

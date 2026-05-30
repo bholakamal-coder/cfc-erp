@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Stock Ledger — CFC ERP v2.1</title>
+<title>Stock Ledger — CFC ERP v2.2</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -135,7 +135,7 @@ tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.1</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.2</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html" >&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -245,7 +245,8 @@ tr:hover td{background:#fafbfc;}
                style="border:1px solid #dde3ea;border-radius:6px;padding:7px 11px;font-size:13px;background:#f9fafb;outline:none;width:200px;"/>
         <input type="hidden" id="stock-item-id"/>
       </div>
-      <span class="filter-count" id="stock-count">Loading...</span>
+      <button class="btn btn-secondary btn-sm" onclick="exportPage()" style="gap:5px;">&#128229; Export CSV</button>
+  <span class="filter-count" id="stock-count">Loading...</span>
     </div>
     <div class="table-wrap">
       <table>
@@ -563,6 +564,15 @@ async function saveAdjustment(){
   loadStock();loadLedger();
 }
 
+
+function exportPage(){
+  var exportData = (allRows||[]).map(function(r){
+    return {
+      "Item": r["items.code"] || (r["items"] && r["items"]["code"]) || "", "Type": r["txn_type"] || (r["txn_type"] && r["txn_type"]["txn_type"]) || "", "Qty": r["qty"] || (r["qty"] && r["qty"]["qty"]) || "", "Rate": r["rate"] || (r["rate"] && r["rate"]["rate"]) || "", "Value": r["value"] || (r["value"] && r["value"]["value"]) || ""
+    };
+  });
+  CFC_EXPORT.csv(exportData, 'allRows');
+}
 function showToast(msg,type=""){const t=document.getElementById("toast");t.textContent=msg;t.className="toast show "+type;setTimeout(()=>t.className="toast",3500);}
 async function handleLogout(){await sb.auth.signOut();window.location.href="index.html";}
 document.getElementById("adj-modal").addEventListener("click",function(e){if(e.target===this)closeAdjModal();});

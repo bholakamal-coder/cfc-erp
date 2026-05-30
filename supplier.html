@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Supplier Master — CFC ERP v2.1</title>
+<title>Supplier Master — CFC ERP v2.2</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -131,7 +131,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.1</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.2</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html" >&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -207,6 +207,9 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
   <div class="page-header">
     <div><h1>&#128666; Supplier Master</h1><p>Suppliers manage karein — GSTIN, bank details, credit terms</p></div>
     <button type="button" class="btn btn-primary" onclick="openModal()">+ Add Supplier</button>
+      <button class="btn btn-secondary btn-sm" onclick="CFC_EXPORT.csv(allRows,'suppliers')" style="gap:5px;">&#128229; Export</button>
+      <button class="btn btn-secondary btn-sm" onclick="CFC_EXPORT.template('supplier')" style="gap:5px;">&#128196; Template</button>
+      <button class="btn btn-primary btn-sm" onclick="CFC_IMPORT.show('supplier',function(){loadData();})" style="gap:5px;">&#128229; Import</button>
   </div>
   <div class="filter-bar">
   <input type="text" id="search-inp" placeholder="Code ya naam..." oninput="applyFilter()"/>

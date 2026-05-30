@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Dispatch Challan — CFC ERP v2.1</title>
+<title>Dispatch Challan — CFC ERP v2.2</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -119,7 +119,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.1</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.2</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html" >&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -204,6 +204,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
     <option value="Dispatched">Dispatched</option><option value="Delivered">Delivered</option>
     <option value="Returned">Returned</option>
   </select>
+  <button class="btn btn-secondary btn-sm" onclick="exportPage()" style="gap:5px;">&#128229; Export CSV</button>
   <span class="filter-count" id="filter-count">Loading...</span>
 </div>
 <div class="table-wrap"><table>
@@ -256,6 +257,15 @@ function debounce(fn,delay){
     clearTimeout(t);
     t=setTimeout(function(){fn.apply(ctx,args);},delay);
   };
+}
+
+function exportPage(){
+  var exportData = (allRows||[]).map(function(r){
+    return {
+      "DC No": r["dc_no"] || (r["dc_no"] && r["dc_no"]["dc_no"]) || "", "Customer": r["customers.name"] || (r["customers"] && r["customers"]["name"]) || "", "Date": r["dispatch_date"] || (r["dispatch_date"] && r["dispatch_date"]["dispatch_date"]) || "", "Status": r["status"] || (r["status"] && r["status"]["status"]) || ""
+    };
+  });
+  CFC_EXPORT.csv(exportData, 'allRows');
 }
 function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+type;setTimeout(()=>t.className='toast',3500);}
 function genNo(prefix){

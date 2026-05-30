@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Workers Master — CFC ERP v2.1</title>
+<title>Workers Master — CFC ERP v2.2</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -116,7 +116,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.1</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.2</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html" >&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -191,6 +191,12 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 <div class="main"><div class="content">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
     <div><h1 style="font-size:20px;font-weight:700;color:var(--navy);">&#128104;&#8205;&#127981; Workers Master</h1></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button type="button" class="btn btn-primary" onclick="openModal()">+ Add Worker</button>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="CFC_EXPORT.csv(allRows,'workers')" style="gap:5px;">&#128229; Export</button>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="CFC_EXPORT.template('worker')" style="gap:5px;">&#128196; Template</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="CFC_IMPORT.show('worker',function(){loadData();})" style="gap:5px;">&#128229; Import</button>
+    </div>
   </div>
   
 <div class="filter-bar">
