@@ -62,18 +62,6 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a263
 .sidebar-bottom a:hover{background:rgba(255,255,255,0.06);color:#fff;}
 /* END-SIDEBAR */
 
-.topbar-search{position:relative;flex:1;max-width:380px;}
-.topbar-search input{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 14px 8px 36px;font-size:13.5px;color:#1a2635;background:#f4f6f9;outline:none;transition:all 0.2s;}
-.topbar-search input:focus{border-color:var(--red);background:#fff;box-shadow:0 0 0 3px rgba(204,34,0,0.08);}
-.topbar-search .search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;color:#8a95a0;pointer-events:none;}
-.search-dropdown{display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;background:#fff;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,0.12);z-index:999;max-height:320px;overflow-y:auto;}
-.search-dropdown.open{display:block;}
-.search-item{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-bottom:1px solid #f0f4f8;font-size:13.5px;color:#1a2635;text-decoration:none;}
-.search-item:last-child{border-bottom:none;}
-.search-item:hover{background:#f4f6f9;}
-.search-item .si-icon{font-size:16px;width:24px;text-align:center;}
-.search-item .si-name{font-weight:600;}
-.search-item .si-hint{font-size:11px;color:#8a95a0;margin-left:auto;}
 .search-empty{padding:16px;text-align:center;color:#8a95a0;font-size:13px;}
 
 .topbar{position:fixed;top:0;left:var(--sidebar-w);right:0;height:var(--topbar-h);background:#fff;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;padding:0 24px;gap:16px;z-index:90;}
@@ -228,8 +216,14 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
     <div class="modal-header"><h3>Create GRN</h3><button type="button" class="modal-close" onclick="closeModal()">&#10005;</button></div>
     <div class="modal-body">
       <div class="form-row">
-        <div class="form-field"><label>Purchase Order <span class="req">*</span></label>
-          <select id="f-po" onchange="loadPOLines()"><option value="">-- Select Approved PO --</option></select></div>
+        <div class="form-field">
+          <label>Purchase Order (PO) <span class="req">*</span></label>
+          <div class="ls-wrap" style="position:relative;">
+            <input type="text" id="f-po-search" autocomplete="off" 
+                   style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:9px 12px;font-size:13.5px;color:#1a2635;background:#f9fafb;outline:none;"/>
+            <input type="hidden" id="f-po-id"/>
+          </div>
+        </div>
         <div class="form-field"><label>Receipt Date</label><input type="date" id="f-date"/></div>
       </div>
       <div class="form-row">
@@ -273,6 +267,7 @@ function genNo(prefix){
 }
 let allGRNs=[],filtered=[],allPOs=[],allWH=[];
 async function init(){
+  if(document.getElementById('f-po-search'))CFC_LS.attach('f-po-search','f-po-id','po',{});
   document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
   const {data:pos}=await sb.from('purchase_orders').select('id,po_no,suppliers(name)').in('status',['Approved','Ordered','Partially Received']).order('po_no');
   allPOs=pos||[];
@@ -307,7 +302,7 @@ function applyFilter(){
   </tr>`).join('');
 }
 async function loadPOLines(){
-  const poId=document.getElementById('f-po').value;
+  const poId=document.getElementById('f-po-id').value;
   const wrap=document.getElementById('po-lines-wrap');
   if(!poId){wrap.innerHTML='<div class="info-box">&#128161; PO select karo</div>';return;}
   wrap.innerHTML='<div class="loading">Loading...</div>';
@@ -335,7 +330,7 @@ function syncAcc(lid){
 }
 async function saveGRN(status){
   var _saveBtn=document.activeElement;if(_saveBtn&&_saveBtn.tagName==='BUTTON'){_saveBtn.disabled=true;}
-  const poId=document.getElementById('f-po').value;
+  const poId=document.getElementById('f-po-id').value;
   if(!poId){var _ab=document.querySelector('button[disabled]');if(_ab){_ab.disabled=false;_ab.style.opacity='';}showToast('PO select karein.','error');return;}
   const grn_no=genNo('GRN');
   const {data:grn,error:ge}=await sb.from('grn').insert([{
@@ -380,7 +375,7 @@ async function updateStock(grnId){
   var _ab=document.querySelector('button[disabled]');if(_ab){_ab.disabled=false;_ab.style.opacity='';}showToast('Stock updated!','success');loadData();
 }
 function openModal(){
-  document.getElementById('f-po').value='';document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('f-po-id').value='';document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('f-inv-no').value='';document.getElementById('f-dc-no').value='';document.getElementById('f-notes').value='';
   document.getElementById('po-lines-wrap').innerHTML='<div class="info-box">&#128161; PO select karo — items load honge</div>';
   document.getElementById('main-modal').classList.add('open');

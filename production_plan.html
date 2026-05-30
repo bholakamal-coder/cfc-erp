@@ -63,18 +63,6 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a263
 .sidebar-bottom a:hover{background:rgba(255,255,255,0.06);color:#fff;}
 /* END-SIDEBAR */
 
-.topbar-search{position:relative;flex:1;max-width:380px;}
-.topbar-search input{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 14px 8px 36px;font-size:13.5px;color:#1a2635;background:#f4f6f9;outline:none;transition:all 0.2s;}
-.topbar-search input:focus{border-color:var(--red);background:#fff;box-shadow:0 0 0 3px rgba(204,34,0,0.08);}
-.topbar-search .search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;color:#8a95a0;pointer-events:none;}
-.search-dropdown{display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;background:#fff;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,0.12);z-index:999;max-height:320px;overflow-y:auto;}
-.search-dropdown.open{display:block;}
-.search-item{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-bottom:1px solid #f0f4f8;font-size:13.5px;color:#1a2635;text-decoration:none;}
-.search-item:last-child{border-bottom:none;}
-.search-item:hover{background:#f4f6f9;}
-.search-item .si-icon{font-size:16px;width:24px;text-align:center;}
-.search-item .si-name{font-weight:600;}
-.search-item .si-hint{font-size:11px;color:#8a95a0;margin-left:auto;}
 .search-empty{padding:16px;text-align:center;color:#8a95a0;font-size:13px;}
 
 .topbar{position:fixed;top:0;left:var(--sidebar-w);right:0;height:var(--topbar-h);background:#fff;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;padding:0 24px;gap:16px;z-index:90;}
@@ -227,7 +215,7 @@ tr:last-child td{border-bottom:none;}
 <div class="topbar">
   <div class="topbar-title">Production Plan</div>
   <div class="topbar-search"><span class="search-icon">&#128269;</span><input type="text" id="central-search" placeholder="Search pages... (Item Master, MRP, Invoice...)" autocomplete="off"/><div class="search-dropdown" id="central-dd"></div></div>
-  <div class="topbar-search"><span style="color:#b0bec5;">&#128269;</span><input type="text" id="global-search" placeholder="Search plans..."/></div>
+  
   <div class="user-chip"><div class="user-avatar" id="user-avatar">A</div><div class="user-name" id="user-name">Admin</div></div>
 </div>
 
@@ -293,6 +281,16 @@ tr:last-child td{border-bottom:none;}
           </div>
         </div>
         <div class="section-divider">Moulding Settings</div>
+        <div class="form-field" style="margin-bottom:10px;">
+          <label>Moulding Machine (optional)</label>
+          <div style="position:relative;">
+            <input type="text" id="calc-machine-search" autocomplete="off"
+              placeholder="Machine search..." oninput="searchCalcMachine()"
+              style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:9px 12px;font-size:13px;background:#f9fafb;outline:none;"/>
+            <div id="calc-machine-dd" style="display:none;position:fixed;background:#fff;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:9999;max-height:220px;overflow-y:auto;min-width:240px;"></div>
+            <input type="hidden" id="calc-machine-id"/>
+          </div>
+        </div>
         <div class="form-row">
           <div class="form-field">
             <label>Die Cavity Count</label>
@@ -394,6 +392,7 @@ let allItems=[], calcResult=null;
   document.getElementById("user-avatar").textContent=email.substring(0,2).toUpperCase();
   document.getElementById("user-name").textContent=email.split("@")[0];
   await loadItems();
+  await loadMachines();
   loadPlans();
   runCalculator();
 })();
@@ -413,7 +412,7 @@ function searchCalcItem(){
   dd.style.top=(r.bottom+2)+"px";
   dd.style.left=r.left+"px";
   dd.style.width=Math.max(r.width,300)+"px";
-  const res=allItems.filter(x=>x.type==="FG"&&((x.code||"").toLowerCase().includes(q)||(x.name||"").toLowerCase().includes(q))).slice(0,10);
+  const res=allItems.filter(x=>(x.type==="FG"||x.type==="SFG")&&((x.code||"").toLowerCase().includes(q)||(x.name||"").toLowerCase().includes(q))).slice(0,10);
   if(!res.length){dd.style.display="none";return;}
   dd.innerHTML=res.map(x=>`<div onclick="selectCalcItem(${x.id},'${x.code}','${x.name}')"
     style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f4f8;display:flex;gap:8px;">
@@ -495,6 +494,42 @@ document.addEventListener("click",function(e){
 });
 
 // ── CALCULATOR ──
+
+var allMachines = [];
+async function loadMachines(){
+  if(allMachines.length) return;
+  const {data} = await sb.from('machines').select('id,code,name,process_name').eq('is_active',true).order('code');
+  allMachines = data||[];
+}
+function searchCalcMachine(){
+  const q = document.getElementById('calc-machine-search').value.toLowerCase();
+  const dd = document.getElementById('calc-machine-dd');
+  const inp = document.getElementById('calc-machine-search');
+  if(!q){dd.style.display='none';return;}
+  if(!allMachines.length){loadMachines().then(()=>searchCalcMachine());return;}
+  const r = inp.getBoundingClientRect();
+  dd.style.top=(r.bottom+window.scrollY+4)+'px';
+  dd.style.left=r.left+'px';
+  dd.style.width=r.width+'px';
+  const res = allMachines.filter(m=>(m.code||'').toLowerCase().includes(q)||(m.name||'').toLowerCase().includes(q)).slice(0,8);
+  dd.innerHTML = res.map(m=>`<div style="padding:9px 12px;cursor:pointer;border-bottom:1px solid #f0f4f8;font-size:13px;" 
+    onmousedown="selectCalcMachine(${m.id},'${m.code}','${(m.name||'').replace(/'/g,"\'")}')">
+    ⚙️ <strong>${m.code}</strong> — ${m.name}</div>`).join('')
+    + `<div style="padding:9px 12px;cursor:pointer;color:#cc2200;font-weight:600;border-top:2px solid #e2e8f0;font-size:13px;"
+    onmousedown="CFC_QUICK_ADD.show('machine',function(m){document.getElementById('calc-machine-search').value=m.code+' — '+m.name;document.getElementById('calc-machine-id').value=m.id;allMachines=[];})">
+    ➕ + Add New Machine</div>`;
+  dd.style.display='block';
+}
+function selectCalcMachine(id,code,name){
+  document.getElementById('calc-machine-search').value=code+' — '+name;
+  document.getElementById('calc-machine-id').value=id;
+  document.getElementById('calc-machine-dd').style.display='none';
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#calc-machine-search'))
+    if(document.getElementById('calc-machine-dd')) document.getElementById('calc-machine-dd').style.display='none';
+});
+
 function runCalculator(){
   const qty=parseFloat(document.getElementById("calc-qty").value)||0;
   const pcsPerSet=parseFloat(document.getElementById("calc-pcs-per-set").value)||4;
