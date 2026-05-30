@@ -379,7 +379,31 @@ document.getElementById('confirm-overlay').addEventListener('click',function(e){
   }
 })();
 // Central Search
-var allPages=[("dashboard.html", "Dashboard"), ("item_master.html", "Item Master"), ("warehouse.html", "Warehouse"), ("bom.html", "BOM Master"), ("routing.html", "Routing Master"), ("dies.html", "Dies"), ("machines.html", "Machine Master"), ("work_orders.html", "Work Orders"), ("production_plan.html", "Production Plan"), ("mrp.html", "MRP"), ("labour.html", "Labour Planning"), ("job_cards.html", "Job Cards"), ("workers.html", "Workers"), ("purchase_order.html", "Purchase Order"), ("supplier.html", "Supplier Master"), ("grn.html", "GRN"), ("sales_order.html", "Sales Order"), ("customer.html", "Customer Master"), ("dispatch.html", "Dispatch"), ("stock_ledger.html", "Stock Ledger"), ("invoice.html", "Invoice"), ("qc.html", "Quality Control"), ("reports.html", "Reports & MIS")];
+var allPages=[
+  ["dashboard.html","Dashboard"],
+  ["item_master.html","Item Master"],
+  ["warehouse.html","Warehouse"],
+  ["bom.html","BOM Master"],
+  ["routing.html","Routing Master"],
+  ["dies.html","Dies"],
+  ["machines.html","Machine Master"],
+  ["work_orders.html","Work Orders"],
+  ["production_plan.html","Production Plan"],
+  ["mrp.html","MRP"],
+  ["labour.html","Labour Planning"],
+  ["job_cards.html","Job Cards"],
+  ["workers.html","Workers"],
+  ["purchase_order.html","Purchase Order"],
+  ["supplier.html","Supplier Master"],
+  ["grn.html","GRN"],
+  ["sales_order.html","Sales Order"],
+  ["customer.html","Customer Master"],
+  ["dispatch.html","Dispatch"],
+  ["stock_ledger.html","Stock Ledger"],
+  ["invoice.html","Invoice"],
+  ["qc.html","Quality Control"],
+  ["reports.html","Reports & MIS"]
+];
 var csInp=document.getElementById('central-search');
 var csDd=document.getElementById('central-dd');
 if(csInp&&csDd){
