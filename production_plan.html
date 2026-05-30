@@ -430,25 +430,47 @@ async function selectCalcItem(id,code,name){
 
   // Auto-fill from sku_planning + BOM
   const {data:sku}=await sb.from("sku_planning")
-    .select("*, dies(die_code,cavity_count,cycle_time_min), items!sku_planning_bp_item_id_fkey(code,name)")
+    .select("id,item_id,preform_weight_g,cavity_count,cycle_time_min,tray_capacity,pcs_per_set,die_id,dies(die_code,cavity_count,cycle_time_min)")
     .eq("item_id",id).single();
 
   if(sku){
-    // Preform weight
+    // Preform weight — from sku_planning
     if(sku.preform_weight_g)
       document.getElementById("calc-preform-wt").value=sku.preform_weight_g;
-    // Cavity count
-    if(sku.cavity_count)
-      document.getElementById("calc-cavity").value=sku.cavity_count;
-    // Cycle time
-    if(sku.cycle_time_min)
-      document.getElementById("calc-cycle").value=sku.cycle_time_min;
+
+    // Cavity count — from sku_planning directly, fallback to linked die
+    var cavCount = sku.cavity_count || (sku.dies && sku.dies.cavity_count) || null;
+    if(cavCount){
+      document.getElementById("calc-cavity").value=cavCount;
+      document.getElementById("calc-cavity").style.background="#f0fdf4";
+    }
+
+    // Cycle time — from sku_planning directly, fallback to linked die
+    var cycTime = sku.cycle_time_min || (sku.dies && sku.dies.cycle_time_min) || null;
+    if(cycTime){
+      document.getElementById("calc-cycle").value=cycTime;
+      document.getElementById("calc-cycle").style.background="#f0fdf4";
+    }
+
     // Pcs per set
     if(sku.pcs_per_set)
       document.getElementById("calc-pcs-per-set").value=sku.pcs_per_set;
+
     // Oven/tray capacity
     if(sku.tray_capacity)
       document.getElementById("calc-oven-cap").value=sku.tray_capacity;
+
+    // Show what was loaded
+    var loadedFields=[];
+    if(cavCount) loadedFields.push("Cavity: "+cavCount);
+    if(cycTime) loadedFields.push("Cycle: "+cycTime+"min");
+    if(sku.preform_weight_g) loadedFields.push("Preform: "+sku.preform_weight_g+"g");
+    if(loadedFields.length){
+      document.getElementById("calc-item-info").textContent="✓ "+name+" — "+loadedFields.join(", ")+" loaded from SKU ✅";
+    }
+  } else {
+    document.getElementById("calc-item-info").textContent="⚠ "+name+" — SKU data nahi mila. Manually enter karo.";
+    document.getElementById("calc-item-info").style.color="#dc2626";
   }
 
   // Auto-fill premix from BOM lines
