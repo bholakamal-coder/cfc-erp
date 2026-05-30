@@ -367,7 +367,7 @@ function liveSearch(inputId, ddId, hiddenId, allData, labelFn, valueFn, filterFn
     dd.style.width=Math.max(r.width,260)+'px';
     var html=items.slice(0,8).map(function(x){
       var v=valueFn(x),l=labelFn(x);
-      return '<div class="ls-row" onclick="lsPick(''+inputId+'',''+ddId+'',''+hiddenId+'','+v+','+JSON.stringify(l)+')">'+l+'</div>';
+      return '<div class="ls-row" onclick="lsPick(\''+inputId+'\',\''+ddId+'\',\''+hiddenId+'\','+v+','+JSON.stringify(l)+')">'+l+'</div>';
     }).join('');
     if(inp.value.trim()&&addNewFn){
       html+='<div class="ls-add" onclick="'+addNewFn+'()"><span style="color:var(--red);font-weight:700;">+ Add New</span></div>';
