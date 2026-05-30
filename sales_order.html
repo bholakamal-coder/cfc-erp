@@ -87,6 +87,8 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 .confirm-box h4{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:8px;}
 .confirm-box p{font-size:13.5px;color:#5a6878;margin-bottom:20px;}
 .confirm-box .actions{display:flex;gap:10px;justify-content:center;}
+.info-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 16px;font-size:13px;color:#1e40af;margin-bottom:12px;}
+.btn-warning{background:#fef9c3;color:#854d0e;border:none;}
 .toast{position:fixed;bottom:24px;right:24px;background:#1a2635;color:#fff;padding:12px 18px;border-radius:8px;font-size:13.5px;z-index:999;opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateY(0);}
 .toast.success{background:#166634;}.toast.error{background:#991b1b;}
@@ -238,6 +240,32 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
   <button class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
   <button class="btn btn-danger" onclick="doDelete()">Delete</button></div>
 </div></div>
+
+<!-- Create WO from SO Modal -->
+<div class="modal-overlay" id="wo-modal">
+  <div class="modal-box" style="max-width:620px;">
+    <div class="modal-header">
+      <h3 id="wo-modal-title">&#127981; Create Work Orders — SO</h3>
+      <button class="modal-close" onclick="closeWOModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div class="info-box" id="wo-so-info" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#1e40af;"></div>
+      <div id="wo-lines-wrap"></div>
+      <div class="form-row" style="margin-top:12px;">
+        <div class="form-field"><label>Planned Start</label><input type="date" id="wo-start"/></div>
+        <div class="form-field"><label>Planned End</label><input type="date" id="wo-end"/></div>
+      </div>
+      <div class="form-field"><label>Priority</label>
+        <select id="wo-priority"><option value="Normal">Normal</option><option value="High">High</option><option value="Urgent">Urgent</option></select>
+      </div>
+      <div class="form-field"><label>Notes</label><textarea id="wo-notes" rows="2" placeholder="Additional instructions..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeWOModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitWOs()">&#127981; Create Work Orders</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <script>
 
@@ -254,6 +282,71 @@ const sb=createClient(SUPABASE_URL,SUPABASE_KEY);
   await init();
 })();
 async function handleLogout(){await sb.auth.signOut();window.location.href='index.html';}
+
+var woSoId=null,woSoNo='',woLines=[];
+
+async function createWOFromSO(soId,soNo){
+  woSoId=soId;woSoNo=soNo;woLines=[];
+  document.getElementById('wo-modal-title').textContent='Create WOs — '+soNo;
+  document.getElementById('wo-so-info').textContent='SO '+soNo+' ke liye Work Orders banenge. Har FG/SFG item ka ek WO.';
+  document.getElementById('wo-start').value=new Date().toISOString().split('T')[0];
+  var end=new Date();end.setDate(end.getDate()+7);
+  document.getElementById('wo-end').value=end.toISOString().split('T')[0];
+  document.getElementById('wo-priority').value='Normal';
+  document.getElementById('wo-notes').value='';
+  var {data:lines,error}=await sb.from('sales_order_lines').select('*,items(code,name,type,uom)').eq('so_id',soId);
+  if(error||!lines||!lines.length){showToast('SO lines load nahi hue.','error');return;}
+  var fgLines=lines.filter(function(l){return l.items&&(l.items.type==='FG'||l.items.type==='SFG');});
+  if(!fgLines.length){showToast('Is SO mein koi FG/SFG item nahi.','error');return;}
+  woLines=fgLines;
+  var html='<div style="font-size:12px;font-weight:700;color:#8a95a0;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Items ('+fgLines.length+')</div>';
+  html+='<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f8fafc;"><th style="padding:8px;text-align:left;font-size:11px;color:#5a6878;">Item</th><th style="padding:8px;font-size:11px;color:#5a6878;">Type</th><th style="padding:8px;font-size:11px;color:#5a6878;">SO Qty</th><th style="padding:8px;font-size:11px;color:#5a6878;">WO Qty</th><th style="padding:8px;font-size:11px;color:#5a6878;">Process</th></tr></thead><tbody>';
+  fgLines.forEach(function(l,i){
+    html+='<tr style="border-bottom:1px solid #f0f4f8;"><td style="padding:8px;"><strong style="font-family:monospace;font-size:12px;">'+l.items.code+'</strong><br><span style="font-size:11px;color:#5a6878;">'+l.items.name+'</span></td>'
+      +'<td style="padding:8px;"><span style="background:#dbeafe;color:#1e40af;padding:2px 7px;border-radius:12px;font-size:11px;font-weight:600;">'+l.items.type+'</span></td>'
+      +'<td style="padding:8px;text-align:center;font-weight:600;">'+l.qty+' '+l.items.uom+'</td>'
+      +'<td style="padding:8px;"><input type="number" id="wo-qty-'+i+'" value="'+l.qty+'" min="0.001" step="0.001" style="width:80px;border:1px solid #dde3ea;border-radius:5px;padding:5px 8px;font-size:12px;"/></td>'
+      +'<td style="padding:8px;"><input type="text" id="wo-proc-'+i+'" placeholder="e.g. Moulding" style="width:100px;border:1px solid #dde3ea;border-radius:5px;padding:5px 8px;font-size:12px;"/></td>'
+      +'</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('wo-lines-wrap').innerHTML=html;
+  document.getElementById('wo-modal').classList.add('open');
+}
+
+function closeWOModal(){document.getElementById('wo-modal').classList.remove('open');woSoId=null;woLines=[];}
+
+async function submitWOs(){
+  if(!woSoId||!woLines.length)return;
+  var start=document.getElementById('wo-start').value;
+  var end=document.getElementById('wo-end').value;
+  var priority=document.getElementById('wo-priority').value;
+  var notes=document.getElementById('wo-notes').value||null;
+  var created=0;
+  for(var i=0;i<woLines.length;i++){
+    var l=woLines[i];
+    var qty=parseFloat(document.getElementById('wo-qty-'+i).value)||0;
+    if(qty<=0)continue;
+    var proc=document.getElementById('wo-proc-'+i).value.trim()||l.items.name;
+    var wo_no='WO-'+new Date().getFullYear()+String(new Date().getMonth()+1).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9000+1000));
+    var {error}=await sb.from('work_orders').insert([{
+      wo_no:wo_no,process_name:proc,
+      planned_qty:qty,uom:l.items.uom||'Set',
+      status:'Pending',priority:priority,
+      planned_start:start||null,planned_end:end||null,
+      notes:(notes?notes+' | ':'')+'SO: '+woSoNo+' | Item: '+l.items.code
+    }]);
+    if(error){showToast('WO error: '+error.message,'error');return;}
+    created++;
+  }
+  await sb.from('sales_orders').update({status:'In Production'}).eq('id',woSoId);
+  closeWOModal();
+  showToast(created+' Work Orders created! SO → In Production','success');
+  loadData();
+}
+
+document.getElementById('wo-modal').addEventListener('click',function(e){if(e.target===this)closeWOModal();});
+
 function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+type;setTimeout(()=>t.className='toast',3500);}
 function genNo(prefix){const n=new Date();return prefix+'-'+n.getFullYear()+String(n.getMonth()+1).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9000+1000));}
 
@@ -294,7 +387,9 @@ function applyFilter(){
     <td style="font-weight:600;">₹${parseFloat(r.total_amount||0).toLocaleString()}</td>
     <td><span class="pill" style="background:${STATUS_COLOR[r.status]||'#f1f5f9'};color:${STATUS_TC[r.status]||'#475569'};">${r.status}</span></td>
     <td style="white-space:nowrap;">
+      <button class="btn btn-secondary btn-xs" onclick="editSO(${r.id})">&#9998; Edit</button> 
       ${r.status==='Draft'?`<button class="btn btn-info btn-xs" onclick="confirmSO(${r.id})">Confirm</button> `:''}
+      ${r.status==='Confirmed'||r.status==='In Production'?`<button class="btn btn-warning btn-xs" onclick="createWOFromSO(${r.id},'${r.so_no}')">&#127981; Create WO</button> `:''}
       ${r.status==='Confirmed'||r.status==='Ready'?`<button class="btn btn-success btn-xs" onclick="window.location.href='dispatch.html?so=${r.id}'">Dispatch</button> `:''}
       ${r.status==='Draft'?`<button class="btn btn-danger btn-xs" onclick="confirmDel(${r.id},'${r.so_no}')">&#128465;</button>`:''}
     </td>
@@ -309,6 +404,40 @@ function openModal(){
   document.getElementById('f-notes').value='';
   document.getElementById('lines-tbody').innerHTML='';
   updateTotals();addLine();
+  document.getElementById('main-modal').classList.add('open');
+}
+async function editSO(id){
+  var r=allRows.find(function(x){return x.id===id;});
+  if(!r){showToast('SO nahi mili.','error');return;}
+  editingId=id;lineCount=0;
+  document.getElementById('modal-title').textContent='Edit SO — '+r.so_no;
+  // Set customer
+  var sel=document.getElementById('f-customer');
+  sel.value=r.customer_id||'';
+  document.getElementById('f-del-date').value=r.delivery_date||'';
+  document.getElementById('f-order-type').value=r.order_type||'MTO';
+  document.getElementById('f-notes').value=r.notes||'';
+  // Load existing lines
+  var {data:lines}=await sb.from('sales_order_lines').select('*,items(id,code,name,type,uom)').eq('so_id',id);
+  document.getElementById('lines-tbody').innerHTML='';
+  (lines||[]).forEach(function(l){
+    lineCount++;var n=lineCount;
+    var tr=document.createElement('tr');tr.id='line-'+n;
+    tr.innerHTML=`<td style="color:#b0bec5;">${n}</td>
+    <td><div class="item-search-wrap">
+      <input type="text" id="li-search-${n}" value="${(l.items?l.items.code+' — '+l.items.name:'')}" autocomplete="off" oninput="searchItem(${n})"/>
+      <div class="item-dd" id="li-dd-${n}"></div>
+      <input type="hidden" id="li-id-${n}" value="${l.item_id||''}"/>
+    </div></td>
+    <td><input type="number" id="li-qty-${n}" value="${l.qty||1}" min="0.001" step="0.001" oninput="updateTotals()"/></td>
+    <td><input type="number" id="li-rate-${n}" value="${l.rate||0}" step="0.01" oninput="updateTotals()"/></td>
+    <td><input type="number" id="li-disc-${n}" value="${l.discount_percent||0}" step="0.1" oninput="updateTotals()"/></td>
+    <td><input type="number" id="li-tax-${n}" value="${l.tax_percent||28}" step="0.5" oninput="updateTotals()"/></td>
+    <td id="li-amt-${n}">₹${parseFloat(l.total_amount||0).toFixed(2)}</td>
+    <td><button onclick="document.getElementById('line-${n}').remove();updateTotals();" style="background:#fee2e2;color:#991b1b;border:none;border-radius:4px;padding:3px 7px;cursor:pointer;font-size:11px;">✕</button></td>`;
+    document.getElementById('lines-tbody').appendChild(tr);
+  });
+  updateTotals();
   document.getElementById('main-modal').classList.add('open');
 }
 function closeModal(){document.getElementById('main-modal').classList.remove('open');editingId=null;lineCount=0;}
@@ -397,7 +526,14 @@ async function saveSO(status){
   let discTotal=lines.reduce((s,l)=>s+(l.qty*l.rate*l.discount_percent/100),0);
   let taxTotal=lines.reduce((s,l)=>s+(l.tax_amount||0),0);
   const so_no=genNo('SO');
-  const {data:so,error:se}=await sb.from('sales_orders').insert([{
+  let so,se;
+  if(editingId){
+    // Update existing SO
+    await sb.from('sales_order_lines').delete().eq('so_id',editingId);
+    const upd=await sb.from('sales_orders').update({customer_id:parseInt(customer_id),delivery_date:del_date||null,order_type,notes:notes||null,subtotal,discount_amount:discTotal,tax_amount:taxTotal,total_amount}).eq('id',editingId).select().single();
+    so=upd.data;se=upd.error;
+  } else {
+    const ins=await sb.from('sales_orders').insert([{
     so_no,customer_id:parseInt(customer_id),status,
     order_type:document.getElementById('f-order-type').value,
     delivery_date:document.getElementById('f-del-date').value||null,
@@ -406,6 +542,7 @@ async function saveSO(status){
     total_amount:subtotal-discTotal+taxTotal,
     order_date:new Date().toISOString().split('T')[0]
   }]).select().single();
+  }
   if(se){showToast('Error: '+se.message,'error');return;}
   const linesWithSO=lines.map(l=>({...l,so_id:so.id}));
   const {error:le}=await sb.from('sales_order_lines').insert(linesWithSO);
