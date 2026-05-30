@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Production Plan — CFC ERP v2</title>
+<title>Production Plan — CFC ERP v2.1</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -145,7 +145,7 @@ tr:last-child td{border-bottom:none;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.1</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -285,7 +285,7 @@ tr:last-child td{border-bottom:none;}
           <label>Moulding Machine (optional)</label>
           <div style="position:relative;">
             <input type="text" id="calc-machine-search" autocomplete="off"
-              placeholder="Machine search..." oninput="searchCalcMachine()"
+              placeholder="Tap to search machines..." oninput="searchCalcMachine()" onfocus="if(!allMachines.length){loadMachines().then(()=>showMachineDD(''));}else{showMachineDD('');}"
               style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:9px 12px;font-size:13px;background:#f9fafb;outline:none;"/>
             <div id="calc-machine-dd" style="display:none;position:fixed;background:#fff;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:9999;max-height:220px;overflow-y:auto;min-width:240px;"></div>
             <input type="hidden" id="calc-machine-id"/>
@@ -501,24 +501,43 @@ async function loadMachines(){
   const {data} = await sb.from('machines').select('id,code,name,process_name').eq('is_active',true).order('code');
   allMachines = data||[];
 }
-function searchCalcMachine(){
-  const q = document.getElementById('calc-machine-search').value.toLowerCase();
+function showMachineDD(q){
   const dd = document.getElementById('calc-machine-dd');
   const inp = document.getElementById('calc-machine-search');
-  if(!q){dd.style.display='none';return;}
-  if(!allMachines.length){loadMachines().then(()=>searchCalcMachine());return;}
   const r = inp.getBoundingClientRect();
-  dd.style.top=(r.bottom+window.scrollY+4)+'px';
-  dd.style.left=r.left+'px';
-  dd.style.width=r.width+'px';
-  const res = allMachines.filter(m=>(m.code||'').toLowerCase().includes(q)||(m.name||'').toLowerCase().includes(q)).slice(0,8);
-  dd.innerHTML = res.map(m=>`<div style="padding:9px 12px;cursor:pointer;border-bottom:1px solid #f0f4f8;font-size:13px;" 
-    onmousedown="selectCalcMachine(${m.id},'${m.code}','${(m.name||'').replace(/'/g,"\'")}')">
-    ⚙️ <strong>${m.code}</strong> — ${m.name}</div>`).join('')
-    + `<div style="padding:9px 12px;cursor:pointer;color:#cc2200;font-weight:600;border-top:2px solid #e2e8f0;font-size:13px;"
-    onmousedown="CFC_QUICK_ADD.show('machine',function(m){document.getElementById('calc-machine-search').value=m.code+' — '+m.name;document.getElementById('calc-machine-id').value=m.id;allMachines=[];})">
-    ➕ + Add New Machine</div>`;
-  dd.style.display='block';
+  dd.style.cssText = 'display:block;position:fixed;background:#fff;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:9999;max-height:280px;overflow-y:auto;'
+    + 'top:'+(r.bottom+window.scrollY+4)+'px;'
+    + 'left:'+Math.max(8,r.left)+'px;'
+    + 'width:'+Math.min(320,window.innerWidth-16)+'px;';
+
+  const filtered = q
+    ? allMachines.filter(m=>(m.code||'').toLowerCase().includes(q)||(m.name||'').toLowerCase().includes(q)||(m.process_name||'').toLowerCase().includes(q))
+    : allMachines; // show ALL on focus
+
+  if(!filtered.length && !q){
+    dd.innerHTML='<div style="padding:12px;color:#8a95a0;text-align:center;font-size:13px;">Koi machine nahi. Add New karo.</div>';
+  } else if(!filtered.length){
+    dd.innerHTML='<div style="padding:12px;color:#8a95a0;text-align:center;font-size:13px;">"'+q+'" nahi mila</div>';
+  } else {
+    dd.innerHTML = filtered.slice(0,10).map(m=>`
+      <div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f0f4f8;"
+        onmousedown="selectCalcMachine(${m.id},'${m.code}','${(m.name||'').replace(/'/g,"\'").replace(/"/g,'\"')}')">
+        <div style="font-size:13px;font-weight:600;color:#1a2635;">⚙️ ${m.code} — ${m.name}</div>
+        ${m.process_name?'<div style="font-size:11px;color:#8a95a0;">'+m.process_name+'</div>':''}
+      </div>`).join('');
+  }
+  dd.innerHTML += `<div style="padding:10px 12px;cursor:pointer;color:#cc2200;font-weight:600;border-top:2px solid #e2e8f0;font-size:13px;display:flex;align-items:center;gap:6px;"
+    onmousedown="CFC_QUICK_ADD.show('machine',function(nm){document.getElementById('calc-machine-search').value=nm.code+' — '+nm.name;document.getElementById('calc-machine-id').value=nm.id;allMachines=[];loadMachines();})">
+    ➕ Add New Machine</div>`;
+}
+
+function searchCalcMachine(){
+  const q = document.getElementById('calc-machine-search').value.toLowerCase().trim();
+  if(!allMachines.length){
+    loadMachines().then(()=>showMachineDD(q));
+    return;
+  }
+  showMachineDD(q);
 }
 function selectCalcMachine(id,code,name){
   document.getElementById('calc-machine-search').value=code+' — '+name;
@@ -526,7 +545,7 @@ function selectCalcMachine(id,code,name){
   document.getElementById('calc-machine-dd').style.display='none';
 }
 document.addEventListener('click',function(e){
-  if(!e.target.closest('#calc-machine-search'))
+  if(!e.target.closest('#calc-machine-search')&&!e.target.closest('#calc-machine-dd'))
     if(document.getElementById('calc-machine-dd')) document.getElementById('calc-machine-dd').style.display='none';
 });
 

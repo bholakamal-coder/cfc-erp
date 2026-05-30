@@ -803,6 +803,11 @@ window.CFC_NAV = {
       }
 
       dd.innerHTML = html;
+      // Position dropdown below search input (works on mobile too)
+      var rect = inp.getBoundingClientRect();
+      dd.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
+      dd.style.left = Math.max(8, rect.left) + 'px';
+      dd.style.width = Math.min(380, window.innerWidth - 16) + 'px';
       dd.classList.add('open');
     };
 
