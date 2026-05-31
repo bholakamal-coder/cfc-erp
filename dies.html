@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Dies — CFC ERP v2.6</title>
+<title>Dies — CFC ERP v2.7</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -95,13 +95,12 @@ tr:hover td{background:#fafbfc;}
 .sidebar{
   width:var(--sidebar-w);
   background:var(--navy);
-  height:100vh;
+  min-height:100vh;
   position:fixed;
   top:0;left:0;
   display:flex;
   flex-direction:column;
   z-index:100;
-  overflow:hidden;
 }
 .sidebar-logo{
   padding:16px 18px 14px;
@@ -147,7 +146,7 @@ tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.6</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.7</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -456,59 +455,7 @@ document.getElementById("global-search").addEventListener("input",function(){
 </script>
 <script>
 // ── ACCORDION SIDEBAR ──
-(function(){
-  const STORE_KEY='sb_open_groups';
-  function getOpen(){try{return JSON.parse(localStorage.getItem(STORE_KEY)||'[]');}catch(e){return[];}}
-  function setOpen(arr){try{localStorage.setItem(STORE_KEY,JSON.stringify(arr));}catch(e){}}
 
-  function initSidebar(){
-    const currentPage=location.pathname.split('/').pop()||'dashboard.html';
-    let openGroups=getOpen();
-
-    // Auto-open group containing active page
-    document.querySelectorAll('.sb-group').forEach(group=>{
-      const gid=group.dataset.gid;
-      const hasActive=group.querySelector('.nav-item.active');
-      if(!hasActive){
-        group.querySelectorAll('.nav-item').forEach(a=>{
-          if(a.getAttribute('href')===currentPage){a.classList.add('active');if(!openGroups.includes(gid))openGroups.push(gid);}
-        });
-      } else {
-        if(!openGroups.includes(gid))openGroups.push(gid);
-      }
-    });
-
-    // Apply open state
-    document.querySelectorAll('.sb-group').forEach(group=>{
-      const gid=group.dataset.gid;
-      const header=group.querySelector('.sb-group-header');
-      const body=group.querySelector('.sb-group-body');
-      if(openGroups.includes(gid)){header.classList.add('open');body.classList.add('open');}
-      header.addEventListener('click',function(){
-        const isOpen=body.classList.contains('open');
-        body.classList.toggle('open',!isOpen);
-        header.classList.toggle('open',!isOpen);
-        let arr=getOpen();
-        if(!isOpen){if(!arr.includes(gid))arr.push(gid);}
-        else{arr=arr.filter(x=>x!==gid);}
-        setOpen(arr);
-      });
-    });
-
-    // Mobile toggle
-    const mob=document.getElementById('mob-toggle');
-    const sidebar=document.querySelector('.sidebar');
-    if(mob&&sidebar){
-      mob.addEventListener('click',()=>sidebar.classList.toggle('mob-open'));
-      document.addEventListener('click',e=>{
-        if(sidebar.classList.contains('mob-open')&&!sidebar.contains(e.target)&&e.target!==mob)
-          sidebar.classList.remove('mob-open');
-      });
-    }
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initSidebar);
-  else initSidebar();
-})();
 </script>
 <script src="shared.js"></script>
 <script src="ui.js"></script>
@@ -583,10 +530,37 @@ document.getElementById("global-search").addEventListener("input",function(){
     });
   }
 
+  function initMobileToggle(){
+    var btn=document.getElementById('mob-toggle');
+    var overlay=document.getElementById('mob-overlay');
+    var sidebar=document.querySelector('.sidebar');
+    if(!btn||!sidebar)return;
+    btn.addEventListener('click',function(){
+      sidebar.classList.toggle('mob-open');
+      if(overlay)overlay.classList.toggle('active');
+    });
+    if(overlay){
+      overlay.addEventListener('click',function(){
+        sidebar.classList.remove('mob-open');
+        overlay.classList.remove('active');
+      });
+    }
+    // Close sidebar when nav-item clicked on mobile
+    sidebar.querySelectorAll('.nav-item').forEach(function(a){
+      a.addEventListener('click',function(){
+        if(window.innerWidth<=768){
+          sidebar.classList.remove('mob-open');
+          if(overlay)overlay.classList.remove('active');
+        }
+      });
+    });
+  }
+
   if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',initAccordion);
+    document.addEventListener('DOMContentLoaded',function(){initAccordion();initMobileToggle();});
   } else {
     initAccordion();
+    initMobileToggle();
   }
 })();
 
@@ -646,5 +620,6 @@ if(csInp&&csDd){
 }
 
 </script>
+<div class="mob-overlay" id="mob-overlay"></div>
 </body>
 </html>

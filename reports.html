@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Reports & MIS — CFC ERP v2.6</title>
+<title>Reports & MIS — CFC ERP v2.7</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -13,13 +13,12 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a263
 .sidebar{
   width:var(--sidebar-w);
   background:var(--navy);
-  height:100vh;
+  min-height:100vh;
   position:fixed;
   top:0;left:0;
   display:flex;
   flex-direction:column;
   z-index:100;
-  overflow:hidden;
 }
 .sidebar-logo{
   padding:16px 18px 14px;
@@ -116,7 +115,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.6</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.7</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html" >&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -184,6 +183,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </div>
 <div class="sidebar-bottom"><a href="settings.html"><span>&#9881;&#65039;</span> Settings</a><a href="#" onclick="handleLogout()"><span>&#128682;</span> Logout</a></div></aside>
 <div class="topbar">
+  <button type="button" class="mob-toggle" id="mob-toggle" aria-label="Menu">&#9776;</button>
   <div class="topbar-title">Reports & MIS</div>
   <div class="topbar-search"><span class="search-icon">&#128269;</span><input type="text" id="central-search" placeholder="Search pages... (Item Master, MRP, Invoice...)" autocomplete="off"/><div class="search-dropdown" id="central-dd"></div></div>
   <div class="user-chip"><div class="user-avatar" id="user-avatar">A</div><div class="user-name" id="user-name">Admin</div></div>
@@ -588,10 +588,37 @@ function exportTableCSV(tableId,fname){
     });
   }
 
+  function initMobileToggle(){
+    var btn=document.getElementById('mob-toggle');
+    var overlay=document.getElementById('mob-overlay');
+    var sidebar=document.querySelector('.sidebar');
+    if(!btn||!sidebar)return;
+    btn.addEventListener('click',function(){
+      sidebar.classList.toggle('mob-open');
+      if(overlay)overlay.classList.toggle('active');
+    });
+    if(overlay){
+      overlay.addEventListener('click',function(){
+        sidebar.classList.remove('mob-open');
+        overlay.classList.remove('active');
+      });
+    }
+    // Close sidebar when nav-item clicked on mobile
+    sidebar.querySelectorAll('.nav-item').forEach(function(a){
+      a.addEventListener('click',function(){
+        if(window.innerWidth<=768){
+          sidebar.classList.remove('mob-open');
+          if(overlay)overlay.classList.remove('active');
+        }
+      });
+    });
+  }
+
   if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',initAccordion);
+    document.addEventListener('DOMContentLoaded',function(){initAccordion();initMobileToggle();});
   } else {
     initAccordion();
+    initMobileToggle();
   }
 })();
 // Central Search
