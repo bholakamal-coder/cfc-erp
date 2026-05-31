@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Work Orders — CFC ERP v3.0.1</title>
+<title>Work Orders — CFC ERP v3.0.2</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -142,7 +142,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.1</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.2</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -451,10 +451,18 @@ async function loadWOs(){
   wrap.innerHTML='<div class="loading">Loading...</div>';
   // Schema verified: work_orders columns include item_id, bom_id, completed_qty, actual_end
   var {data,error}=await sb.from('work_orders')
-    .select('*, machines(code,name), die:die_id(die_code), items(code,name,type)')
+    .select('*, machines(code,name), die:die_id(die_code), item_id, bom_id, completed_qty')
     .order('created_at',{ascending:false});
   if(error){wrap.innerHTML=`<div class="loading" style="color:#dc2626;">Error: ${error.message}</div>`;return;}
   allWOs=data||[];
+  // Fetch item details separately (no FK join on work_orders→items in schema cache)
+  var itemIds=[...new Set(allWOs.map(w=>w.item_id).filter(Boolean))];
+  if(itemIds.length){
+    var {data:itemData}=await sb.from('items')
+      .select('id,code,name,type,uom').in('id',itemIds);
+    var _imap={};(itemData||[]).forEach(it=>{_imap[it.id]=it;});
+    allWOs=allWOs.map(w=>({...w,items:w.item_id?_imap[w.item_id]||null:null}));
+  }
   applyFilter();
 }
 
@@ -711,7 +719,7 @@ async function openCompleteModal(woId){
   var {data:lines}=await sb.from('bom_lines')
     .select('id,item_id,qty,uom,scrap_percent,is_optional,items(code,name,type)')
     .eq('bom_id',bomHeader.id).order('line_no');
-  bomLines=(lines||[]).filter(l=>!l.is_optional);  // skip optional in v3.0.1
+  bomLines=(lines||[]).filter(l=>!l.is_optional);  // skip optional in v3.0.2
 
   // Build completion form
   var remaining=Math.max(0,(w.planned_qty||0)-(w.completed_qty||0));
