@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>GRN — Goods Receipt Note — CFC ERP v2.9.1</title>
+<title>GRN — Goods Receipt Note — CFC ERP v2.9.2</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -73,11 +73,11 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 .empty-state .big{font-size:40px;margin-bottom:12px;}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
-.modal-box{background:#fff;border-radius:12px;width:100%;max-width:900px;box-shadow:0 24px 60px rgba(0,0,0,0.18);max-height:92vh;overflow-y:auto;}
+.modal-box{background:#fff;border-radius:12px;width:100%;max-width:900px;box-shadow:0 24px 60px rgba(0,0,0,0.18);max-height:92vh;overflow:visible;display:flex;flex-direction:column;}
 .modal-header{padding:20px 24px 16px;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;justify-content:space-between;}
 .modal-header h3{font-size:17px;font-weight:700;color:var(--navy);}
 .modal-close{font-size:22px;cursor:pointer;color:#8a95a0;background:none;border:none;}
-.modal-body{padding:20px 24px;}
+.modal-body{padding:20px 24px;overflow-y:auto;flex:1;}
 .modal-footer{padding:16px 24px;border-top:1px solid #f0f4f8;display:flex;justify-content:flex-end;gap:10px;}
 .form-field{margin-bottom:14px;}
 .form-field label{display:block;font-size:13px;font-weight:600;color:#4a5568;margin-bottom:5px;}
@@ -107,7 +107,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 .mls-wrap{position:relative;}
 .mls-inp{width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:8px 11px;font-size:13px;color:#1a2635;background:#f9fafb;outline:none;font-family:inherit;}
 .mls-inp:focus{border-color:#cc2200;background:#fff;}
-.mls-dd{display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #dde3ea;border-radius:6px;z-index:250;max-height:180px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.12);margin-top:2px;}
+.mls-dd{display:none;position:fixed;background:#fff;border:1px solid #dde3ea;border-radius:6px;z-index:9999;max-height:200px;min-width:220px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.18);}
 .mls-dd.open{display:block;}
 .mls-opt{padding:8px 11px;font-size:12.5px;cursor:pointer;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;gap:8px;}
 .mls-opt:last-child{border-bottom:none;}
@@ -122,7 +122,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 .rls-wrap{position:relative;min-width:140px;}
 .rls-inp{width:100%;border:1px solid #dde3ea;border-radius:5px;padding:5px 8px;font-size:12px;background:#f9fafb;outline:none;}
 .rls-inp:focus{border-color:#cc2200;background:#fff;}
-.rls-dd{display:none;position:absolute;top:100%;left:0;background:#fff;border:1px solid #dde3ea;border-radius:6px;z-index:250;max-height:160px;min-width:220px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.12);margin-top:1px;}
+.rls-dd{display:none;position:fixed;background:#fff;border:1px solid #dde3ea;border-radius:6px;z-index:9999;max-height:200px;min-width:220px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.18);}
 .rls-dd.open{display:block;}
 .rls-opt{padding:7px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #f0f4f8;}
 .rls-opt:last-child{border-bottom:none;}
@@ -145,7 +145,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.9.1</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.9.2</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -312,7 +312,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
             <label>Supplier <span class="req">*</span></label>
             <div class="mls-row">
               <div class="mls-wrap" style="flex:1;position:relative;">
-                <input type="text" class="mls-inp" id="f-sup-txt" placeholder="Naam ya code search karein..." autocomplete="off" oninput="supplierSearch(this.value)" onfocus="supplierSearch(this.value)"/>
+                <input type="text" class="mls-inp" id="f-sup-txt" placeholder="Naam ya code search karein..." autocomplete="off" oninput="supplierSearch(this.value)" onfocus="supplierSearch(this.value);_posDD(this,document.getElementById('f-sup-dd'))"/>
                 <input type="hidden" id="f-sup-id"/>
                 <div class="mls-dd" id="f-sup-dd"></div>
               </div>
@@ -330,7 +330,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
           <span class="hint">Manually items add karo — PO ki zaroorat nahi</span>
           <button type="button" class="btn btn-info btn-sm" onclick="addDirectRow()">&#10133; Add Item</button>
         </div>
-        <div style="overflow-x:auto;">
+        <div style="overflow:visible;">
           <table class="lines-table" id="direct-lines-table">
             <thead><tr>
               <th style="min-width:32px;">#</th>
@@ -412,13 +412,16 @@ async function init(){
   const [supRes, itmRes, whRes] = await Promise.all([
     sb.from('suppliers').select('id,name,code,is_active').eq('is_active',true).order('name'),
     sb.from('items').select('id,code,name,uom,item_type,is_active')
-      .in('item_type',['Raw Material','Consumables','Packing Material'])
-      .eq('is_active',true).order('code'),
+      .eq('is_active',true).order('code'),  // load all active items; type restriction enforced at Quick Create
     sb.from('warehouses').select('id,code,name,is_active').eq('is_active',true).order('code')
   ]);
   allSuppliers=supRes.data||[];
   allItems=itmRes.data||[];
   allWH=whRes.data||[];
+  console.log('[GRN] Masters loaded — suppliers:',allSuppliers.length,'items:',allItems.length,'warehouses:',allWH.length);
+  if(supRes.error) console.error('[GRN] Supplier load error:',supRes.error);
+  if(itmRes.error) console.error('[GRN] Item load error:',itmRes.error);
+  if(whRes.error) console.error('[GRN] Warehouse load error:',whRes.error);
 
   await loadData();
 }
@@ -515,9 +518,18 @@ function setMode(mode){
 ───────────────────────────────────────────────────────── */
 var _supDebounce=debounce(function(q){_doSupSearch(q);},180);
 function supplierSearch(q){_supDebounce(q);}
+function _posDD(inp, dd){
+  if(!inp||!dd) return;
+  var r=inp.getBoundingClientRect();
+  dd.style.top=(r.bottom+2)+'px';
+  dd.style.left=r.left+'px';
+  dd.style.width=r.width+'px';
+}
 function _doSupSearch(q){
   var dd=document.getElementById('f-sup-dd');
+  var inp=document.getElementById('f-sup-txt');
   if(!q||q.length<1){dd.classList.remove('open');return;}
+  _posDD(inp,dd);
   var ql=q.toLowerCase();
   var res=allSuppliers.filter(s=>(s.name||'').toLowerCase().includes(ql)||(s.code||'').toLowerCase().includes(ql)).slice(0,12);
   var createBtn=CFC_PERM.can('create_supplier')?`<div class="mls-opt mls-create-opt" onclick="openQCSupplier()" style="color:#1e40af;font-weight:700;border-top:1px solid #e2e8f0;">&#10133; Create New Supplier</div>`:'';
@@ -674,8 +686,10 @@ function itemSearch(rid,q){
 }
 function _doItemSearch(rid,q){
   var dd=document.getElementById('ditem-dd-'+rid);
+  var inp=document.getElementById('ditem-txt-'+rid);
   if(!dd)return;
   if(!q||q.length<1){dd.classList.remove('open');return;}
+  _posDD(inp,dd);
   var ql=q.toLowerCase();
   var res=allItems.filter(it=>(it.code||'').toLowerCase().includes(ql)||(it.name||'').toLowerCase().includes(ql)).slice(0,12);
   var iCreateBtn=CFC_PERM.can('create_item')?`<div class="rls-opt" onclick="openQCItem(${rid})" style="color:#1e40af;font-weight:700;border-top:1px solid #e2e8f0;">&#10133; Create New Item</div>`:'';
@@ -744,8 +758,10 @@ function whSearch(rid,q){
 }
 function _doWhSearch(rid,q){
   var dd=document.getElementById('dwh-dd-'+rid);
+  var inp=document.getElementById('dwh-txt-'+rid);
   if(!dd)return;
   if(!q||q.length<1){dd.classList.remove('open');return;}
+  _posDD(inp,dd);
   var ql=q.toLowerCase();
   var res=allWH.filter(w=>(w.code||'').toLowerCase().includes(ql)||(w.name||'').toLowerCase().includes(ql)).slice(0,10);
   var wCreateBtn=CFC_PERM.can('create_warehouse')?`<div class="rls-opt" onclick="openQCWarehouse(${rid})" style="color:#1e40af;font-weight:700;border-top:1px solid #e2e8f0;">&#10133; Create New Warehouse</div>`:'';
