@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Work Orders — CFC ERP v3.0.2</title>
+<title>Work Orders — CFC ERP v3.0.3</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -40,7 +40,6 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a263
 .sidebar-bottom{padding:8px 0;border-top:1px solid rgba(255,255,255,0.08);flex-shrink:0;}
 .sidebar-bottom a{display:flex;align-items:center;gap:10px;padding:9px 18px;font-size:13px;color:rgba(255,255,255,0.55);text-decoration:none;transition:all 0.15s;}
 .sidebar-bottom a:hover{background:rgba(255,255,255,0.06);color:#fff;}
-.search-empty{padding:16px;text-align:center;color:#8a95a0;font-size:13px;}
 .topbar{position:fixed;top:0;left:var(--sidebar-w);right:0;height:var(--topbar-h);background:#fff;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;padding:0 24px;gap:16px;z-index:90;}
 .topbar-title{font-size:16px;font-weight:600;color:var(--navy);flex:1;}
 .user-chip{display:flex;align-items:center;gap:8px;cursor:pointer;}
@@ -115,19 +114,14 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 .view-btn.active{background:#fff;color:var(--navy);box-shadow:0 1px 3px rgba(0,0,0,0.1);}
 .wo-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:12px;}
 .wo-card:hover{border-color:var(--red);box-shadow:0 2px 12px rgba(204,34,0,0.08);}
-
-/* ITEM LIVE SEARCH */
-.ils-wrap{position:relative;}
-.ils-dd{display:none;position:fixed;background:#fff;border:1px solid #dde3ea;border-radius:6px;z-index:9999;max-height:200px;min-width:280px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.15);}
-.ils-dd.open{display:block;}
-.ils-opt{padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;gap:8px;}
-.ils-opt:last-child{border-bottom:none;}
-.ils-opt:hover{background:#f4f6f9;}
-.ils-badge{font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:auto;}
-.ils-fg{background:#fff0ee;color:#cc2200;}
-.ils-sfg{background:#f0fdf4;color:#166534;}
-
-/* COMPLETION MODAL */
+/* Production Order live search */
+.po-ls-wrap{position:relative;}
+.po-ls-dd{display:none;position:fixed;background:#fff;border:1px solid #dde3ea;border-radius:6px;z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.15);}
+.po-ls-dd.open{display:block;}
+.po-ls-opt{padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid #f0f4f8;display:flex;flex-direction:column;gap:2px;}
+.po-ls-opt:last-child{border-bottom:none;}
+.po-ls-opt:hover{background:#f4f6f9;}
+/* Completion modal */
 .bom-summary{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:14px;}
 .bom-summary-title{font-size:11px;font-weight:700;color:#5a6878;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;}
 .bom-line-row{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;padding:4px 0;border-bottom:1px solid #f0f4f8;}
@@ -142,18 +136,11 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.2</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.3</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
-<div class="sb-group" data-gid="masters">
-<div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128230;</span><span class="gh-label">Masters</span></div><span class="gh-arrow">&#9658;</span></div>
-<div class="sb-group-body">
-<a class="nav-item" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a>
-<a class="nav-item" href="warehouse.html"><span class="icon">&#127978;</span> Warehouse</a>
-</div></div>
-<div class="sb-group" data-gid="manufacturing">
-<div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#127981;</span><span class="gh-label">Manufacturing</span></div><span class="gh-arrow">&#9658;</span></div>
-<div class="sb-group-body">
+<div class="sb-group" data-gid="masters"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128230;</span><span class="gh-label">Masters</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a><a class="nav-item" href="warehouse.html"><span class="icon">&#127978;</span> Warehouse</a></div></div>
+<div class="sb-group" data-gid="manufacturing"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#127981;</span><span class="gh-label">Manufacturing</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body">
 <a class="nav-item" href="bom.html"><span class="icon">&#128295;</span> BOM Master</a>
 <a class="nav-item" href="routing.html"><span class="icon">&#128260;</span> Routing Master</a>
 <a class="nav-item" href="dies.html"><span class="icon">&#128299;</span> Dies</a>
@@ -165,48 +152,11 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 <a class="nav-item" href="job_cards.html"><span class="icon">&#128196;</span> Job Cards</a>
 <a class="nav-item" href="workers.html"><span class="icon">&#128104;&#8205;&#127981;</span> Workers</a>
 </div></div>
-<div class="sb-group" data-gid="purchase">
-<div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128715;</span><span class="gh-label">Purchase</span></div><span class="gh-arrow">&#9658;</span></div>
-<div class="sb-group-body">
-<a class="nav-item" href="purchase_order.html"><span class="icon">&#128715;</span> Purchase Order</a>
-<a class="nav-item" href="supplier.html"><span class="icon">&#128666;</span> Supplier Master</a>
-<a class="nav-item" href="grn.html"><span class="icon">&#128229;</span> GRN</a>
-</div></div>
-<div class="sb-group" data-gid="inventory">
-<div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128202;</span><span class="gh-label">Inventory</span></div><span class="gh-arrow">&#9658;</span></div>
-<div class="sb-group-body">
-<a class="nav-item" href="stock_ledger.html"><span class="icon">&#128202;</span> Stock Ledger</a>
-<a class="nav-item" href="#"><span class="icon">&#128260;</span> Stock Transfer</a>
-<a class="nav-item" href="reports.html"><span class="icon">&#128203;</span> Stock Report</a>
-</div></div>
-<div class="sb-group" data-gid="qc">
-<div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128300;</span><span class="gh-label">Quality Control</span></div><span class="gh-arrow">&#9658;</span></div>
-<div class="sb-group-body">
-<a class="nav-item" href="qc.html"><span class="icon">&#128300;</span> Incoming QC</a>
-<a class="nav-item" href="qc.html"><span class="icon">&#128300;</span> In-Process QC</a>
-<a class="nav-item" href="qc.html"><span class="icon">&#128300;</span> Final QC</a>
-</div></div>
-<div class="sb-group" data-gid="packing">
-<div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128218;</span><span class="gh-label">Packing</span></div><span class="gh-arrow">&#9658;</span></div>
-<div class="sb-group-body">
-<a class="nav-item" href="#"><span class="icon">&#128218;</span> Packing Order</a>
-<a class="nav-item" href="dispatch.html"><span class="icon">&#128666;</span> Dispatch</a>
-</div></div>
-<div class="sb-group" data-gid="sales">
-<div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128188;</span><span class="gh-label">Sales</span></div><span class="gh-arrow">&#9658;</span></div>
-<div class="sb-group-body">
-<a class="nav-item" href="sales_order.html"><span class="icon">&#128188;</span> Sales Order</a>
-<a class="nav-item" href="invoice.html"><span class="icon">&#129534;</span> Invoice</a>
-<a class="nav-item" href="customer.html"><span class="icon">&#128101;</span> Customer Master</a>
-</div></div>
-<div class="sb-group" data-gid="reports">
-<div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128200;</span><span class="gh-label">Reports</span></div><span class="gh-arrow">&#9658;</span></div>
-<div class="sb-group-body">
-<a class="nav-item" href="reports.html"><span class="icon">&#128200;</span> Production Report</a>
-<a class="nav-item" href="reports.html"><span class="icon">&#128200;</span> Stock Report</a>
-<a class="nav-item" href="reports.html"><span class="icon">&#128200;</span> Sales Report</a>
-<a class="nav-item" href="reports.html"><span class="icon">&#128200;</span> MIS Dashboard</a>
-</div></div>
+<div class="sb-group" data-gid="purchase"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128715;</span><span class="gh-label">Purchase</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="purchase_order.html"><span class="icon">&#128715;</span> Purchase Order</a><a class="nav-item" href="supplier.html"><span class="icon">&#128666;</span> Supplier Master</a><a class="nav-item" href="grn.html"><span class="icon">&#128229;</span> GRN</a></div></div>
+<div class="sb-group" data-gid="inventory"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128202;</span><span class="gh-label">Inventory</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="stock_ledger.html"><span class="icon">&#128202;</span> Stock Ledger</a><a class="nav-item" href="#"><span class="icon">&#128260;</span> Stock Transfer</a><a class="nav-item" href="reports.html"><span class="icon">&#128203;</span> Stock Report</a></div></div>
+<div class="sb-group" data-gid="qc"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128300;</span><span class="gh-label">Quality Control</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="qc.html"><span class="icon">&#128300;</span> Incoming QC</a></div></div>
+<div class="sb-group" data-gid="sales"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128188;</span><span class="gh-label">Sales</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="sales_order.html"><span class="icon">&#128188;</span> Sales Order</a><a class="nav-item" href="invoice.html"><span class="icon">&#129534;</span> Invoice</a><a class="nav-item" href="customer.html"><span class="icon">&#128101;</span> Customer Master</a></div></div>
+<div class="sb-group" data-gid="reports"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128200;</span><span class="gh-label">Reports</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="reports.html"><span class="icon">&#128200;</span> Reports & MIS</a></div></div>
 </div>
 <div class="sidebar-bottom"><a href="settings.html"><span>&#9881;&#65039;</span> Settings</a><a href="#" onclick="handleLogout()"><span>&#128682;</span> Logout</a></div>
 </aside>
@@ -238,7 +188,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
   </div>
 
   <div class="filter-bar">
-    <input type="text" id="search-input" placeholder="WO No ya item ya process..." oninput="applyFilter()"/>
+    <input type="text" id="search-input" placeholder="WO No ya process ya order..." oninput="applyFilter()"/>
     <select id="filter-status" onchange="applyFilter()">
       <option value="">All Status</option>
       <option value="Pending">Pending</option>
@@ -261,19 +211,18 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
       <button type="button" class="modal-close" onclick="closeModal()">&#10005;</button>
     </div>
     <div class="modal-body">
-      <!-- FG/SFG Item — live search -->
+      <!-- Production Order live search -->
       <div class="form-field">
-        <label>FG / SFG Item <span class="req">*</span></label>
-        <div class="ils-wrap">
-          <input type="text" id="f-item-search" autocomplete="off" placeholder="Item code ya naam search karein..."
+        <label>Production Order</label>
+        <div class="po-ls-wrap">
+          <input type="text" id="f-po-search" autocomplete="off" placeholder="Order No search karein..."
             style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:9px 12px;font-size:13.5px;color:#1a2635;background:#f9fafb;outline:none;"
-            oninput="itemSearch(this.value)" onfocus="itemSearch(this.value)"/>
-          <input type="hidden" id="f-item-id"/>
-          <div class="ils-dd" id="f-item-dd"></div>
+            oninput="poSearch(this.value)" onfocus="poSearch(this.value)"/>
+          <input type="hidden" id="f-po-id"/>
+          <div class="po-ls-dd" id="f-po-dd"></div>
         </div>
-        <div style="font-size:11px;color:#5a6878;margin-top:3px;" id="f-item-info"></div>
+        <div style="font-size:11px;color:#5a6878;margin-top:3px;" id="f-po-info"></div>
       </div>
-
       <div class="form-row">
         <div class="form-field">
           <label>Process Name <span class="req">*</span></label>
@@ -341,9 +290,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
       <h3 id="cmp-title">Complete Work Order</h3>
       <button type="button" class="modal-close" onclick="closeCompleteModal()">&#10005;</button>
     </div>
-    <div class="modal-body" id="cmp-body">
-      <!-- dynamically populated -->
-    </div>
+    <div class="modal-body" id="cmp-body"></div>
     <div class="modal-footer" id="cmp-footer">
       <button type="button" class="btn btn-secondary" onclick="closeCompleteModal()">Cancel</button>
       <button type="button" class="btn btn-complete" id="cmp-save-btn" onclick="submitCompletion()">&#10003; Complete &amp; Update Stock</button>
@@ -372,101 +319,142 @@ const SUPABASE_URL='https://sdopdeqepjoshbzrpbmi.supabase.co';
 const SUPABASE_KEY='sb_publishable_eWBMrAFa7Yyvtlb-7-8IGA_KxfE7v_8';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-/* ── STATE ── */
-let allWOs=[],filtered=[],allMachines=[],allDies=[],allSteps=[],allFGItems=[],allWarehouses=[];
-let editingId=null,deletingId=null,viewMode='table';
-let completingWO=null; // WO object being completed
+// ── SCHEMA CONTRACT (v3.0.3) ──
+// work_orders columns used: id, wo_no, production_order_id, process_name,
+//   planned_qty, completed_qty, uom, status, machine_id, die_id,
+//   routing_step_id, priority, planned_start, planned_end,
+//   actual_start, actual_end, notes
+// work_orders columns NOT used: item_id (does not exist), bom_id (does not exist)
+// production_orders columns used: id, order_no, item_id, planned_qty, completed_qty, uom, status
+// rm_batches columns used: id, batch_no, item_id, available_qty, consumed_qty,
+//   purchase_rate, warehouse_id, received_date
+// rm_batches.is_active does NOT exist — not used
 
-/* ── AUTH ── */
+let allWOs=[],filtered=[],allMachines=[],allDies=[],allSteps=[],allWarehouses=[];
+let allProdOrders=[]; // cache of production_orders for live search
+let editingId=null,deletingId=null,viewMode='table';
+let completingWO=null;
+
 document.addEventListener('DOMContentLoaded',()=>CFC_AUTH.init(init));
 async function handleLogout(){await sb.auth.signOut();window.location.href='index.html';}
 
-/* ── INIT ── */
 async function init(){
   await Promise.all([loadMasters(),loadWOs()]);
 }
 
 async function loadMasters(){
-  const [mRes,dRes,sRes,iRes,wRes]=await Promise.all([
+  const [mRes,dRes,sRes,wRes,poRes]=await Promise.all([
     sb.from('machines').select('id,code,name').eq('is_active',true).order('code'),
     sb.from('dies').select('id,die_code,die_name,cavity_count').eq('is_active',true).order('die_code'),
-    sb.from('routing_steps').select('id,process_name,routing_levels(code)').order('sequence'),
-    sb.from('items').select('id,code,name,type,uom').in('type',['FG','SFG']).eq('is_active',true).order('code'),
-    sb.from('warehouses').select('id,code,name').eq('is_active',true).order('code')
+    // routing_steps: confirmed columns id,routing_level_id,sequence,process_name,is_active
+    sb.from('routing_steps').select('id,process_name,routing_levels(code)').eq('is_active',true).order('sequence'),
+    sb.from('warehouses').select('id,code,name').eq('is_active',true).order('code'),
+    // production_orders: confirmed columns id,order_no,item_id,planned_qty,uom,status
+    sb.from('production_orders').select('id,order_no,item_id,planned_qty,uom,status').order('order_no'),
   ]);
   allMachines=mRes.data||[];
   allDies=dRes.data||[];
   allSteps=sRes.data||[];
-  allFGItems=iRes.data||[];
   allWarehouses=wRes.data||[];
+  allProdOrders=poRes.data||[];
 
-  const mSel=document.getElementById('f-machine');
+  // Fetch item details for production orders (separate safe query)
+  var poItemIds=[...new Set(allProdOrders.map(p=>p.item_id).filter(Boolean))];
+  if(poItemIds.length){
+    var {data:poItems}=await sb.from('items').select('id,code,name,type').in('id',poItemIds);
+    var pimap={};(poItems||[]).forEach(it=>{pimap[it.id]=it;});
+    allProdOrders=allProdOrders.map(p=>({...p,item:p.item_id?pimap[p.item_id]||null:null}));
+  }
+
+  var mSel=document.getElementById('f-machine');
   mSel.innerHTML='<option value="">-- No Machine --</option>'+allMachines.map(m=>`<option value="${m.id}">${m.code} — ${m.name}</option>`).join('');
-
-  const dSel=document.getElementById('f-die');
+  var dSel=document.getElementById('f-die');
   dSel.innerHTML='<option value="">-- No Die --</option>'+allDies.map(d=>`<option value="${d.id}">${d.die_code} (${d.cavity_count||0} cav)</option>`).join('');
-
-  const sSel=document.getElementById('f-step');
+  var sSel=document.getElementById('f-step');
   sSel.innerHTML='<option value="">-- No Step --</option>'+allSteps.map(s=>`<option value="${s.id}">${s.routing_levels?s.routing_levels.code+' > ':''}${s.process_name}</option>`).join('');
 }
 
-/* ── ITEM LIVE SEARCH (FG/SFG only) ── */
-var _ilsDebounce=null;
-function itemSearch(q){
-  clearTimeout(_ilsDebounce);
-  _ilsDebounce=setTimeout(function(){_doItemSearch(q);},180);
+// ── PRODUCTION ORDER LIVE SEARCH ──
+var _poDebounce=null;
+function poSearch(q){
+  clearTimeout(_poDebounce);
+  _poDebounce=setTimeout(()=>_doPOSearch(q),180);
 }
-function _doItemSearch(q){
-  var dd=document.getElementById('f-item-dd');
-  var inp=document.getElementById('f-item-search');
+function _doPOSearch(q){
+  var dd=document.getElementById('f-po-dd');
+  var inp=document.getElementById('f-po-search');
   if(!q||q.length<1){dd.classList.remove('open');return;}
-  // Position dropdown
   var r=inp.getBoundingClientRect();
-  dd.style.top=(r.bottom+2)+'px';
-  dd.style.left=r.left+'px';
-  dd.style.width=r.width+'px';
+  dd.style.top=(r.bottom+2)+'px';dd.style.left=r.left+'px';dd.style.width=r.width+'px';
   var ql=q.toLowerCase();
-  var res=allFGItems.filter(it=>(it.code||'').toLowerCase().includes(ql)||(it.name||'').toLowerCase().includes(ql)).slice(0,12);
-  if(!res.length){dd.innerHTML='<div class="ils-opt" style="color:#8a95a0;">Koi FG/SFG item nahi mila</div>';dd.classList.add('open');return;}
-  dd.innerHTML=res.map(it=>`<div class="ils-opt" onclick="selectFGItem(${it.id},'${esc(it.code)}','${esc(it.name)}','${esc(it.uom||'')}','${it.type}')"><strong style="font-family:monospace;">${it.code}</strong><span style="color:#5a6878;font-size:12px;"> ${it.name}</span><span class="ils-badge ${it.type==='FG'?'ils-fg':'ils-sfg'}">${it.type}</span></div>`).join('');
+  var res=allProdOrders.filter(p=>(p.order_no||'').toLowerCase().includes(ql)||
+    (p.item?.code||'').toLowerCase().includes(ql)||(p.item?.name||'').toLowerCase().includes(ql)).slice(0,10);
+  if(!res.length){dd.innerHTML='<div class="po-ls-opt" style="color:#8a95a0;">Koi Production Order nahi mila</div>';dd.classList.add('open');return;}
+  dd.innerHTML=res.map(p=>`<div class="po-ls-opt" onclick="selectPO(${p.id},'${esc(p.order_no)}','${esc(p.item?.code||'')}','${esc(p.item?.name||'')}','${esc(p.uom||'')}')">
+    <strong style="font-family:monospace;">${p.order_no}</strong>
+    ${p.item?`<span style="font-size:11px;color:#5a6878;">${p.item.code} — ${p.item.name} | ${p.status}</span>`:''}
+  </div>`).join('');
   dd.classList.add('open');
 }
-function selectFGItem(id,code,name,uom,type){
-  document.getElementById('f-item-id').value=id;
-  document.getElementById('f-item-search').value=code;
-  document.getElementById('f-item-info').textContent=name+' | '+type+' | '+uom;
-  if(!document.getElementById('f-uom').value||document.getElementById('f-uom').value==='PCS') document.getElementById('f-uom').value=uom||'PCS';
-  document.getElementById('f-item-dd').classList.remove('open');
+function selectPO(id,orderNo,itemCode,itemName,uom){
+  document.getElementById('f-po-id').value=id;
+  document.getElementById('f-po-search').value=orderNo;
+  document.getElementById('f-po-info').textContent=itemCode?(itemCode+' — '+itemName):'';
+  if(uom&&(!document.getElementById('f-uom').value||document.getElementById('f-uom').value==='PCS'))
+    document.getElementById('f-uom').value=uom;
+  document.getElementById('f-po-dd').classList.remove('open');
 }
 document.addEventListener('click',function(e){
-  if(!e.target.closest('#f-item-dd')&&e.target!==document.getElementById('f-item-search')){
-    var dd=document.getElementById('f-item-dd');if(dd)dd.classList.remove('open');
+  if(!e.target.closest('#f-po-dd')&&e.target!==document.getElementById('f-po-search')){
+    var dd=document.getElementById('f-po-dd');if(dd)dd.classList.remove('open');
   }
 });
-function esc(s){return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
+function esc(s){return(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
 
-/* ── LOAD WOs ── */
+// ── LOAD WOs ──
+// work_orders columns: id,wo_no,production_order_id,process_name,
+//   planned_qty,completed_qty,uom,status,machine_id,die_id,
+//   routing_step_id,priority,planned_start,planned_end,actual_start,actual_end,notes
+// NO item_id. NO bom_id.
 async function loadWOs(){
   var wrap=document.getElementById('wo-wrap');
   wrap.innerHTML='<div class="loading">Loading...</div>';
-  // Schema verified: work_orders columns include item_id, bom_id, completed_qty, actual_end
+
   var {data,error}=await sb.from('work_orders')
-    .select('*, machines(code,name), die:die_id(die_code), item_id, bom_id, completed_qty')
+    .select('id,wo_no,production_order_id,process_name,planned_qty,completed_qty,uom,status,machine_id,die_id,routing_step_id,priority,planned_start,planned_end,actual_start,actual_end,notes,created_at, machines(code,name), die:die_id(die_code)')
     .order('created_at',{ascending:false});
-  if(error){wrap.innerHTML=`<div class="loading" style="color:#dc2626;">Error: ${error.message}</div>`;return;}
-  allWOs=data||[];
-  // Fetch item details separately (no FK join on work_orders→items in schema cache)
-  var itemIds=[...new Set(allWOs.map(w=>w.item_id).filter(Boolean))];
-  if(itemIds.length){
-    var {data:itemData}=await sb.from('items')
-      .select('id,code,name,type,uom').in('id',itemIds);
-    var _imap={};(itemData||[]).forEach(it=>{_imap[it.id]=it;});
-    allWOs=allWOs.map(w=>({...w,items:w.item_id?_imap[w.item_id]||null:null}));
+
+  if(error){
+    wrap.innerHTML=`<div class="loading" style="color:#dc2626;">Error: ${error.message}</div>`;
+    return;
   }
+  allWOs=data||[];
+
+  // Fetch production_orders separately for WOs that have production_order_id
+  // Confirmed columns: id, order_no, item_id — NO assumed joins
+  var poIds=[...new Set(allWOs.map(w=>w.production_order_id).filter(Boolean))];
+  var _pomap={};
+  if(poIds.length){
+    var {data:poData}=await sb.from('production_orders')
+      .select('id,order_no,item_id,planned_qty,completed_qty,uom,status').in('id',poIds);
+    // Fetch items for those production orders — separate safe query
+    var piIds=[...new Set((poData||[]).map(p=>p.item_id).filter(Boolean))];
+    var _pimap={};
+    if(piIds.length){
+      var {data:piData}=await sb.from('items').select('id,code,name,type,uom').in('id',piIds);
+      (piData||[]).forEach(it=>{_pimap[it.id]=it;});
+    }
+    (poData||[]).forEach(p=>{
+      _pomap[p.id]={...p,item:p.item_id?_pimap[p.item_id]||null:null};
+    });
+  }
+  // Attach production order data to each WO
+  allWOs=allWOs.map(w=>({...w,_po:w.production_order_id?_pomap[w.production_order_id]||null:null}));
+
   applyFilter();
 }
 
-/* ── FILTER ── */
+// ── FILTER ──
 const SPILL={Pending:'pill-pending',Assigned:'pill-assigned','In Progress':'pill-inprogress',Paused:'pill-paused',Done:'pill-done',Cancelled:'pill-cancelled'};
 
 function applyFilter(){
@@ -474,7 +462,8 @@ function applyFilter(){
   var st=document.getElementById('filter-status').value;
   filtered=allWOs.filter(w=>
     (!s||(w.wo_no||'').toLowerCase().includes(s)||(w.process_name||'').toLowerCase().includes(s)||
-         (w.items?.code||'').toLowerCase().includes(s)||(w.items?.name||'').toLowerCase().includes(s))
+         (w._po?.order_no||'').toLowerCase().includes(s)||
+         (w._po?.item?.code||'').toLowerCase().includes(s)||(w._po?.item?.name||'').toLowerCase().includes(s))
     &&(!st||w.status===st)
   );
   document.getElementById('filter-count').textContent=filtered.length+' WOs';
@@ -486,20 +475,25 @@ function applyFilter(){
   renderWOs();
 }
 
-/* ── RENDER ── */
+// ── RENDER ──
+function _poInfo(w){
+  if(!w._po)return'<span style="font-size:11px;color:#f59e0b;">&#9888; No Production Order</span>';
+  var item=w._po.item;
+  return item
+    ?`<span style="font-size:12px;font-weight:600;color:#1c2d42;">&#128230; ${item.code}</span> <span style="font-size:11px;color:#5a6878;">${item.name}</span>`
+    :`<span style="font-size:11px;color:#5a6878;">${w._po.order_no}</span>`;
+}
+
 function renderWOs(){
   var wrap=document.getElementById('wo-wrap');
-  if(!filtered.length){
-    wrap.innerHTML='<div class="empty-state"><div class="big">&#127981;</div><p>Koi Work Order nahi. + Create WO karo.</p></div>';
-    return;
-  }
+  if(!filtered.length){wrap.innerHTML='<div class="empty-state"><div class="big">&#127981;</div><p>Koi Work Order nahi. + Create WO karo.</p></div>';return;}
   if(viewMode==='card'){
     wrap.innerHTML=filtered.map(w=>{
       var pct=w.planned_qty>0?Math.min(100,Math.round((w.completed_qty||0)/w.planned_qty*100)):0;
       var completeBtn=w.status==='In Progress'?`<button type="button" class="btn btn-complete btn-xs" onclick="openCompleteModal(${w.id})">&#10003; Complete</button>`:'';
       var statusBtns=w.status==='Pending'?`<button type="button" class="btn btn-info btn-xs" onclick="updateStatus(${w.id},'Assigned')">&#9654; Assign</button>`:
         w.status==='Assigned'?`<button type="button" class="btn btn-warning btn-xs" onclick="updateStatus(${w.id},'In Progress')">&#9658; Start</button>`:'';
-      return `<div class="wo-card">
+      return`<div class="wo-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div><span style="font-family:monospace;font-weight:700;color:var(--navy);">${w.wo_no||'WO-?'}</span>
           <span style="margin-left:10px;" class="pill ${SPILL[w.status]||'pill-pending'}">${w.status}</span></div>
@@ -508,7 +502,7 @@ function renderWOs(){
             <button type="button" class="btn btn-danger btn-xs" onclick="confirmDelete(${w.id},'${esc(w.wo_no||'')}')">&#128465;</button>
           </div>
         </div>
-        ${w.items?`<div style="font-size:12px;font-weight:600;color:#1c2d42;margin-bottom:6px;">&#128230; ${w.items.code} — ${w.items.name} <span style="font-size:10px;color:#5a6878;">${w.items.type}</span></div>`:'<div style="font-size:11px;color:#f59e0b;margin-bottom:6px;">&#9888; Item not linked</div>'}
+        <div style="margin-bottom:6px;">${_poInfo(w)}</div>
         <div style="display:flex;gap:16px;font-size:12px;color:#5a6878;margin-bottom:10px;flex-wrap:wrap;">
           <span>&#9881; ${w.process_name||'—'}</span>
           ${w.machines?`<span>&#127981; ${w.machines.code}</span>`:''}
@@ -522,16 +516,16 @@ function renderWOs(){
     }).join('');
   } else {
     wrap.innerHTML=`<div class="table-wrap"><table>
-      <thead><tr><th>WO No</th><th>Item</th><th>Process</th><th>Machine</th>
+      <thead><tr><th>WO No</th><th>Prod Order / Item</th><th>Process</th><th>Machine</th>
       <th>Planned</th><th>Done</th><th>Progress</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody>${filtered.map(w=>{
         var pct=w.planned_qty>0?Math.min(100,Math.round((w.completed_qty||0)/w.planned_qty*100)):0;
         var completeBtn=w.status==='In Progress'?`<button type="button" class="btn btn-complete btn-xs" onclick="openCompleteModal(${w.id})">&#10003; Complete</button> `:'';
         var statusBtns=w.status==='Pending'?`<button type="button" class="btn btn-info btn-xs" onclick="updateStatus(${w.id},'Assigned')">Assign</button> `:
           w.status==='Assigned'?`<button type="button" class="btn btn-warning btn-xs" onclick="updateStatus(${w.id},'In Progress')">Start</button> `:'';
-        return `<tr>
+        return`<tr>
           <td><strong style="font-family:monospace;">${w.wo_no||'—'}</strong></td>
-          <td style="font-size:12px;">${w.items?`<strong>${w.items.code}</strong><br><span style="color:#5a6878;">${w.items.name}</span>`:'<span style="color:#f59e0b;font-size:11px;">&#9888; Not linked</span>'}</td>
+          <td style="font-size:12px;">${_poInfo(w)}</td>
           <td>${w.process_name||'—'}</td>
           <td style="font-size:12px;">${w.machines?w.machines.code:'—'}</td>
           <td style="text-align:center;">${w.planned_qty||0} ${w.uom||'PCS'}</td>
@@ -552,13 +546,13 @@ function setView(v){
   renderWOs();
 }
 
-/* ── CREATE / EDIT WO MODAL ── */
+// ── CREATE / EDIT MODAL ──
 function openModal(){
   editingId=null;
   document.getElementById('modal-title').textContent='Create Work Order';
-  document.getElementById('f-item-id').value='';
-  document.getElementById('f-item-search').value='';
-  document.getElementById('f-item-info').textContent='';
+  document.getElementById('f-po-id').value='';
+  document.getElementById('f-po-search').value='';
+  document.getElementById('f-po-info').textContent='';
   document.getElementById('f-process').value='';
   document.getElementById('f-planned-qty').value=1;
   document.getElementById('f-uom').value='PCS';
@@ -571,7 +565,7 @@ function openModal(){
   document.getElementById('f-notes').value='';
   document.getElementById('f-status').value='Pending';
   document.getElementById('main-modal').classList.add('open');
-  setTimeout(()=>document.getElementById('f-item-search').focus(),100);
+  setTimeout(()=>document.getElementById('f-process').focus(),100);
 }
 function closeModal(){document.getElementById('main-modal').classList.remove('open');editingId=null;}
 document.getElementById('main-modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
@@ -580,14 +574,14 @@ function editWO(id){
   var w=allWOs.find(x=>x.id===id);if(!w)return;
   editingId=id;
   document.getElementById('modal-title').textContent='Edit WO — '+(w.wo_no||'');
-  // Restore item
-  document.getElementById('f-item-id').value=w.item_id||'';
-  if(w.items){
-    document.getElementById('f-item-search').value=w.items.code||'';
-    document.getElementById('f-item-info').textContent=(w.items.name||'')+' | '+(w.items.type||'')+' | '+(w.items.uom||'');
+  // Restore production order
+  document.getElementById('f-po-id').value=w.production_order_id||'';
+  if(w._po){
+    document.getElementById('f-po-search').value=w._po.order_no||'';
+    document.getElementById('f-po-info').textContent=w._po.item?(w._po.item.code+' — '+w._po.item.name):'';
   } else {
-    document.getElementById('f-item-search').value='';
-    document.getElementById('f-item-info').textContent='';
+    document.getElementById('f-po-search').value='';
+    document.getElementById('f-po-info').textContent='';
   }
   document.getElementById('f-process').value=w.process_name||'';
   document.getElementById('f-planned-qty').value=w.planned_qty||1;
@@ -605,17 +599,19 @@ function editWO(id){
 
 async function saveWO(){
   var btn=document.activeElement;if(btn&&btn.tagName==='BUTTON')btn.disabled=true;
-  var unlock=function(){if(btn)btn.disabled=false;};
+  var unlock=()=>{if(btn)btn.disabled=false;};
   var process_name=document.getElementById('f-process').value.trim();
   var planned_qty=parseFloat(document.getElementById('f-planned-qty').value)||0;
-  var item_id=document.getElementById('f-item-id').value;
   if(!process_name||!planned_qty){unlock();showToast('Process aur Planned Qty zaroori hai.','error');return;}
+  var poId=document.getElementById('f-po-id').value;
   var machId=document.getElementById('f-machine').value;
   var dieId=document.getElementById('f-die').value;
   var stepId=document.getElementById('f-step').value;
+  // Payload uses ONLY confirmed work_orders columns — NO item_id, NO bom_id
   var payload={
     process_name,planned_qty,
     uom:document.getElementById('f-uom').value||'PCS',
+    production_order_id:poId?parseInt(poId):null,
     machine_id:machId?parseInt(machId):null,
     die_id:dieId?parseInt(dieId):null,
     routing_step_id:stepId?parseInt(stepId):null,
@@ -624,7 +620,6 @@ async function saveWO(){
     planned_end:document.getElementById('f-end').value||null,
     notes:document.getElementById('f-notes').value.trim()||null,
     status:document.getElementById('f-status').value||'Pending',
-    item_id:item_id?parseInt(item_id):null,
   };
   if(!editingId){
     var now=new Date();
@@ -639,99 +634,94 @@ async function saveWO(){
   closeModal();loadWOs();
 }
 
-/* ── STATUS UPDATES (non-completion) ── */
+// ── STATUS UPDATES ──
 async function updateStatus(id,status){
   var extra={};
-  if(status==='In Progress') extra.actual_start=new Date().toISOString();
+  if(status==='In Progress')extra.actual_start=new Date().toISOString();
   var {error}=await sb.from('work_orders').update({status,...extra}).eq('id',id);
   if(error){showToast('Error: '+error.message,'error');return;}
   showToast('Status: '+status,'success');loadWOs();
 }
 
-/* ══════════════════════════════════════════════════
-   WO COMPLETION — FULL INVENTORY INTEGRATION
-   Schema verified: work_orders, bom_headers, bom_lines,
-   inventory, stock_ledger, rm_batches, items, warehouses
-══════════════════════════════════════════════════ */
+// ══════════════════════════════════════════════════════════════
+// WO COMPLETION — INVENTORY INTEGRATION
+// Schema: work_orders → production_order_id → production_orders.item_id → items
+// BOM: bom_headers WHERE item_id=po.item_id AND is_default=true AND status='Active'
+// rm_batches: NO is_active column — filter by available_qty > 0 only
+// ══════════════════════════════════════════════════════════════
 
 async function openCompleteModal(woId){
   var w=allWOs.find(x=>x.id===woId);
   if(!w){showToast('WO nahi mila.','error');return;}
   completingWO=w;
-
   var body=document.getElementById('cmp-body');
   var saveBtn=document.getElementById('cmp-save-btn');
   document.getElementById('cmp-title').textContent='Complete — '+(w.wo_no||'WO');
-  saveBtn.disabled=false;
-  saveBtn.innerHTML='&#10003; Complete &amp; Update Stock';
+  saveBtn.disabled=false;saveBtn.innerHTML='&#10003; Complete &amp; Update Stock';
 
-  // ── CASE C: item_id null → hard block ──
-  if(!w.item_id){
+  // BLOCK: no production_order_id
+  if(!w.production_order_id){
     body.innerHTML=`<div class="block-box">
-      <div class="block-box-title">&#10060; Item Not Linked</div>
-      <p style="font-size:13px;color:#5a6878;">Item not linked to Work Order. WO edit karein aur FG/SFG item select karein.</p>
+      <div class="block-box-title">&#10060; Production Order Not Linked</div>
+      <p style="font-size:13px;color:#5a6878;">Production Order not linked. WO edit karein aur Production Order select karein.</p>
     </div>`;
     saveBtn.style.display='none';
     document.getElementById('complete-modal').classList.add('open');
     return;
   }
   saveBtn.style.display='';
-
-  // Show loading
   body.innerHTML='<div class="loading">BOM aur stock check ho raha hai...</div>';
   document.getElementById('complete-modal').classList.add('open');
 
-  // ── FETCH BOM ── (Case A: explicit bom_id; Case B: default BOM by item_id)
-  var bomHeader=null,bomLines=[];
-  if(w.bom_id){
-    var {data:bh}=await sb.from('bom_headers')
-      .select('id,item_id,output_qty,output_uom,version,status,is_default')
-      .eq('id',w.bom_id).eq('status','Active').maybeSingle();
-    bomHeader=bh||null;
+  // Step 1: Fetch production_order — confirmed columns: id,order_no,item_id,planned_qty,completed_qty,uom,status
+  var {data:po,error:poErr}=await sb.from('production_orders')
+    .select('id,order_no,item_id,planned_qty,completed_qty,uom,status')
+    .eq('id',w.production_order_id).maybeSingle();
+  if(poErr||!po){
+    body.innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; Production Order fetch failed</div><p style="font-size:13px;color:#5a6878;">${poErr?.message||'Record nahi mila.'}</p></div>`;
+    saveBtn.disabled=true;return;
   }
-  if(!bomHeader){
-    // Fallback: default active BOM for this item
-    var {data:bh2}=await sb.from('bom_headers')
-      .select('id,item_id,output_qty,output_uom,version,status,is_default')
-      .eq('item_id',w.item_id).eq('is_default',true).eq('status','Active')
-      .maybeSingle();
-    bomHeader=bh2||null;
-    if(bomHeader&&!w.bom_id){
-      // Save bom_id on WO for future (Case B)
-      await sb.from('work_orders').update({bom_id:bomHeader.id}).eq('id',w.id);
-      w.bom_id=bomHeader.id;
-    }
-  }
-  if(!bomHeader){
-    body.innerHTML=`<div class="block-box">
-      <div class="block-box-title">&#10060; BOM Nahi Mila</div>
-      <p style="font-size:13px;color:#5a6878;">${w.items?.code||'Is item'} ke liye koi active default BOM nahi mila. BOM Master mein BOM banao aur default set karo.</p>
-    </div>`;
-    saveBtn.disabled=true;
-    return;
-  }
-  if(!bomHeader.output_qty||bomHeader.output_qty<=0){
-    body.innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; BOM output_qty invalid (0)</div></div>`;
+  if(!po.item_id){
+    body.innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; Item Not Set on Production Order</div><p style="font-size:13px;color:#5a6878;">Production Order ${po.order_no} mein item set nahi hai. Production Order update karein.</p></div>`;
     saveBtn.disabled=true;return;
   }
 
-  // Fetch BOM lines
+  // Step 2: Fetch item — confirmed columns: id,code,name,type,uom
+  var {data:fgItem}=await sb.from('items').select('id,code,name,type,uom').eq('id',po.item_id).maybeSingle();
+  if(!fgItem){
+    body.innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; FG Item Not Found</div></div>`;
+    saveBtn.disabled=true;return;
+  }
+
+  // Step 3: Fetch default active BOM — confirmed bom_headers columns
+  var {data:bh}=await sb.from('bom_headers')
+    .select('id,item_id,output_qty,output_uom,version,status,is_default')
+    .eq('item_id',po.item_id).eq('is_default',true).eq('status','Active')
+    .maybeSingle();
+  if(!bh){
+    body.innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; BOM Nahi Mila</div><p style="font-size:13px;color:#5a6878;">${fgItem.code} ke liye koi active default BOM nahi. BOM Master mein banao.</p></div>`;
+    saveBtn.disabled=true;return;
+  }
+  if(!bh.output_qty||bh.output_qty<=0){
+    body.innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; BOM output_qty invalid</div></div>`;
+    saveBtn.disabled=true;return;
+  }
+
+  // Step 4: Fetch BOM lines — confirmed bom_lines columns + verified bom_lines→items join
   var {data:lines}=await sb.from('bom_lines')
     .select('id,item_id,qty,uom,scrap_percent,is_optional,items(code,name,type)')
-    .eq('bom_id',bomHeader.id).order('line_no');
-  bomLines=(lines||[]).filter(l=>!l.is_optional);  // skip optional in v3.0.2
+    .eq('bom_id',bh.id).order('line_no');
+  var bomLines=(lines||[]).filter(l=>!l.is_optional);
 
-  // Build completion form
   var remaining=Math.max(0,(w.planned_qty||0)-(w.completed_qty||0));
   var whOpts=allWarehouses.map(wh=>`<option value="${wh.id}">${wh.code} — ${wh.name}</option>`).join('');
 
   body.innerHTML=`
     <div class="info-box">
-      <strong>${w.wo_no}</strong> — ${w.items?.code||'?'} ${w.items?.name||''}
-      <br>Planned: ${w.planned_qty} ${w.uom||'PCS'} | Already done: ${w.completed_qty||0} | Remaining: ${remaining}
-      <br>BOM v${bomHeader.version} | 1 batch = ${bomHeader.output_qty} ${bomHeader.output_uom||w.uom||'PCS'}
+      <strong>${w.wo_no}</strong> — ${po.order_no}<br>
+      FG: <strong>${fgItem.code}</strong> ${fgItem.name} | BOM v${bh.version}<br>
+      Planned: ${w.planned_qty} ${w.uom||'PCS'} | Already done: ${w.completed_qty||0} | Remaining: ${remaining}
     </div>
-
     <div class="form-row" style="margin-bottom:14px;">
       <div class="form-field">
         <label>Actual Qty Produced <span class="req">*</span></label>
@@ -747,38 +737,37 @@ async function openCompleteModal(woId){
       <label>Notes</label>
       <input type="text" id="cmp-notes" placeholder="e.g. Shift A completion"/>
     </div>
-
     <div class="bom-summary">
-      <div class="bom-summary-title">&#128295; RM to Consume (calculated)</div>
+      <div class="bom-summary-title">&#128295; RM to Consume (per output_qty=${bh.output_qty})</div>
       <div id="bom-preview-rows"></div>
     </div>
     <div id="stock-check-result"></div>`;
 
-  // Store BOM data for use in completion
-  completingWO._bomHeader=bomHeader;
+  completingWO._po=po;
+  completingWO._fgItem=fgItem;
+  completingWO._bomHeader=bh;
   completingWO._bomLines=bomLines;
-
   updateBOMPreview();
 }
 
 function updateBOMPreview(){
   var qtyEl=document.getElementById('cmp-qty');
-  if(!qtyEl||!completingWO._bomLines)return;
+  if(!qtyEl||!completingWO?._bomLines)return;
   var actualQty=parseFloat(qtyEl.value)||0;
   var bh=completingWO._bomHeader;
   var lines=completingWO._bomLines;
   var ratio=actualQty/bh.output_qty;
   var html=lines.map(l=>{
     var consume=Math.round(l.qty*ratio*(1+(l.scrap_percent||0)/100)*1000)/1000;
-    return `<div class="bom-line-row">
+    return`<div class="bom-line-row">
       <span><strong style="font-family:monospace;">${l.items?.code||'?'}</strong> ${l.items?.name||''}</span>
       <span style="font-weight:700;color:#cc2200;">${consume.toFixed(3)} ${l.uom||'PCS'}</span>
     </div>`;
   }).join('');
   document.getElementById('bom-preview-rows').innerHTML=html||'<div style="color:#8a95a0;font-size:12px;padding:8px 0;">No required components.</div>';
   document.getElementById('stock-check-result').innerHTML='';
-  var saveBtn=document.getElementById('cmp-save-btn');
-  if(saveBtn){saveBtn.disabled=false;saveBtn.innerHTML='&#10003; Complete &amp; Update Stock';}
+  var sb2=document.getElementById('cmp-save-btn');
+  if(sb2){sb2.disabled=false;sb2.innerHTML='&#10003; Complete &amp; Update Stock';}
 }
 
 function closeCompleteModal(){
@@ -787,102 +776,79 @@ function closeCompleteModal(){
 }
 document.getElementById('complete-modal').addEventListener('click',function(e){if(e.target===this)closeCompleteModal();});
 
-/* ── SUBMIT COMPLETION ── */
+// ── SUBMIT COMPLETION ──
 async function submitCompletion(){
   if(!completingWO)return;
-
-  // Disable button immediately (duplicate protection)
   var saveBtn=document.getElementById('cmp-save-btn');
-  saveBtn.disabled=true;
-  saveBtn.innerHTML='&#9203; Processing...';
+  saveBtn.disabled=true;saveBtn.innerHTML='&#9203; Processing...';
 
   var actualQty=parseFloat(document.getElementById('cmp-qty')?.value)||0;
   var outWhId=document.getElementById('cmp-wh')?.value;
   var notes=document.getElementById('cmp-notes')?.value||'';
-
-  // Validate inputs
-  if(actualQty<=0){
-    saveBtn.disabled=false;saveBtn.innerHTML='&#10003; Complete &amp; Update Stock';
-    showToast('Actual qty must be > 0.','error');return;
-  }
-  if(!outWhId){
-    saveBtn.disabled=false;saveBtn.innerHTML='&#10003; Complete &amp; Update Stock';
-    showToast('Output warehouse select karein.','error');return;
-  }
+  if(actualQty<=0){saveBtn.disabled=false;saveBtn.innerHTML='&#10003; Complete &amp; Update Stock';showToast('Actual qty > 0 chahiye.','error');return;}
+  if(!outWhId){saveBtn.disabled=false;saveBtn.innerHTML='&#10003; Complete &amp; Update Stock';showToast('Output warehouse select karein.','error');return;}
 
   var wo=completingWO;
+  var po=wo._po;
+  var fgItem=wo._fgItem;
   var bh=wo._bomHeader;
   var bomLines=wo._bomLines;
   var ratio=actualQty/bh.output_qty;
 
-  // ── STEP 1: Calculate required quantities ──
+  // Calculate RM requirements
   var requirements=bomLines.map(l=>({
-    item_id:l.item_id,
-    item_code:l.items?.code||'?',
-    item_name:l.items?.name||'',
+    item_id:l.item_id,item_code:l.items?.code||'?',item_name:l.items?.name||'',
     uom:l.uom||'PCS',
     total_consume:Math.round(l.qty*ratio*(1+(l.scrap_percent||0)/100)*1000)/1000
   }));
 
-  // ── STEP 2: HARD STOCK CHECK ──
+  // HARD STOCK CHECK — no override
   var shortages=[];
   for(var req of requirements){
     if(req.total_consume<=0)continue;
-    var {data:inv}=await sb.from('inventory')
-      .select('current_stock')
-      .eq('item_id',req.item_id)
-      .maybeSingle();
+    var {data:inv}=await sb.from('inventory').select('current_stock').eq('item_id',req.item_id).maybeSingle();
     var available=parseFloat(inv?.current_stock||0);
-    if(available<req.total_consume){
-      shortages.push({...req,available,shortage:req.total_consume-available});
-    }
+    if(available<req.total_consume)shortages.push({...req,available,shortage:req.total_consume-available});
   }
-
   if(shortages.length>0){
-    // Hard block — no override
     var tbl='<table class="shortage-table"><thead><tr><th>Item</th><th>Required</th><th>Available</th><th>Shortage</th></tr></thead><tbody>';
     tbl+=shortages.map(s=>`<tr><td><strong>${s.item_code}</strong> ${s.item_name}</td><td>${s.total_consume.toFixed(3)} ${s.uom}</td><td style="color:#991b1b;">${s.available.toFixed(3)} ${s.uom}</td><td style="color:#991b1b;font-weight:700;">${s.shortage.toFixed(3)} ${s.uom}</td></tr>`).join('');
     tbl+='</tbody></table>';
-    var scr=document.getElementById('stock-check-result');
-    scr.innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; Insufficient Stock — WO complete nahi ho sakta</div>${tbl}<p style="margin-top:8px;font-size:12px;color:#5a6878;">GRN ke through pehle stock receive karein.</p></div>`;
-    saveBtn.disabled=true;
-    saveBtn.innerHTML='&#10060; Stock Insufficient';
-    return;
+    document.getElementById('stock-check-result').innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; Insufficient Stock — WO complete nahi ho sakta</div>${tbl}<p style="margin-top:8px;font-size:12px;color:#5a6878;">GRN ke through pehle stock receive karein.</p></div>`;
+    saveBtn.disabled=true;saveBtn.innerHTML='&#10060; Stock Insufficient';return;
   }
 
-  // ── STEP 3: FIFO RM CONSUMPTION ──
   var session=(await sb.auth.getSession()).data?.session;
   var userId=session?.user?.id||null;
   var completionNote='WO Complete: '+wo.wo_no+(notes?' | '+notes:'');
 
+  // FIFO RM CONSUMPTION
+  // rm_batches columns used: id,batch_no,item_id,available_qty,consumed_qty,purchase_rate,warehouse_id,received_date
+  // NO is_active filter — column does not exist
   for(var req of requirements){
     if(req.total_consume<=0)continue;
     var remaining_consume=req.total_consume;
 
-    // Fetch batches FIFO order
     var {data:batches}=await sb.from('rm_batches')
       .select('id,batch_no,available_qty,consumed_qty,purchase_rate,warehouse_id')
       .eq('item_id',req.item_id)
-      .eq('is_active',true)
-      .gt('available_qty',0)
+      .gt('available_qty',0)           // filter by available_qty > 0, NOT is_active
       .order('received_date',{ascending:true})
       .order('id',{ascending:true});
 
     for(var batch of (batches||[])){
       if(remaining_consume<=0)break;
-      var take=Math.min(parseFloat(batch.available_qty),remaining_consume);
-      take=Math.round(take*1000)/1000;
+      var take=Math.round(Math.min(parseFloat(batch.available_qty),remaining_consume)*1000)/1000;
       var newAvail=Math.round((parseFloat(batch.available_qty)-take)*1000)/1000;
       var newConsumed=Math.round((parseFloat(batch.consumed_qty||0)+take)*1000)/1000;
 
-      // Update rm_batches
+      // Update rm_batches — only available_qty and consumed_qty — NO is_active
       await sb.from('rm_batches').update({
         available_qty:newAvail,
-        consumed_qty:newConsumed,
-        is_active:newAvail>0
+        consumed_qty:newConsumed
       }).eq('id',batch.id);
 
-      // Stock ledger — Production Issue (negative qty = OUT)
+      // stock_ledger Production Issue — confirmed columns
       await sb.from('stock_ledger').insert([{
         item_id:req.item_id,
         warehouse_id:batch.warehouse_id||null,
@@ -896,29 +862,21 @@ async function submitCompletion(){
         notes:completionNote,
         created_by:userId
       }]);
-
       remaining_consume=Math.round((remaining_consume-take)*1000)/1000;
     }
 
-    // ── Deduct from inventory ──
-    var {data:invRow}=await sb.from('inventory')
-      .select('id,current_stock')
-      .eq('item_id',req.item_id)
-      .maybeSingle();
+    // Deduct from inventory — confirmed columns
+    var {data:invRow}=await sb.from('inventory').select('id,current_stock').eq('item_id',req.item_id).maybeSingle();
     if(invRow){
-      var newStock=Math.round((parseFloat(invRow.current_stock||0)-req.total_consume)*1000)/1000;
       await sb.from('inventory').update({
-        current_stock:Math.max(0,newStock),
+        current_stock:Math.max(0,Math.round((parseFloat(invRow.current_stock||0)-req.total_consume)*1000)/1000),
         last_updated:new Date().toISOString()
       }).eq('id',invRow.id);
     }
   }
 
-  // ── STEP 4: ADD FG INVENTORY ──
-  var {data:fgInv}=await sb.from('inventory')
-    .select('id,current_stock')
-    .eq('item_id',wo.item_id)
-    .maybeSingle();
+  // ADD FG INVENTORY — confirmed inventory columns
+  var {data:fgInv}=await sb.from('inventory').select('id,current_stock').eq('item_id',fgItem.id).maybeSingle();
   if(fgInv){
     await sb.from('inventory').update({
       current_stock:Math.round((parseFloat(fgInv.current_stock||0)+actualQty)*1000)/1000,
@@ -926,46 +884,38 @@ async function submitCompletion(){
     }).eq('id',fgInv.id);
   } else {
     await sb.from('inventory').insert([{
-      item_id:wo.item_id,
-      warehouse_id:parseInt(outWhId),
-      current_stock:actualQty,
-      uom:wo.uom||'PCS',
-      avg_cost:0
+      item_id:fgItem.id,warehouse_id:parseInt(outWhId),
+      current_stock:actualQty,uom:fgItem.uom||'PCS',avg_cost:0
     }]);
   }
 
-  // ── STEP 5: STOCK LEDGER — Production Receipt (positive qty = IN) ──
+  // stock_ledger Production Receipt
   await sb.from('stock_ledger').insert([{
-    item_id:wo.item_id,
-    warehouse_id:parseInt(outWhId),
-    txn_type:'Production Receipt',
-    qty:actualQty,
-    rate:0,
-    value:0,
-    batch_no:null,
-    reference_no:wo.wo_no,
-    reference_type:'Work Order',
-    notes:completionNote,
-    created_by:userId
+    item_id:fgItem.id,warehouse_id:parseInt(outWhId),
+    txn_type:'Production Receipt',qty:actualQty,rate:0,value:0,batch_no:null,
+    reference_no:wo.wo_no,reference_type:'Work Order',
+    notes:completionNote,created_by:userId
   }]);
 
-  // ── STEP 6: UPDATE WORK ORDER ──
+  // Update work_orders — confirmed columns: completed_qty, status, actual_end
   var newCompleted=Math.round(((wo.completed_qty||0)+actualQty)*1000)/1000;
   var newStatus=newCompleted>=(wo.planned_qty||0)?'Done':'In Progress';
-  var woUpdate={
-    completed_qty:newCompleted,
-    status:newStatus
-  };
-  if(newStatus==='Done') woUpdate.actual_end=new Date().toISOString();
+  var woUpdate={completed_qty:newCompleted,status:newStatus};
+  if(newStatus==='Done')woUpdate.actual_end=new Date().toISOString();
   await sb.from('work_orders').update(woUpdate).eq('id',wo.id);
 
-  // ── SUCCESS ──
+  // Update production_orders.completed_qty — confirmed column
+  var newPOCompleted=Math.round(((po.completed_qty||0)+actualQty)*1000)/1000;
+  var newPOStatus=newPOCompleted>=(po.planned_qty||0)?'Done':'In Progress';
+  await sb.from('production_orders').update({
+    completed_qty:newPOCompleted,status:newPOStatus
+  }).eq('id',po.id);
+
   showToast('WO Complete! RM deducted. FG +'+actualQty+' '+wo.uom+' added.','success');
-  closeCompleteModal();
-  loadWOs();
+  closeCompleteModal();loadWOs();
 }
 
-/* ── DELETE ── */
+// ── DELETE ──
 function confirmDelete(id,no){
   deletingId=id;
   document.getElementById('confirm-msg').textContent='WO "'+no+'" delete ho jayegi.';
@@ -979,10 +929,8 @@ async function doDelete(){
   if(error){showToast('Error: '+error.message,'error');return;}
   showToast('Deleted!','success');loadWOs();
 }
-
 document.getElementById('confirm-overlay').addEventListener('click',function(e){if(e.target===this)closeConfirm();});
 
-/* ── UTILS ── */
 function showToast(msg,type){var t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+(type||'');setTimeout(()=>t.className='toast',4000);}
 </script>
 <script src="shared.js"></script>
@@ -995,38 +943,20 @@ function showToast(msg,type){var t=document.getElementById('toast');t.textConten
   function closeGroup(h,b){h.classList.remove('is-open');b.classList.remove('is-open');}
   function initAccordion(){
     var cur=location.pathname.split('/').pop()||'dashboard.html',savedOpen=getOpen(),autoOpenGid=null;
-    document.querySelectorAll('.sb-group').forEach(function(g){
-      g.querySelectorAll('.nav-item').forEach(function(a){if(a.getAttribute('href')===cur){a.classList.add('active');autoOpenGid=g.getAttribute('data-gid');}});
-    });
+    document.querySelectorAll('.sb-group').forEach(function(g){g.querySelectorAll('.nav-item').forEach(function(a){if(a.getAttribute('href')===cur){a.classList.add('active');autoOpenGid=g.getAttribute('data-gid');}});});
     document.querySelectorAll('.sb-group').forEach(function(g){
       var gid=g.getAttribute('data-gid'),h=g.querySelector('.sb-group-header'),b=g.querySelector('.sb-group-body');
       if(gid===autoOpenGid||(gid===savedOpen&&!autoOpenGid))openGroup(gid,h,b);
       if(h.dataset.accBound)return;h.dataset.accBound='1';
-      h.addEventListener('click',function(){
-        var isOpen=b.classList.contains('is-open');
-        document.querySelectorAll('.sb-group').forEach(function(og){closeGroup(og.querySelector('.sb-group-header'),og.querySelector('.sb-group-body'));});
-        if(!isOpen){openGroup(gid,h,b);var nav=document.querySelector('.sidebar-nav');if(nav)setTimeout(function(){h.scrollIntoView({behavior:'smooth',block:'nearest'});},50);}
-        else saveOpen('');
-      });
+      h.addEventListener('click',function(){var isOpen=b.classList.contains('is-open');document.querySelectorAll('.sb-group').forEach(function(og){closeGroup(og.querySelector('.sb-group-header'),og.querySelector('.sb-group-body'));});if(!isOpen){openGroup(gid,h,b);}else saveOpen('');});
     });
   }
-  function initMobileToggle(){
-    var btn=document.getElementById('mob-toggle'),overlay=document.getElementById('mob-overlay'),sidebar=document.querySelector('.sidebar');
-    if(!btn||!sidebar)return;
-    btn.addEventListener('click',function(){sidebar.classList.toggle('mob-open');if(overlay)overlay.classList.toggle('active');});
-    if(overlay)overlay.addEventListener('click',function(){sidebar.classList.remove('mob-open');overlay.classList.remove('active');});
-    sidebar.querySelectorAll('.nav-item').forEach(function(a){a.addEventListener('click',function(){if(window.innerWidth<=768){sidebar.classList.remove('mob-open');if(overlay)overlay.classList.remove('active');}});});
-  }
-  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){initAccordion();initMobileToggle();});}
-  else{initAccordion();initMobileToggle();}
+  function initMobileToggle(){var btn=document.getElementById('mob-toggle'),overlay=document.getElementById('mob-overlay'),sidebar=document.querySelector('.sidebar');if(!btn||!sidebar)return;btn.addEventListener('click',function(){sidebar.classList.toggle('mob-open');if(overlay)overlay.classList.toggle('active');});if(overlay)overlay.addEventListener('click',function(){sidebar.classList.remove('mob-open');overlay.classList.remove('active');});sidebar.querySelectorAll('.nav-item').forEach(function(a){a.addEventListener('click',function(){if(window.innerWidth<=768){sidebar.classList.remove('mob-open');if(overlay)overlay.classList.remove('active');}});});}
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){initAccordion();initMobileToggle();});}else{initAccordion();initMobileToggle();}
 })();
 var allPages=[["dashboard.html","Dashboard"],["item_master.html","Item Master"],["warehouse.html","Warehouse"],["bom.html","BOM Master"],["routing.html","Routing Master"],["dies.html","Dies"],["machines.html","Machine Master"],["work_orders.html","Work Orders"],["production_plan.html","Production Plan"],["mrp.html","MRP"],["labour.html","Labour Planning"],["job_cards.html","Job Cards"],["workers.html","Workers"],["purchase_order.html","Purchase Order"],["supplier.html","Supplier Master"],["grn.html","GRN"],["sales_order.html","Sales Order"],["customer.html","Customer Master"],["dispatch.html","Dispatch"],["stock_ledger.html","Stock Ledger"],["invoice.html","Invoice"],["qc.html","Quality Control"],["reports.html","Reports & MIS"]];
 var csInp=document.getElementById('central-search'),csDd=document.getElementById('central-dd');
-if(csInp&&csDd){
-  csInp.addEventListener('input',function(){var q=this.value.toLowerCase().trim();if(!q){csDd.classList.remove('open');return;}var res=allPages.filter(function(p){return p[1].toLowerCase().includes(q);});csDd.innerHTML=!res.length?'<div class="search-empty">Koi page nahi mila</div>':res.map(function(p){return '<a class="search-item" href="'+p[0]+'"><span class="si-icon">&#128196;</span><span class="si-name">'+p[1]+'</span><span class="si-hint">'+p[0]+'</span></a>';}).join('');csDd.classList.add('open');});
-  csInp.addEventListener('keydown',function(e){if(e.key==='Enter'){var f=csDd.querySelector('.search-item');if(f)window.location.href=f.href;}if(e.key==='Escape'){csDd.classList.remove('open');csInp.value='';}});
-  document.addEventListener('click',function(e){if(!e.target.closest('.topbar-search'))csDd.classList.remove('open');});
-}
+if(csInp&&csDd){csInp.addEventListener('input',function(){var q=this.value.toLowerCase().trim();if(!q){csDd.classList.remove('open');return;}var res=allPages.filter(function(p){return p[1].toLowerCase().includes(q);});csDd.innerHTML=!res.length?'<div class="search-empty">Koi page nahi mila</div>':res.map(function(p){return'<a class="search-item" href="'+p[0]+'"><span class="si-icon">&#128196;</span><span class="si-name">'+p[1]+'</span><span class="si-hint">'+p[0]+'</span></a>';}).join('');csDd.classList.add('open');});csInp.addEventListener('keydown',function(e){if(e.key==='Enter'){var f=csDd.querySelector('.search-item');if(f)window.location.href=f.href;}if(e.key==='Escape'){csDd.classList.remove('open');csInp.value='';}});document.addEventListener('click',function(e){if(!e.target.closest('.topbar-search'))csDd.classList.remove('open');});}
 </script>
 </body>
 </html>

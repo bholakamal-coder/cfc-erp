@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>GRN — Goods Receipt Note — CFC ERP v3.0.2</title>
+<title>GRN — Goods Receipt Note — CFC ERP v3.0.3</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -145,7 +145,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.2</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.3</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -583,7 +583,7 @@ function openQCSupplier(){
       return {found:null,active:false};
     },
     insertFn: async function(vals){
-      return await sb.from('suppliers').insert([{name:vals.name.trim(),code:vals.code.trim()||null,phone:vals.phone.trim()||null,email:vals.email.trim()||null,is_active:true}]).select().single();
+      return await sb.from('suppliers').insert([{name:vals.name.trim(),code:vals.code.trim()||null,phone:vals.phone.trim()||null,email:vals.email.trim()||null}]).select().single();
     },
     onCreated: function(rec){
       // Add to in-memory array if new
@@ -737,7 +737,7 @@ function openQCItem(rid){
       return {found:null,active:false};
     },
     insertFn: async function(vals){
-      return await sb.from('items').insert([{code:vals.code.trim(),name:vals.name.trim(),uom:vals.uom.trim(),type:vals.item_type,is_active:true}]).select().single();
+      return await sb.from('items').insert([{code:vals.code.trim(),name:vals.name.trim(),uom:vals.uom.trim(),type:vals.item_type}]).select().single();
     },
     onCreated: function(rec){
       if(!allItems.find(it=>it.id===rec.id)){
@@ -805,7 +805,7 @@ function openQCWarehouse(rid){
       return {found:null,active:false};
     },
     insertFn: async function(vals){
-      return await sb.from('warehouses').insert([{code:vals.code.trim(),name:vals.name.trim(),type:vals.type||'General',is_active:true}]).select().single();
+      return await sb.from('warehouses').insert([{code:vals.code.trim(),name:vals.name.trim(),type:vals.type||'General'}]).select().single();
     },
     onCreated: function(rec){
       if(!allWH.find(w=>w.id===rec.id)){
@@ -1087,7 +1087,7 @@ async function updateStock(grnId){
       var {data:ex}=await sb.from('rm_batches').select('id').eq('grn_id',grnId).eq('item_id',l.item_id).maybeSingle();
       if(!ex){
         var bm={lot:'',mfg:'',exp:''};try{if(l.notes)bm=JSON.parse(l.notes);}catch(e){}
-        var {error:re}=await sb.from('rm_batches').insert([{batch_no:l.batch_no,item_id:l.item_id,supplier_id:grnRec?.supplier_id||null,po_id:grnRec?.po_id||null,grn_id:grnId,received_qty:l.received_qty,available_qty:l.accepted_qty,consumed_qty:0,uom:l.uom||'PCS',supplier_lot_no:bm.lot||null,supplier_invoice_no:grnRec?.supplier_invoice_no||null,mfg_date:bm.mfg||null,expiry_date:bm.exp||null,received_date:grnRec?.receipt_date||new Date().toISOString().split('T')[0],warehouse_id:l.warehouse_id||null,rack_id:null,purchase_rate:newRate,qc_status:'Pending',is_active:true}]);
+        var {error:re}=await sb.from('rm_batches').insert([{batch_no:l.batch_no,item_id:l.item_id,supplier_id:grnRec?.supplier_id||null,po_id:grnRec?.po_id||null,grn_id:grnId,received_qty:l.received_qty,available_qty:l.accepted_qty,consumed_qty:0,uom:l.uom||'PCS',supplier_lot_no:bm.lot||null,supplier_invoice_no:grnRec?.supplier_invoice_no||null,mfg_date:bm.mfg||null,expiry_date:bm.exp||null,received_date:grnRec?.receipt_date||new Date().toISOString().split('T')[0],warehouse_id:l.warehouse_id||null,rack_id:null,purchase_rate:newRate,qc_status:'Pending'}]);
         if(re){console.warn('rm_batches warn item',l.item_id,':',re.message);}else{batchesCreated++;}
       }
     }
