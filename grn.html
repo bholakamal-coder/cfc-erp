@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>GRN — Goods Receipt Note — CFC ERP v2.9.2</title>
+<title>GRN — Goods Receipt Note — CFC ERP v2.9.3</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -145,7 +145,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.9.2</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.9.3</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -411,7 +411,7 @@ async function init(){
   // Load masters (active only)
   const [supRes, itmRes, whRes] = await Promise.all([
     sb.from('suppliers').select('id,name,code,is_active').eq('is_active',true).order('name'),
-    sb.from('items').select('id,code,name,uom,item_type,is_active')
+    sb.from('items').select('id,code,name,uom,type,is_active')
       .eq('is_active',true).order('code'),  // load all active items; type restriction enforced at Quick Create
     sb.from('warehouses').select('id,code,name,is_active').eq('is_active',true).order('code')
   ]);
@@ -692,9 +692,10 @@ function _doItemSearch(rid,q){
   _posDD(inp,dd);
   var ql=q.toLowerCase();
   var res=allItems.filter(it=>(it.code||'').toLowerCase().includes(ql)||(it.name||'').toLowerCase().includes(ql)).slice(0,12);
+  console.log('[GRN] Item search term:',q,'| allItems.length:',allItems.length,'| results:',res.length);
   var iCreateBtn=CFC_PERM.can('create_item')?`<div class="rls-opt" onclick="openQCItem(${rid})" style="color:#1e40af;font-weight:700;border-top:1px solid #e2e8f0;">&#10133; Create New Item</div>`:'';
   if(!res.length){dd.innerHTML='<div class="rls-opt" style="color:#8a95a0;">Koi item nahi mila</div>'+iCreateBtn;dd.classList.add('open');return;}
-  dd.innerHTML=res.map(it=>`<div class="rls-opt" onclick="selectItem(${rid},${it.id},'${esc(it.code)}','${esc(it.name)}','${esc(it.uom||'')}')"><strong style="font-family:monospace;">${it.code}</strong> — ${it.name} <span style="color:#94a3b8;font-size:10px;">${it.item_type}</span></div>`).join('')+iCreateBtn;
+  dd.innerHTML=res.map(it=>`<div class="rls-opt" onclick="selectItem(${rid},${it.id},'${esc(it.code)}','${esc(it.name)}','${esc(it.uom||'')}')"><strong style="font-family:monospace;">${it.code}</strong> — ${it.name} <span style="color:#94a3b8;font-size:10px;">${it.type||''}</span></div>`).join('')+iCreateBtn;
   dd.classList.add('open');
 }
 function selectItem(rid,id,code,name,uom){
@@ -721,21 +722,21 @@ function openQCItem(rid){
       {id:'name',label:'Item Name',type:'text',required:true,placeholder:'e.g. Rubber Compound'},
       {id:'uom',label:'UOM',type:'text',required:true,placeholder:'e.g. KG, PCS, LTR'},
       {id:'item_type',label:'Item Type',type:'select',required:true,options:[
-        {v:'Raw Material',l:'Raw Material'},
-        {v:'Consumables',l:'Consumables'},
-        {v:'Packing Material',l:'Packing Material'}
+        {v:'RM',l:'RM — Raw Material'},
+        {v:'Consumable',l:'Consumable'},
+        {v:'Packing',l:'Packing'}
       ]}
     ],
     dupActiveMsg:'Item already exists. Existing record selected.',
     dupInactiveMsg:'Item exists but is inactive. Please reactivate it from Item Master.',
     successMsg:'Item created successfully.',
     checkDup: async function(vals){
-      var {data:byCode}=await sb.from('items').select('id,code,name,uom,item_type,is_active').ilike('code',vals.code.trim()).maybeSingle();
+      var {data:byCode}=await sb.from('items').select('id,code,name,uom,type,is_active').ilike('code',vals.code.trim()).maybeSingle();
       if(byCode) return {found:byCode,active:byCode.is_active};
       return {found:null,active:false};
     },
     insertFn: async function(vals){
-      return await sb.from('items').insert([{code:vals.code.trim(),name:vals.name.trim(),uom:vals.uom.trim(),item_type:vals.item_type,is_active:true}]).select().single();
+      return await sb.from('items').insert([{code:vals.code.trim(),name:vals.name.trim(),uom:vals.uom.trim(),type:vals.item_type,is_active:true}]).select().single();
     },
     onCreated: function(rec){
       if(!allItems.find(it=>it.id===rec.id)){
@@ -764,6 +765,7 @@ function _doWhSearch(rid,q){
   _posDD(inp,dd);
   var ql=q.toLowerCase();
   var res=allWH.filter(w=>(w.code||'').toLowerCase().includes(ql)||(w.name||'').toLowerCase().includes(ql)).slice(0,10);
+  console.log('[GRN] WH search term:',q,'| allWH.length:',allWH.length,'| results:',res.length);
   var wCreateBtn=CFC_PERM.can('create_warehouse')?`<div class="rls-opt" onclick="openQCWarehouse(${rid})" style="color:#1e40af;font-weight:700;border-top:1px solid #e2e8f0;">&#10133; Create New Warehouse</div>`:'';
   if(!res.length){dd.innerHTML='<div class="rls-opt" style="color:#8a95a0;">Koi warehouse nahi mila</div>'+wCreateBtn;dd.classList.add('open');return;}
   dd.innerHTML=res.map(w=>`<div class="rls-opt" onclick="selectWarehouse(${rid},${w.id},'${esc(w.code)}','${esc(w.name)}')"><strong style="font-family:monospace;">${w.code}</strong> — ${w.name}</div>`).join('')+wCreateBtn;
