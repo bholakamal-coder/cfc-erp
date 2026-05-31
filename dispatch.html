@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Dispatch Challan — CFC ERP v2.2</title>
+<title>Dispatch Challan — CFC ERP v2.4</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -119,7 +119,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.2</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.4</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html" >&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -185,7 +185,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 <a class="nav-item" href="reports.html"><span class="icon">&#128200;</span> MIS Dashboard</a>
 </div></div>
 </div>
-<div class="sidebar-bottom"><a href="#"><span>&#9881;&#65039;</span> Settings</a><a href="#" onclick="handleLogout()"><span>&#128682;</span> Logout</a></div></aside>
+<div class="sidebar-bottom"><a href="settings.html"><span>&#9881;&#65039;</span> Settings</a><a href="#" onclick="handleLogout()"><span>&#128682;</span> Logout</a></div></aside>
 <div class="topbar">
   <div class="topbar-title">Dispatch Challan</div>
   <div class="topbar-search"><span class="search-icon">&#128269;</span><input type="text" id="central-search" placeholder="Search pages... (Item Master, MRP, Invoice...)" autocomplete="off"/><div class="search-dropdown" id="central-dd"></div></div>
@@ -330,9 +330,41 @@ async function loadSOLines(){
   </tbody></table>`;
 }
 async function saveDispatch(){
-  var _saveBtn=document.activeElement;if(_saveBtn&&_saveBtn.tagName==='BUTTON'){_saveBtn.disabled=true;}
+  const _unlockBtn=()=>{var b=document.querySelector('button[disabled]');if(b){b.disabled=false;b.style.opacity='';}};
   const soId=document.getElementById('f-so-id').value;
-  if(!soId){var _ab=document.querySelector('button[disabled]');if(_ab){_ab.disabled=false;_ab.style.opacity='';}showToast('SO select karein.','error');return;}
+  if(!soId){_unlockBtn();showToast('SO select karein.','error');return;}
+
+  // ── STEP 1: Collect dispatch lines ──────────────────────────────
+  const pendingLines=[];
+  document.querySelectorAll('[id^="dq-"]').forEach(el=>{
+    const lid=el.id.replace('dq-','');
+    const qty=parseFloat(el.value)||0;if(qty<=0)return;
+    const item_id=parseInt(document.getElementById('itm-'+lid)?.value)||null;
+    const sol_id=parseInt(document.getElementById('sol-'+lid)?.value)||null;
+    const itemName=document.getElementById('inm-'+lid)?.textContent||('Item #'+item_id);
+    pendingLines.push({so_line_id:sol_id,item_id,qty,uom:'PCS',itemName});
+  });
+  if(!pendingLines.length){_unlockBtn();showToast('Koi line item nahi hai dispatch ke liye.','error');return;}
+
+  // ── STEP 2: Pre-validate stock for ALL lines BEFORE saving anything ──
+  if(document.activeElement&&document.activeElement.tagName==='BUTTON')document.activeElement.disabled=true;
+  const stockErrors=[];
+  for(const pl of pendingLines){
+    if(!pl.item_id)continue;
+    const {data:inv}=await sb.from('inventory').select('current_stock').eq('item_id',pl.item_id).maybeSingle();
+    const available=parseFloat(inv?.current_stock||0);
+    if(available<pl.qty){
+      stockErrors.push('❌ '+pl.itemName+' — Available: '+available+', Requested: '+pl.qty);
+    }
+  }
+  if(stockErrors.length){
+    _unlockBtn();
+    showToast('Insufficient stock — dispatch blocked:
+'+stockErrors.join(' | '),'error');
+    return;
+  }
+
+  // ── STEP 3: All lines valid — now save dispatch header ───────────
   const dc_no=genNo('DC');
   const {data:dc,error:de}=await sb.from('dispatch_orders').insert([{
     dc_no,so_id:parseInt(soId),
@@ -342,27 +374,29 @@ async function saveDispatch(){
     notes:document.getElementById('f-notes').value.trim()||null,
     status:'Dispatched'
   }]).select().single();
-  if(de){if(document.activeElement&&document.activeElement.tagName==='BUTTON'){document.activeElement.disabled=false;}var _ab=document.querySelector('button[disabled]');if(_ab){_ab.disabled=false;_ab.style.opacity='';}showToast('Error: '+de.message,'error');return;}
-  const dLines=[];
-  document.querySelectorAll('[id^="dq-"]').forEach(el=>{
-    const lid=el.id.replace('dq-','');
-    const qty=parseFloat(el.value)||0;if(qty<=0)return;
-    const item_id=parseInt(document.getElementById('itm-'+lid)?.value)||null;
-    const sol_id=parseInt(document.getElementById('sol-'+lid)?.value)||null;
-    dLines.push({dispatch_id:dc.id,so_line_id:sol_id,item_id,qty,uom:'PCS'});
-  });
-  if(dLines.length){
-    await sb.from('dispatch_lines').insert(dLines);
-    for(const dl of dLines){
-      if(!dl.item_id)continue;
-      const {data:inv}=await sb.from('inventory').select('id,current_stock').eq('item_id',dl.item_id).maybeSingle();
-      if(inv){await sb.from('inventory').update({current_stock:Math.max(0,parseFloat(inv.current_stock||0)-dl.qty),last_updated:new Date().toISOString()}).eq('id',inv.id);}
-      await sb.from('stock_ledger').insert([{item_id:dl.item_id,txn_type:'Sales Dispatch',qty:-dl.qty,rate:0,value:0,reference_no:dc_no}]);
-      if(dl.so_line_id){const {data:sol}=await sb.from('sales_order_lines').select('dispatched_qty').eq('id',dl.so_line_id).maybeSingle();if(sol){await sb.from('sales_order_lines').update({dispatched_qty:(sol.dispatched_qty||0)+dl.qty}).eq('id',dl.so_line_id);}}
+  if(de){_unlockBtn();showToast('Error: '+de.message,'error');return;}
+
+  // ── STEP 4: Save lines and update stock ─────────────────────────
+  const dLines=pendingLines.map(pl=>({dispatch_id:dc.id,so_line_id:pl.so_line_id,item_id:pl.item_id,qty:pl.qty,uom:pl.uom}));
+  await sb.from('dispatch_lines').insert(dLines);
+
+  for(const pl of pendingLines){
+    if(!pl.item_id)continue;
+    const {data:inv}=await sb.from('inventory').select('id,current_stock').eq('item_id',pl.item_id).maybeSingle();
+    if(inv){
+      const newStock=parseFloat(inv.current_stock||0)-pl.qty;
+      await sb.from('inventory').update({current_stock:newStock,last_updated:new Date().toISOString()}).eq('id',inv.id);
     }
-    await sb.from('sales_orders').update({status:'Dispatched'}).eq('id',parseInt(soId));
+    await sb.from('stock_ledger').insert([{item_id:pl.item_id,txn_type:'Sales Dispatch',qty:-pl.qty,rate:0,value:0,reference_no:dc_no}]);
+    if(pl.so_line_id){
+      const {data:sol}=await sb.from('sales_order_lines').select('dispatched_qty').eq('id',pl.so_line_id).maybeSingle();
+      if(sol){await sb.from('sales_order_lines').update({dispatched_qty:(sol.dispatched_qty||0)+pl.qty}).eq('id',pl.so_line_id);}
+    }
   }
-  var _ab=document.querySelector('button[disabled]');if(_ab){_ab.disabled=false;_ab.style.opacity='';}showToast('DC created: '+dc_no+' — Stock deducted!','success');closeModal();loadData();
+  await sb.from('sales_orders').update({status:'Dispatched'}).eq('id',parseInt(soId));
+  _unlockBtn();
+  showToast('DC created: '+dc_no+' — Stock deducted!','success');
+  closeModal();loadData();
 }
 async function markDelivered(id){await sb.from('dispatch_orders').update({status:'Delivered'}).eq('id',id);var _ab=document.querySelector('button[disabled]');if(_ab){_ab.disabled=false;_ab.style.opacity='';}showToast('Marked Delivered!','success');loadData();}
 function openModal(){

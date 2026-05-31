@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Company Settings — CFC ERP v2.4</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="shared.css"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--red:#cc2200;--red-dark:#a81c00;--navy:#1c2d42;--sidebar-w:240px;--topbar-h:56px;}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a2635;display:flex;min-height:100vh;}
+/* SIDEBAR-ACCORDION */
+.sidebar{
+  width:var(--sidebar-w);
+  background:var(--navy);
+  height:100vh;
+  position:fixed;
+  top:0;left:0;
+  display:flex;
+  flex-direction:column;
+  z-index:100;
+  overflow:hidden;
+}
+.sidebar-logo{
+  padding:16px 18px 14px;
+  border-bottom:1px solid rgba(255,255,255,0.08);
+  display:flex;align-items:center;gap:10px;
+  flex-shrink:0;
+}
+.sidebar-logo img{height:36px;width:auto;filter:brightness(0) invert(1);}
+.sidebar-logo-text{font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:1.5px;text-transform:uppercase;line-height:1.3;}
+.sidebar-logo-text strong{display:block;font-size:13px;color:#fff;}
+.sidebar-nav{
+  flex:1;
+  overflow-y:auto;
+  overflow-x:hidden;
+}
+.sidebar-nav::-webkit-scrollbar{width:4px;}
+.sidebar-nav::-webkit-scrollbar-track{background:transparent;}
+.sidebar-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:4px;}
+.sb-dashboard{padding:6px 0 2px;}
+.sb-dashboard a{display:flex;align-items:center;gap:10px;padding:10px 18px;font-size:13.5px;font-weight:600;color:rgba(255,255,255,0.8);text-decoration:none;border-left:3px solid transparent;transition:all 0.15s;}
+.sb-dashboard a:hover{background:rgba(255,255,255,0.06);color:#fff;}
+.sb-dashboard a.active{background:rgba(204,34,0,0.2);color:#fff;border-left-color:#cc2200;}
+.sb-group{border-top:1px solid rgba(255,255,255,0.05);}
+.sb-group-header{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;cursor:pointer;user-select:none;}
+.sb-group-header:hover{background:rgba(255,255,255,0.04);}
+.sb-group-header .gh-left{display:flex;align-items:center;gap:8px;}
+.sb-group-header .gh-icon{font-size:15px;opacity:0.6;}
+.sb-group-header .gh-label{font-size:10.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.4);}
+.sb-group-header .gh-arrow{font-size:9px;color:rgba(255,255,255,0.25);transition:transform 0.2s;}
+.sb-group-header.is-open .gh-arrow{transform:rotate(90deg);}
+.sb-group-header.is-open .gh-label{color:rgba(255,255,255,0.65);}
+.sb-group-body{overflow:hidden;max-height:0;transition:max-height 0.3s ease;}
+.sb-group-body.is-open{max-height:1200px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 18px 8px 32px;font-size:13px;color:rgba(255,255,255,0.55);text-decoration:none;border-left:3px solid transparent;transition:all 0.15s;}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:#fff;}
+.nav-item.active{background:rgba(204,34,0,0.2);color:#fff;border-left-color:#cc2200;}
+.nav-item .icon{font-size:14px;width:16px;text-align:center;flex-shrink:0;}
+.sidebar-bottom{padding:8px 0;border-top:1px solid rgba(255,255,255,0.08);flex-shrink:0;}
+.sidebar-bottom a{display:flex;align-items:center;gap:10px;padding:9px 18px;font-size:13px;color:rgba(255,255,255,0.55);text-decoration:none;transition:all 0.15s;}
+.sidebar-bottom a:hover{background:rgba(255,255,255,0.06);color:#fff;}
+/* END-SIDEBAR */
+
+.search-empty{padding:16px;text-align:center;color:#8a95a0;font-size:13px;}
+
+.topbar{position:fixed;top:0;left:var(--sidebar-w);right:0;height:var(--topbar-h);background:#fff;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;padding:0 24px;gap:16px;z-index:90;}
+.topbar-title{font-size:16px;font-weight:600;color:var(--navy);flex:1;}
+.user-chip{display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 8px;border-radius:6px;}
+.user-avatar{width:30px;height:30px;background:var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;}
+.user-name{font-size:13px;font-weight:500;color:var(--navy);}
+.main{margin-left:var(--sidebar-w);padding-top:var(--topbar-h);flex:1;}
+.content{padding:24px;}
+/* Stat cards */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px;}
+.stat-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px;cursor:pointer;transition:all 0.15s;text-decoration:none;display:block;}
+.stat-card:hover{border-color:var(--red);box-shadow:0 4px 16px rgba(204,34,0,0.08);transform:translateY(-2px);}
+.stat-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.stat-icon{font-size:22px;}
+.stat-label{font-size:11.5px;font-weight:600;color:#8a95a0;text-transform:uppercase;letter-spacing:0.5px;}
+.stat-value{font-size:28px;font-weight:800;color:var(--navy);line-height:1;}
+.stat-sub{font-size:12px;margin-top:6px;}
+.stat-sub.up{color:#166534;}.stat-sub.down{color:#dc2626;}.stat-sub.neutral{color:#8a95a0;}
+/* Modules */
+.section-title{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.section-title::after{content:'';flex:1;height:1px;background:#e2e8f0;}
+.modules-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:24px;}
+.module-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:16px 12px;cursor:pointer;transition:all 0.15s;text-align:center;text-decoration:none;display:block;}
+.module-card:hover{border-color:var(--red);box-shadow:0 4px 16px rgba(204,34,0,0.1);transform:translateY(-2px);}
+.module-icon{width:42px;height:42px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:8px;}
+.module-name{font-size:12.5px;font-weight:700;color:var(--navy);margin-bottom:2px;}
+.module-desc{font-size:10.5px;color:#8a95a0;line-height:1.3;}
+/* Panels */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
+.panel{background:#fff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;}
+.panel-header{padding:12px 16px;border-bottom:1px solid #f0f2f5;font-size:13px;font-weight:700;color:var(--navy);display:flex;justify-content:space-between;align-items:center;}
+.panel-header a{font-size:12px;color:var(--red);text-decoration:none;font-weight:400;}
+.panel-row{display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #f7f8fa;gap:10px;font-size:13px;}
+.panel-row:last-child{border-bottom:none;}
+.pill{display:inline-block;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:20px;margin-left:auto;}
+.pill-green{background:#dcfce7;color:#166534;}
+.pill-yellow{background:#fef9c3;color:#854d0e;}
+.pill-red{background:#fee2e2;color:#991b1b;}
+.pill-blue{background:#dbeafe;color:#1e40af;}
+.pill-gray{background:#f1f5f9;color:#475569;}
+/* Low stock alert */
+.alert-row{display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #f7f8fa;gap:10px;font-size:13px;}
+.alert-row:last-child{border-bottom:none;}
+.loading{text-align:center;padding:30px;color:#8a95a0;font-size:13px;}
+.live-dot{width:8px;height:8px;background:#22c55e;border-radius:50%;display:inline-block;margin-right:6px;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+@media(max-width:768px){.two-col{grid-template-columns:1fr;}}
+</style>
+</head>
+
+<style>
+.settings-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px;}
+.settings-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:20px;max-width:900px;}
+.settings-card-header{padding:14px 20px;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;gap:10px;}
+.settings-card-header h3{font-size:14px;font-weight:700;color:var(--navy);}
+.settings-card-header .card-icon{font-size:18px;}
+.settings-card-body{padding:20px;}
+.form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+.form-grid-1{display:grid;grid-template-columns:1fr;gap:16px;}
+.form-field{display:flex;flex-direction:column;gap:5px;}
+.form-field.span-2{grid-column:span 2;}
+.form-field label{font-size:12px;font-weight:600;color:#5a6878;text-transform:uppercase;letter-spacing:0.4px;}
+.form-field input,.form-field select{border:1.5px solid #e2e8f0;border-radius:7px;padding:9px 12px;font-size:13.5px;color:#1a2635;background:#f9fafb;outline:none;font-family:inherit;transition:border-color 0.15s;}
+.form-field input:focus,.form-field select:focus{border-color:var(--red);background:#fff;box-shadow:0 0 0 3px rgba(204,34,0,0.07);}
+.form-field input::placeholder{color:#b0bec5;}
+.req{color:var(--red);}
+.save-bar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;border-radius:0 0 10px 10px;}
+.save-bar .save-hint{font-size:12px;color:#8a95a0;}
+.bank-note{font-size:12px;color:#8a95a0;margin-top:8px;font-style:italic;}
+@media(max-width:768px){.form-grid-2,.form-grid-3{grid-template-columns:1fr;}.form-field.span-2{grid-column:span 1;}}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.4</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-nav">
+<div class="sb-dashboard"><a href="dashboard.html" >&#8862; Dashboard</a></div>
+<div class="sb-group" data-gid="masters">
+<div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128230;</span><span class="gh-label">Masters</span></div><span class="gh-arrow">&#9658;</span></div>
+<div class="sb-group-body">
+<a class="nav-item" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a>
+<a class="nav-item" href="warehouse.html"><span class="icon">&#127978;</span> Warehouse</a>
+</div></div>
+<div class="sb-group" data-gid="manufacturing">
+<div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#127981;</span><span class="gh-label">Manufacturing</span></div><span class="gh-arrow">&#9658;</span></div>
+<div class="sb-group-body">
+<a class="nav-item" href="bom.html"><span class="icon">&#128295;</span> BOM Master</a>
+<a class="nav-item" href="routing.html"><span class="icon">&#128260;</span> Routing Master</a>
+<a class="nav-item" href="dies.html"><span class="icon">&#128299;</span> Dies</a>
+<a class="nav-item" href="machines.html"><span class="icon">&#9881;&#65039;</span> Machine Master</a>
+<a class="nav-item" href="work_orders.html"><span class="icon">&#127981;</span> Work Orders</a>
+<a class="nav-item" href="production_plan.html"><span class="icon">&#128203;</span> Production Plan</a>
+<a class="nav-item" href="mrp.html"><span class="icon">&#128200;</span> MRP</a>
+<a class="nav-item" href="labour.html"><span class="icon">&#128101;</span> Labour Planning</a>
+<a class="nav-item" href="job_cards.html"><span class="icon">&#128196;</span> Job Cards</a>
+<a class="nav-item" href="workers.html"><span class="icon">&#128104;&#8205;&#127981;</span> Workers</a>
+</div></div>
+<div class="sb-group" data-gid="purchase">
+<div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128715;</span><span class="gh-label">Purchase</span></div><span class="gh-arrow">&#9658;</span></div>
+<div class="sb-group-body">
+<a class="nav-item" href="purchase_order.html"><span class="icon">&#128715;</span> Purchase Order</a>
+<a class="nav-item" href="supplier.html"><span class="icon">&#128666;</span> Supplier Master</a>
+<a class="nav-item" href="grn.html"><span class="icon">&#128229;</span> GRN</a>
+</div></div>
+<div class="sb-group" data-gid="inventory">
+<div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128202;</span><span class="gh-label">Inventory</span></div><span class="gh-arrow">&#9658;</span></div>
+<div class="sb-group-body">
+<a class="nav-item" href="stock_ledger.html"><span class="icon">&#128202;</span> Stock Ledger</a>
+<a class="nav-item" href="#"><span class="icon">&#128260;</span> Stock Transfer</a>
+<a class="nav-item" href="reports.html"><span class="icon">&#128203;</span> Stock Report</a>
+</div></div>
+<div class="sb-group" data-gid="qc">
+<div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128300;</span><span class="gh-label">Quality Control</span></div><span class="gh-arrow">&#9658;</span></div>
+<div class="sb-group-body">
+<a class="nav-item" href="qc.html"><span class="icon">&#128300;</span> Incoming QC</a>
+<a class="nav-item" href="qc.html"><span class="icon">&#128300;</span> In-Process QC</a>
+<a class="nav-item" href="qc.html"><span class="icon">&#128300;</span> Final QC</a>
+</div></div>
+<div class="sb-group" data-gid="packing">
+<div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128218;</span><span class="gh-label">Packing</span></div><span class="gh-arrow">&#9658;</span></div>
+<div class="sb-group-body">
+<a class="nav-item" href="#"><span class="icon">&#128218;</span> Packing Order</a>
+<a class="nav-item" href="dispatch.html"><span class="icon">&#128666;</span> Dispatch</a>
+</div></div>
+<div class="sb-group" data-gid="sales">
+<div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128188;</span><span class="gh-label">Sales</span></div><span class="gh-arrow">&#9658;</span></div>
+<div class="sb-group-body">
+<a class="nav-item" href="sales_order.html"><span class="icon">&#128188;</span> Sales Order</a>
+<a class="nav-item" href="invoice.html"><span class="icon">&#129534;</span> Invoice</a>
+<a class="nav-item" href="customer.html"><span class="icon">&#128101;</span> Customer Master</a>
+</div></div>
+<div class="sb-group" data-gid="reports">
+<div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128200;</span><span class="gh-label">Reports</span></div><span class="gh-arrow">&#9658;</span></div>
+<div class="sb-group-body">
+<a class="nav-item" href="reports.html"><span class="icon">&#128200;</span> Production Report</a>
+<a class="nav-item" href="reports.html"><span class="icon">&#128200;</span> Stock Report</a>
+<a class="nav-item" href="reports.html"><span class="icon">&#128200;</span> Sales Report</a>
+<a class="nav-item" href="reports.html"><span class="icon">&#128200;</span> MIS Dashboard</a>
+</div></div>
+</div>
+<div class="sidebar-bottom"><a href="settings.html"><span>&#9881;&#65039;</span> Settings</a><a href="#" onclick="handleLogout()"><span>&#128682;</span> Logout</a></div></aside>
+<div class="topbar">
+  <div class="topbar-title">
+    Company Settings
+    <span style="font-size:12px;font-weight:400;color:#8a95a0;margin-left:8px;" id="last-refresh"></span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button type="button" onclick="refreshAll()" style="background:#f4f6f9;border:1px solid #e2e8f0;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;color:#5a6878;">&#8635; Refresh</button>
+  </div>
+  
+  <div class="topbar-search"><span class="search-icon">&#128269;</span><input type="text" id="central-search" placeholder="Search pages..." autocomplete="off"/><div class="search-dropdown" id="central-dd"></div></div>
+  <div class="user-chip"><div class="user-avatar" id="user-avatar">A</div><div class="user-name" id="user-name">Admin</div></div>
+</div>
+
+<div class="main">
+<div class="content" style="padding:24px;max-width:960px;">
+
+  <!-- Page Header -->
+  <div class="page-header" style="margin-bottom:24px;">
+    <div>
+      <h1 style="font-size:20px;font-weight:700;color:var(--navy);">&#9881; Company Settings</h1>
+      <p style="font-size:13px;color:#8a95a0;margin-top:3px;">Company information used on invoices, reports, and documents</p>
+    </div>
+  </div>
+
+  <!-- CARD 1: Company Information -->
+  <div class="settings-card">
+    <div class="settings-card-header">
+      <span class="card-icon">&#127981;</span>
+      <h3>Company Information</h3>
+    </div>
+    <div class="settings-card-body">
+      <div class="form-grid-2" style="margin-bottom:16px;">
+        <div class="form-field">
+          <label>Company Name <span class="req">*</span></label>
+          <input type="text" id="s-company-name" placeholder="e.g. Ceratech Friction Composites Pvt Ltd"/>
+        </div>
+        <div class="form-field">
+          <label>Trade Name</label>
+          <input type="text" id="s-trade-name" placeholder="e.g. Ceradrive Brakes"/>
+        </div>
+        <div class="form-field">
+          <label>GSTIN</label>
+          <input type="text" id="s-gstin" placeholder="e.g. 09AEOPB4560N1Z2" maxlength="15" style="font-family:monospace;letter-spacing:0.5px;"/>
+        </div>
+        <div class="form-field">
+          <label>PAN</label>
+          <input type="text" id="s-pan" placeholder="e.g. AEOPB4560N" maxlength="10" style="font-family:monospace;letter-spacing:0.5px;"/>
+        </div>
+        <div class="form-field">
+          <label>Phone</label>
+          <input type="text" id="s-phone" placeholder="e.g. 0120-4567890"/>
+        </div>
+        <div class="form-field">
+          <label>Email</label>
+          <input type="email" id="s-email" placeholder="e.g. accounts@ceradrive.com"/>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CARD 2: Address -->
+  <div class="settings-card">
+    <div class="settings-card-header">
+      <span class="card-icon">&#128205;</span>
+      <h3>Registered Address</h3>
+    </div>
+    <div class="settings-card-body">
+      <div class="form-grid-1" style="margin-bottom:16px;">
+        <div class="form-field">
+          <label>Address Line 1</label>
+          <input type="text" id="s-addr1" placeholder="e.g. E-59, Sector A-5 & 6"/>
+        </div>
+        <div class="form-field">
+          <label>Address Line 2</label>
+          <input type="text" id="s-addr2" placeholder="e.g. Tronica City, Loni"/>
+        </div>
+      </div>
+      <div class="form-grid-3">
+        <div class="form-field">
+          <label>City</label>
+          <input type="text" id="s-city" placeholder="e.g. Ghaziabad"/>
+        </div>
+        <div class="form-field">
+          <label>State</label>
+          <input type="text" id="s-state" placeholder="e.g. Uttar Pradesh"/>
+        </div>
+        <div class="form-field">
+          <label>Pincode</label>
+          <input type="text" id="s-pincode" placeholder="e.g. 201102" maxlength="6"/>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CARD 3: Bank Details -->
+  <div class="settings-card">
+    <div class="settings-card-header">
+      <span class="card-icon">&#127981;</span>
+      <h3>Primary Bank Account</h3>
+    </div>
+    <div class="settings-card-body">
+      <div class="form-grid-2">
+        <div class="form-field">
+          <label>Bank Name <span id="bank-req" style="color:var(--red);display:none;">*</span></label>
+          <input type="text" id="s-bank-name" placeholder="e.g. HDFC Bank" oninput="toggleBankReq()"/>
+        </div>
+        <div class="form-field">
+          <label>Account Number <span id="bank-req2" style="color:var(--red);display:none;">*</span></label>
+          <input type="text" id="s-bank-accno" placeholder="e.g. 50100123456789" style="font-family:monospace;" oninput="toggleBankReq()"/>
+        </div>
+        <div class="form-field">
+          <label>IFSC Code</label>
+          <input type="text" id="s-bank-ifsc" placeholder="e.g. HDFC0001234" maxlength="11" style="font-family:monospace;letter-spacing:0.5px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()"/>
+        </div>
+        <div class="form-field">
+          <label>Branch</label>
+          <input type="text" id="s-bank-branch" placeholder="e.g. Ghaziabad Main Branch"/>
+        </div>
+      </div>
+      <p class="bank-note">&#9432; Bank Name and Account Number must both be filled or both left empty. Multiple bank accounts can be managed from the Payments page (Phase 2).</p>
+    </div>
+  </div>
+
+  <!-- CARD 4: Document Settings -->
+  <div class="settings-card">
+    <div class="settings-card-header">
+      <span class="card-icon">&#128196;</span>
+      <h3>Document Prefixes &amp; Defaults</h3>
+    </div>
+    <div class="settings-card-body">
+      <div class="form-grid-3" style="margin-bottom:16px;">
+        <div class="form-field">
+          <label>Invoice Prefix</label>
+          <input type="text" id="s-inv-prefix" placeholder="CFC" maxlength="10" style="font-family:monospace;"/>
+        </div>
+        <div class="form-field">
+          <label>DC Prefix</label>
+          <input type="text" id="s-dc-prefix" placeholder="DC" maxlength="10" style="font-family:monospace;"/>
+        </div>
+        <div class="form-field">
+          <label>PO Prefix</label>
+          <input type="text" id="s-po-prefix" placeholder="PO" maxlength="10" style="font-family:monospace;"/>
+        </div>
+        <div class="form-field">
+          <label>SO Prefix</label>
+          <input type="text" id="s-so-prefix" placeholder="SO" maxlength="10" style="font-family:monospace;"/>
+        </div>
+        <div class="form-field">
+          <label>Overhead % (Default)</label>
+          <input type="number" id="s-overhead" placeholder="15" min="0" max="100" step="0.5"/>
+        </div>
+        <div class="form-field">
+          <label>Logo URL</label>
+          <input type="text" id="s-logo-url" placeholder="https://... (optional)"/>
+        </div>
+      </div>
+      <p style="font-size:12px;color:#8a95a0;font-style:italic;">&#9432; Prefixes are used for document numbering. Overhead % is used in production cost calculations.</p>
+    </div>
+  </div>
+
+  <!-- SAVE BAR -->
+  <div style="display:flex;justify-content:flex-end;gap:12px;padding:4px 0 32px;">
+    <span id="s-last-saved" style="font-size:12px;color:#8a95a0;line-height:36px;"></span>
+    <button type="button" id="s-save-btn" onclick="saveSettings()"
+      style="padding:10px 28px;background:var(--red);color:#fff;border:none;border-radius:7px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;">
+      &#128190; Save Settings
+    </button>
+  </div>
+
+</div>
+</div>
+
+<script src="shared.js"></script>
+<script src="ui.js"></script>
+<script>
+(async function init(){
+  const s = await CFC_SB.auth.getSession();
+  if(!s.data.session){ window.location.href='index.html'; return; }
+  CFC_AUTH.showUser();
+  await loadSettings();
+  await loadBankDetails();
+  CFC_NAV.init();
+  CFC_SIDEBAR.init();
+})();
+
+async function loadSettings(){
+  const {data,error} = await CFC_SB.from('company_settings').select('*').eq('id',1).maybeSingle();
+  if(error){ console.error('Settings load error:',error); return; }
+  if(!data) return; // New install — form stays empty, save will create row 1
+  document.getElementById('s-company-name').value = data.company_name || '';
+  document.getElementById('s-trade-name').value    = data.trade_name || '';
+  document.getElementById('s-gstin').value         = data.gstin || '';
+  document.getElementById('s-pan').value           = data.pan || '';
+  document.getElementById('s-phone').value         = data.phone || '';
+  document.getElementById('s-email').value         = data.email || '';
+  document.getElementById('s-addr1').value         = data.address_line1 || '';
+  document.getElementById('s-addr2').value         = data.address_line2 || '';
+  document.getElementById('s-city').value          = data.city || '';
+  document.getElementById('s-state').value         = data.state || '';
+  document.getElementById('s-pincode').value       = data.pincode || '';
+  document.getElementById('s-logo-url').value      = data.logo_url || '';
+  document.getElementById('s-inv-prefix').value    = data.invoice_prefix || 'CFC';
+  document.getElementById('s-dc-prefix').value     = data.dc_prefix || 'DC';
+  document.getElementById('s-po-prefix').value     = data.po_prefix || 'PO';
+  document.getElementById('s-so-prefix').value     = data.so_prefix || 'SO';
+  document.getElementById('s-overhead').value      = data.overhead_percent != null ? data.overhead_percent : 15;
+  if(data.updated_at){
+    const d = new Date(data.updated_at);
+    document.getElementById('s-last-saved').textContent = 'Last saved: ' + d.toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});
+  }
+}
+
+var bankRowId = null;
+async function loadBankDetails(){
+  const {data} = await CFC_SB.from('bank_accounts').select('*').eq('is_active',true).order('id').limit(1).maybeSingle();
+  if(!data) return;
+  bankRowId = data.id;
+  document.getElementById('s-bank-name').value   = data.bank_name || '';
+  document.getElementById('s-bank-accno').value  = data.account_no || '';
+  document.getElementById('s-bank-ifsc').value   = data.ifsc || '';
+  document.getElementById('s-bank-branch').value = data.branch || '';
+}
+
+function toggleBankReq(){
+  var anyFilled = document.getElementById('s-bank-name').value.trim() ||
+                  document.getElementById('s-bank-accno').value.trim();
+  document.getElementById('bank-req').style.display  = anyFilled ? 'inline' : 'none';
+  document.getElementById('bank-req2').style.display = anyFilled ? 'inline' : 'none';
+}
+
+async function saveSettings(){
+  // ── Validate ─────────────────────────────────────────────────
+  const companyName = document.getElementById('s-company-name').value.trim();
+  if(!companyName){ CFC_UI.showToast('Company Name is required.','error'); return; }
+
+  const bankName  = document.getElementById('s-bank-name').value.trim();
+  const bankAccNo = document.getElementById('s-bank-accno').value.trim();
+  if((bankName && !bankAccNo) || (!bankName && bankAccNo)){
+    CFC_UI.showToast('Bank Name and Account Number must both be filled or both left empty.','error');
+    return;
+  }
+
+  const btn = document.getElementById('s-save-btn');
+  CFC_UI.lockBtn(btn,'Saving...');
+
+  // ── Save company_settings ─────────────────────────────────────
+  const overhead = parseFloat(document.getElementById('s-overhead').value);
+  const csPayload = {
+    id: 1,
+    company_name:    companyName,
+    trade_name:      document.getElementById('s-trade-name').value.trim() || null,
+    gstin:           document.getElementById('s-gstin').value.trim() || null,
+    pan:             document.getElementById('s-pan').value.trim().toUpperCase() || null,
+    phone:           document.getElementById('s-phone').value.trim() || null,
+    email:           document.getElementById('s-email').value.trim() || null,
+    address_line1:   document.getElementById('s-addr1').value.trim() || null,
+    address_line2:   document.getElementById('s-addr2').value.trim() || null,
+    city:            document.getElementById('s-city').value.trim() || null,
+    state:           document.getElementById('s-state').value.trim() || null,
+    pincode:         document.getElementById('s-pincode').value.trim() || null,
+    logo_url:        document.getElementById('s-logo-url').value.trim() || null,
+    invoice_prefix:  document.getElementById('s-inv-prefix').value.trim() || 'CFC',
+    dc_prefix:       document.getElementById('s-dc-prefix').value.trim() || 'DC',
+    po_prefix:       document.getElementById('s-po-prefix').value.trim() || 'PO',
+    so_prefix:       document.getElementById('s-so-prefix').value.trim() || 'SO',
+    overhead_percent: isNaN(overhead) ? 15 : overhead,
+    updated_at:      new Date().toISOString(),
+  };
+
+  const {error:e1} = await CFC_SB.from('company_settings').upsert([csPayload],{onConflict:'id'});
+  if(e1){ CFC_UI.unlockBtn(btn,'&#128190; Save Settings'); CFC_UI.showToast('Error saving settings: '+e1.message,'error'); return; }
+
+  // ── Save bank_accounts (only if bank fields have values) ──────
+  if(bankName && bankAccNo){
+    const bankPayload = {
+      bank_name:    bankName,
+      account_name: companyName,
+      account_no:   bankAccNo,
+      ifsc:         document.getElementById('s-bank-ifsc').value.trim().toUpperCase() || null,
+      branch:       document.getElementById('s-bank-branch').value.trim() || null,
+      is_active:    true,
+    };
+    let bankError;
+    if(bankRowId){
+      const {error:e2} = await CFC_SB.from('bank_accounts').update(bankPayload).eq('id',bankRowId);
+      bankError = e2;
+    } else {
+      const {data:newBank,error:e2} = await CFC_SB.from('bank_accounts').insert([bankPayload]).select().single();
+      bankError = e2;
+      if(newBank) bankRowId = newBank.id;
+    }
+    if(bankError){ CFC_UI.unlockBtn(btn,'&#128190; Save Settings'); CFC_UI.showToast('Settings saved but bank details error: '+bankError.message,'error'); return; }
+  }
+
+  CFC_UI.unlockBtn(btn,'&#128190; Save Settings');
+  CFC_UI.showToast('&#10003; Settings saved successfully!','success');
+  const now = new Date();
+  document.getElementById('s-last-saved').textContent = 'Last saved: ' + now.toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});
+}
+</script>
+</body>
+</html>

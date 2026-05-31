@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Stock Ledger — CFC ERP v2.2</title>
+<title>Stock Ledger — CFC ERP v2.4</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -135,7 +135,7 @@ tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.2</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.4</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html" >&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -201,7 +201,7 @@ tr:hover td{background:#fafbfc;}
 <a class="nav-item" href="reports.html"><span class="icon">&#128200;</span> MIS Dashboard</a>
 </div></div>
 </div>
-<div class="sidebar-bottom"><a href="#"><span>&#9881;&#65039;</span> Settings</a><a href="#" onclick="handleLogout()"><span>&#128682;</span> Logout</a></div></aside>
+<div class="sidebar-bottom"><a href="settings.html"><span>&#9881;&#65039;</span> Settings</a><a href="#" onclick="handleLogout()"><span>&#128682;</span> Logout</a></div></aside>
 <div class="topbar">
   <div class="topbar-title">Stock Ledger</div>
   <div class="topbar-search"><span class="search-icon">&#128269;</span><input type="text" id="central-search" placeholder="Search pages... (Item Master, MRP, Invoice...)" autocomplete="off"/><div class="search-dropdown" id="central-dd"></div></div>
@@ -535,31 +535,43 @@ function openAdjModal(){
 function closeAdjModal(){document.getElementById("adj-modal").classList.remove("open");}
 
 async function saveAdjustment(){
-  var _saveBtn=document.activeElement;if(_saveBtn&&_saveBtn.tagName==='BUTTON'){_saveBtn.disabled=true;}
+  const _unlock=()=>{var b=document.querySelector('button[disabled]');if(b){b.disabled=false;b.style.opacity='';}};
+  if(document.activeElement&&document.activeElement.tagName==='BUTTON')document.activeElement.disabled=true;
   const item_id=parseInt(document.getElementById("adj-item-id").value)||null;
   const qty=parseFloat(document.getElementById("adj-qty").value)||0;
-  if(!item_id||qty===0){showToast("Item aur Qty zaroori hai (0 nahi)","error");return;}
+  if(!item_id||qty===0){_unlock();showToast("Item aur Qty zaroori hai (0 nahi)","error");return;}
   const rate=parseFloat(document.getElementById("adj-rate").value)||0;
   const warehouse_id=document.getElementById("adj-warehouse").value||null;
   const txn_type=document.getElementById("adj-type").value;
   const reference_no=document.getElementById("adj-ref").value.trim()||null;
   const notes=document.getElementById("adj-notes").value.trim()||null;
 
-  // Insert stock ledger
+  // ── Block if minus adjustment would take stock below zero ────────
+  if(qty<0){
+    const {data:chk}=await sb.from("inventory").select("current_stock").eq("item_id",item_id).maybeSingle();
+    const available=parseFloat(chk?.current_stock||0);
+    if(available+qty<0){
+      _unlock();
+      const itemName=(allItems||[]).find(x=>x.id===item_id)?.name||('Item #'+item_id);
+      showToast('❌ Insufficient stock: '+itemName+' — Available: '+available+', Reduction: '+Math.abs(qty),'error');
+      return;
+    }
+  }
+
   const {error:le}=await sb.from("stock_ledger").insert([{
     item_id,warehouse_id:warehouse_id?parseInt(warehouse_id):null,
     txn_type,qty,rate,value:qty*rate,reference_no,notes
   }]);
-  if(le){showToast("Ledger Error: "+le.message,"error");return;}
+  if(le){_unlock();showToast("Ledger Error: "+le.message,"error");return;}
 
-  // Update inventory
-  const {data:inv}=await sb.from("inventory").select("id,current_stock").eq("item_id",item_id).single();
+  const {data:inv}=await sb.from("inventory").select("id,current_stock").eq("item_id",item_id).maybeSingle();
   if(inv){
     await sb.from("inventory").update({current_stock:parseFloat(inv.current_stock||0)+qty,last_updated:new Date().toISOString()}).eq("id",inv.id);
   } else {
-    await sb.from("inventory").insert([{item_id,warehouse_id:warehouse_id?parseInt(warehouse_id):null,current_stock:qty,uom:allItems.find(x=>x.id===item_id)?.uom||"PCS"}]);
+    await sb.from("inventory").insert([{item_id,warehouse_id:warehouse_id?parseInt(warehouse_id):null,current_stock:qty,uom:(allItems||[]).find(x=>x.id===item_id)?.uom||"PCS"}]);
   }
-  showToast("Stock updated!","success");
+  _unlock();
+  showToast("Stock updated!");
   closeAdjModal();
   loadStock();loadLedger();
 }
