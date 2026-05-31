@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Routing Master — CFC ERP v3.0.3</title>
+<title>Routing Master — CFC ERP v3.0.6</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -154,7 +154,7 @@ tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.3</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.6</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -383,6 +383,28 @@ tr:hover td{background:#fafbfc;}
           </div>
         </div>
       </div>
+
+      <!-- STEP TYPE — Rule 31/32/33: logic classification, independent of process_name -->
+      <div style="margin-top:12px;padding:12px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">
+        <div style="font-size:12px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">&#9881; Step Type (ERP Logic Classification)</div>
+        <div class="form-field" style="margin-bottom:0;">
+          <label>Step Type <span style="color:#cc2200;">*</span>
+            <span style="font-size:11px;color:#5a6878;font-weight:400;">
+              — ERP uses this for stage detection, not process name.
+              Rename the step anytime without breaking workflow.
+            </span>
+          </label>
+          <select id="rs-step-type">
+            <option value="intermediate">Intermediate — creates process_batches (default)</option>
+            <option value="mixing">Mixing — creates mix_batches + RM consumption</option>
+            <option value="final">Final — creates fg_batches + batch_trace + FG inventory</option>
+          </select>
+          <div style="font-size:11px;color:#5a6878;margin-top:4px;">
+            &#128161; Set to <strong>Mixing</strong> for the premix/blending step regardless of what you name it.
+            Set to <strong>Final</strong> for the last step (packing/dispatch). All others = Intermediate.
+          </div>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button type="button" class="btn btn-secondary" onclick="closeStepModal()">Cancel</button>
@@ -432,7 +454,9 @@ async function loadRouting(){
   const {data:levels,error}=await sb.from("routing_levels").select("*").order("sequence");
   if(error){container.innerHTML=`<div class="loading" style="color:#dc2626;">Error: ${error.message}</div>`;return;}
   
-  const {data:steps}=await sb.from("routing_steps").select("*, machines(code,name)").order("sequence");
+  const {data:steps}=await sb.from("routing_steps")
+    .select("*, machines(code,name)")
+    .order("sequence");
   
   allLevels=levels||[];
   if(!allLevels.length){
@@ -483,6 +507,7 @@ function renderLevelCard(level,steps){
           <th>Machine</th>
           <th>Planning</th>
           <th>QC</th>
+          <th>Stage Type</th>
           <th style="width:80px;">Actions</th>
         </tr></thead>
         <tbody>
@@ -502,6 +527,11 @@ function renderLevelCard(level,steps){
               <td style="font-size:12px;">${s.machines?`${s.machines.code}`:'—'}</td>
               <td><span style="background:#f0f4f8;color:#5a6878;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;">${planLabels[s.planning_type]||s.planning_type||'—'}</span></td>
               <td>${s.is_qc_required?`<span class="qc-badge">&#9989; ${s.qc_type||''}</span>`:'<span style="color:#b0bec5;font-size:11px;">—</span>'}</td>
+              <td>${
+                s.step_type==='mixing'?'<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">&#128308; Mixing</span>':
+                s.step_type==='final'?'<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">&#128994; Final</span>':
+                '<span style="background:#fef9c3;color:#854d0e;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;">&#128992; Intermediate</span>'
+              }</td>
               <td style="white-space:nowrap;">
                 <button type="button" class="btn btn-secondary btn-xs" onclick="editStep(${s.id},${level.id})">&#9998; Edit</button>
                 <button type="button" class="btn btn-danger btn-xs" onclick="deleteStep(${s.id})">&#10005;</button>
@@ -593,6 +623,7 @@ function openStepModal(levelId,stepData){
   document.getElementById("rs-planning").value="weight_based";
   document.getElementById("rs-qc").value="false";
   document.getElementById("rs-qc-type").value="optional";
+  document.getElementById("rs-step-type").value="intermediate";
   document.getElementById("input-items-list").innerHTML="";
 
   if(stepData){
@@ -601,11 +632,29 @@ function openStepModal(levelId,stepData){
     document.getElementById("rs-planning").value=stepData.planning_type||"weight_based";
     document.getElementById("rs-qc").value=String(stepData.is_qc_required||false);
     document.getElementById("rs-qc-type").value=stepData.qc_type||"optional";
+    // v3.0.6: step_type (confirmed column) — Rule 31/32/33 fix
+    document.getElementById("rs-step-type").value=stepData.step_type||"intermediate";
     if(stepData.machine_id)document.getElementById("rs-machine").value=stepData.machine_id;
-    // Load output from notes field
-    if(stepData.notes){
+    // v3.0.5: Load output from output_item_id (FK → items.id), NOT from notes
+    if(stepData.output_item_id){
+      var outItem=allItems.find(function(x){return x.id===stepData.output_item_id;});
+      if(outItem){
+        document.getElementById("rs-output-id").value=outItem.id;
+        document.getElementById("rs-output-search").value=outItem.code;
+        document.getElementById("rs-output-info").textContent="✓ "+outItem.name;
+      } else {
+        sb.from("items").select("id,code,name").eq("id",stepData.output_item_id).maybeSingle()
+          .then(function(r){
+            if(r.data){
+              document.getElementById("rs-output-id").value=r.data.id;
+              document.getElementById("rs-output-search").value=r.data.code;
+              document.getElementById("rs-output-info").textContent="✓ "+r.data.name;
+            }
+          });
+      }
+    } else if(stepData.notes){
       document.getElementById("rs-output-search").value=stepData.notes;
-      document.getElementById("rs-output-info").textContent="Output: "+stepData.notes;
+      document.getElementById("rs-output-info").textContent="⚠ Legacy — please re-select output item";
     }
     // Load inputs from description (stored as JSON)
     try{
@@ -713,20 +762,25 @@ async function saveStep(){
     if(code)inputs.push({id:id||null,code,uom:uom||"PCS"});
   });
   
-  const outputCode=document.getElementById("rs-output-search").value.trim();
-  const machineId=document.getElementById("rs-machine").value||null;
-  
+  // v3.0.5: output_item_id (FK → items.id, confirmed) replaces notes text storage
+  // routing_steps.machine_id does NOT exist (confirmed Supabase ERROR 42703) — removed
+  const outputItemId=document.getElementById("rs-output-id").value;
+
   const payload={
     routing_level_id:currentLevelId,
     sequence:parseInt(document.getElementById("rs-seq").value)||1,
     process_name,
     description:inputs.length>0?JSON.stringify(inputs):null,
-    notes:outputCode||null,
-    machine_id:machineId?parseInt(machineId):null,
+    output_item_id:outputItemId?parseInt(outputItemId):null,  // FK → items.id ✅
+    notes:null,  // no longer used for output item
     planning_type:document.getElementById("rs-planning").value,
     is_qc_required:document.getElementById("rs-qc").value==="true",
     qc_type:document.getElementById("rs-qc-type").value,
+    // v3.0.6: step_type (confirmed column, text, nullable) — Rule 31/32/33
+    // Drives stage detection in WO completion — NOT process_name
+    step_type:document.getElementById("rs-step-type").value||"intermediate",
     is_active:true
+    // machine_id NOT included — column does not exist in routing_steps (Supabase confirmed)
   };
   
   let error;
@@ -765,12 +819,14 @@ document.addEventListener("click",e=>{
 });
 document.getElementById("level-modal").addEventListener("click",function(e){if(e.target===this)closeLevelModal();});
 document.getElementById("step-modal").addEventListener("click",function(e){if(e.target===this)closeStepModal();});
-document.getElementById("global-search").addEventListener("input",function(){
+// routing page filter — uses central-search input
+var _routeSearchEl=document.getElementById("central-search");
+if(_routeSearchEl){_routeSearchEl.addEventListener("input",function(){
   const q=this.value.toLowerCase();
   document.querySelectorAll(".level-card").forEach(card=>{
     card.style.display=card.textContent.toLowerCase().includes(q)?"block":"none";
   });
-});
+});}
 </script>
 <script>
 // ── ACCORDION SIDEBAR ──

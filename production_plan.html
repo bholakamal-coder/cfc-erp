@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Production Plan — CFC ERP v3.0.3</title>
+<title>Production Plan — CFC ERP v3.0.6</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -144,7 +144,7 @@ tr:last-child td{border-bottom:none;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.3</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.6</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -652,7 +652,7 @@ function renderResults(r){
 
     <div style="margin-top:16px;display:flex;gap:10px;">
       <button type="button" class="btn btn-primary" onclick="openPlanModal()">&#128190; Save as Plan</button>
-      <button type="button" class="btn btn-secondary" onclick="createWOsFromPlan()">&#127981; Create Work Orders</button>
+      <button type="button" class="btn btn-primary" onclick="openPlanModal()">&#128190; Save Plan</button>
     </div>`;
 }
 
@@ -670,26 +670,42 @@ async function loadPlans(){
   const wrap=document.getElementById("plans-wrap");
   if(!wrap)return;
   wrap.innerHTML='<div class="loading">Loading plans...</div>';
-  const {data,error}=await sb.from("production_plans").select("*").order("created_at",{ascending:false}).limit(50);
+  // v3.0.5: select item_id, planned_qty, uom (now proper columns)
+  const {data,error}=await sb.from("production_plans")
+    .select("id,status,item_id,planned_qty,uom,total_estimated_minutes,notes,estimated_start,estimated_end,approved_at,created_at")
+    .order("created_at",{ascending:false}).limit(50);
   if(error){wrap.innerHTML=`<div class="loading" style="color:#dc2626;">Error: ${error.message}</div>`;return;}
   if(!data||!data.length){
     wrap.innerHTML='<div class="empty-state"><div class="big">&#128203;</div><p>Koi saved plan nahi hai. Calculator use karo aur Save karo!</p></div>';
     return;
   }
-  const PILLS={Draft:"pill-draft",Approved:"pill-approved",Executing:"pill-executing",Complete:"pill-complete"};
+  // Fetch item names for display — separate safe query
+  var itemIds=[...new Set(data.map(p=>p.item_id).filter(Boolean))];
+  var imap={};
+  if(itemIds.length){
+    var {data:items}=await sb.from("items").select("id,code,name").in("id",itemIds);
+    (items||[]).forEach(it=>{imap[it.id]=it;});
+  }
+  const PILLS={Draft:"pill-draft",Approved:"pill-approved",Released:"pill-released",Executing:"pill-executing",Complete:"pill-complete"};
   wrap.innerHTML=`<div class="table-wrap"><table>
-    <thead><tr><th>Plan ID</th><th>Date</th><th>Status</th><th>Est. Minutes</th><th>Notes</th><th>Actions</th></tr></thead>
-    <tbody>${data.map(p=>`<tr>
-      <td><strong style="font-family:monospace;">PP-${String(p.id).padStart(4,"0")}</strong></td>
-      <td style="font-size:12px;">${new Date(p.created_at).toLocaleDateString("en-IN")}</td>
-      <td><span class="pill ${PILLS[p.status]||"pill-draft"}">${p.status}</span></td>
-      <td>${p.total_estimated_minutes?p.total_estimated_minutes+" min":"—"}</td>
-      <td style="font-size:12px;color:#5a6878;max-width:200px;">${p.notes||"—"}</td>
-      <td style="white-space:nowrap;">
-        ${p.status==="Draft"?`<button type="button" class="btn btn-success btn-xs" onclick="approvePlan(${p.id})">Approve</button> `:""}
-        <button type="button" class="btn btn-danger btn-xs" onclick="deletePlan(${p.id})">&#128465;</button>
-      </td>
-    </tr>`).join("")}</tbody>
+    <thead><tr><th>Plan ID</th><th>Item</th><th>Qty</th><th>Date</th><th>Status</th><th>Est. Minutes</th><th>Notes</th><th>Actions</th></tr></thead>
+    <tbody>${data.map(p=>{
+      var item=p.item_id?imap[p.item_id]:null;
+      return`<tr>
+        <td><strong style="font-family:monospace;">PP-${String(p.id).padStart(4,"0")}</strong></td>
+        <td style="font-size:12px;">${item?`<span style="font-family:monospace;font-size:11px;background:#f0f4f8;padding:1px 5px;border-radius:3px;">${item.code}</span> ${item.name}`:'<span style="color:#8a95a0;">—</span>'}</td>
+        <td style="font-size:12px;font-weight:600;">${p.planned_qty||'—'} ${p.uom||''}</td>
+        <td style="font-size:12px;">${new Date(p.created_at).toLocaleDateString("en-IN")}</td>
+        <td><span class="pill ${PILLS[p.status]||"pill-draft"}">${p.status}</span></td>
+        <td>${p.total_estimated_minutes?p.total_estimated_minutes+" min":"—"}</td>
+        <td style="font-size:12px;color:#5a6878;max-width:180px;">${p.notes||"—"}</td>
+        <td style="white-space:nowrap;">
+          ${p.status==="Draft"?`<button type="button" class="btn btn-success btn-xs" onclick="approvePlan(${p.id})">&#10003; Approve</button> `:""}
+          ${p.status==="Approved"?`<button type="button" class="btn btn-primary btn-xs" onclick="releasePlan(${p.id})">&#9658; Release</button> `:""}
+          <button type="button" class="btn btn-danger btn-xs" onclick="deletePlan(${p.id})">&#128465;</button>
+        </td>
+      </tr>`;
+    }).join("")}</tbody>
   </table></div>`;
 }
 
@@ -706,28 +722,41 @@ function closePlanModal(){document.getElementById("plan-modal").classList.remove
 async function savePlan(){
   var _saveBtn=document.activeElement;if(_saveBtn&&_saveBtn.tagName==='BUTTON'){_saveBtn.disabled=true;}
   if(!calcResult){showToast("Koi calculation nahi hai.","error");return;}
+  var itemId=document.getElementById("calc-item-id").value;
+  if(!itemId){showToast("Item select karo pehle.","error");if(_saveBtn)_saveBtn.disabled=false;return;}
   const totalMins=(calcResult.mouldingMins+calcResult.curingTotalMins).toFixed(0);
+  // v3.0.5: item_id, planned_qty, uom now saved as proper columns (ALTERs confirmed)
   const payload={
     status:"Draft",
+    item_id:parseInt(itemId),
+    planned_qty:parseFloat(calcResult.qty)||0,
+    uom:calcResult.uom||"Set",
     total_estimated_minutes:parseFloat(totalMins),
     notes:document.getElementById("plan-notes").value.trim()||null,
     estimated_start:document.getElementById("plan-start").value||null,
     estimated_end:document.getElementById("plan-end").value||null,
     validation_passed:true,
-    validation_errors:JSON.stringify(calcResult),
+    validation_errors:calcResult,  // stored as JSONB (confirmed) — no stringify needed
   };
   const {error}=await sb.from("production_plans").insert([payload]);
-  if(error){showToast("Error: "+error.message,"error");return;}
+  if(error){showToast("Error: "+error.message,"error");if(_saveBtn)_saveBtn.disabled=false;return;}
   showToast("Plan saved!","success");
   closePlanModal();
   switchTab("plans");
 }
 
 async function approvePlan(id){
-  const {error}=await sb.from("production_plans").update({status:"Approved",approved_at:new Date().toISOString()}).eq("id",id);
+  var session=(await sb.auth.getSession()).data?.session;
+  var userId=session?.user?.id||null;
+  const {error}=await sb.from("production_plans").update({
+    status:"Approved",
+    approved_at:new Date().toISOString(),
+    approved_by:userId
+  }).eq("id",id);
   if(error){showToast("Error: "+error.message,"error");return;}
   showToast("Plan approved!","success");loadPlans();
 }
+
 async function deletePlan(id){
   if(!confirm("Plan delete karein?"))return;
   const {error}=await sb.from("production_plans").delete().eq("id",id);
@@ -735,21 +764,111 @@ async function deletePlan(id){
   showToast("Deleted!","success");loadPlans();
 }
 
-// ── CREATE WOs FROM PLAN ──
-async function createWOsFromPlan(){
-  if(!calcResult){showToast("Pehle calculate karo.","error");return;}
-  const now=new Date();
-  const prefix="WO-"+now.getFullYear()+String(now.getMonth()+1).padStart(2,"0");
-  const wos=[
-    {wo_no:prefix+"-"+Math.floor(Math.random()*9000+1000),process_name:"Mixing",planned_qty:calcResult.mixBatches,uom:"Batch",status:"Pending",priority:1,notes:"Auto from Production Plan"},
-    {wo_no:prefix+"-"+Math.floor(Math.random()*9000+1000),process_name:"Moulding",planned_qty:calcResult.totalPcs,uom:"PCS",status:"Pending",priority:2,notes:"Auto from Production Plan"},
-    {wo_no:prefix+"-"+Math.floor(Math.random()*9000+1000),process_name:"Curing",planned_qty:calcResult.ovenBatches,uom:"Batch",status:"Pending",priority:3,notes:"Auto from Production Plan"},
-  ];
-  const {error}=await sb.from("work_orders").insert(wos);
-  if(error){showToast("Error: "+error.message,"error");return;}
-  showToast("3 Work Orders created! (Mixing, Moulding, Curing)","success");
-  setTimeout(()=>window.location.href="work_orders.html",2000);
+// ══════════════════════════════════════════════════════════════════
+// RELEASE PLAN — v3.0.5
+// Creates production_orders + auto-generates work_orders from routing
+//
+// Schema used (all confirmed from live Supabase):
+//   production_plans.item_id, planned_qty, uom (ALTERs confirmed)
+//   production_orders.bom_id, plan_id (ALTERs confirmed)
+//   bom_headers.routing_level_id (confirmed)
+//   routing_steps: id,sequence,process_name,output_item_id,is_active (confirmed)
+//   work_orders: production_order_id,plan_id,routing_step_id,process_name,
+//                planned_qty,completed_qty,uom,status,priority (all confirmed)
+//   routing_steps.machine_id does NOT exist (Supabase confirmed 2026-05-31)
+// ══════════════════════════════════════════════════════════════════
+async function releasePlan(planId){
+  // Fetch the plan
+  var {data:plan,error:pErr}=await sb.from("production_plans")
+    .select("id,status,item_id,planned_qty,uom,estimated_start,estimated_end")
+    .eq("id",planId).maybeSingle();
+  if(pErr||!plan){showToast("Plan fetch failed.","error");return;}
+  if(plan.status!=="Approved"){showToast("Sirf Approved plans release ho sakte hain.","error");return;}
+  if(plan.status==="Released"){showToast("Yeh plan already released hai.","error");return;}
+  if(!plan.item_id){showToast("Plan mein item set nahi hai. Plan dobara banao.","error");return;}
+  if(!plan.planned_qty||plan.planned_qty<=0){showToast("Plan mein qty invalid hai.","error");return;}
+
+  // Fetch FG item
+  var {data:fgItem}=await sb.from("items").select("id,code,name,uom").eq("id",plan.item_id).maybeSingle();
+  if(!fgItem){showToast("FG item not found.","error");return;}
+
+  // Fetch default active BOM for item
+  var {data:bom}=await sb.from("bom_headers")
+    .select("id,routing_level_id,output_qty,output_uom,version")
+    .eq("item_id",plan.item_id).eq("is_default",true).eq("status","Active")
+    .maybeSingle();
+  if(!bom){showToast(fgItem.code+" ka koi active default BOM nahi. BOM Master mein banao.","error");return;}
+  if(!bom.routing_level_id){showToast("BOM mein routing level set nahi hai. BOM Master update karo.","error");return;}
+
+  // Fetch active routing steps ordered by sequence
+  var {data:steps}=await sb.from("routing_steps")
+    .select("id,sequence,process_name,output_item_id,is_active")
+    .eq("routing_level_id",bom.routing_level_id)
+    .eq("is_active",true)
+    .order("sequence",{ascending:true});
+  steps=steps||[];
+  if(!steps.length){showToast("Routing level mein koi active step nahi. Routing Master check karo.","error");return;}
+
+  if(!confirm(`Release Plan PP-${String(planId).padStart(4,"0")}?\n\nItem: ${fgItem.code} — ${fgItem.name}\nQty: ${plan.planned_qty} ${plan.uom||"Set"}\nWork Orders: ${steps.length} (one per routing step)\n\nProduction Order aur ${steps.length} Work Orders banenge.`))return;
+
+  var now=new Date();
+  var yymm=now.getFullYear().toString().slice(2)+String(now.getMonth()+1).padStart(2,"0");
+
+  // Create production_orders
+  var {data:po,error:poErr}=await sb.from("production_orders").insert([{
+    order_no:"PO-"+yymm+"-"+String(Math.floor(Math.random()*9000)+1000),
+    order_type:"Production",
+    item_id:plan.item_id,
+    planned_qty:plan.planned_qty,
+    completed_qty:0,
+    uom:plan.uom||fgItem.uom||"Set",
+    status:"Active",
+    bom_id:bom.id,       // confirmed column (ALTER done)
+    plan_id:plan.id,     // confirmed column (ALTER done)
+    planned_start:plan.estimated_start||null,
+    planned_end:plan.estimated_end||null,
+    notes:"Released from Plan PP-"+String(planId).padStart(4,"0")
+  }]).select("id,order_no").single();
+  if(poErr){showToast("Production Order create failed: "+poErr.message,"error");return;}
+
+  // Create one work_order per routing step
+  // work_orders confirmed columns: production_order_id, plan_id, routing_step_id,
+  //   process_name, planned_qty, completed_qty, uom, status, priority
+  // NO machine_id on routing_steps — wo.machine_id set manually by user later
+  var wos=steps.map((s,i)=>({
+    wo_no:"WO-"+yymm+"-"+String(Math.floor(Math.random()*90000)+10000)+"-"+String(i+1).padStart(2,"0"),
+    production_order_id:po.id,   // no FK constraint but column confirmed
+    plan_id:plan.id,              // no FK constraint but column confirmed
+    routing_step_id:s.id,         // no FK constraint but column confirmed
+    process_name:s.process_name,
+    planned_qty:plan.planned_qty,
+    completed_qty:0,
+    uom:plan.uom||fgItem.uom||"Set",
+    status:"Pending",
+    priority:s.sequence,
+    notes:"Auto: "+po.order_no+" | Step "+s.sequence
+  }));
+
+  var {error:woErr}=await sb.from("work_orders").insert(wos);
+  if(woErr){
+    // Rollback: delete the production order we just created
+    await sb.from("production_orders").delete().eq("id",po.id);
+    showToast("Work Orders create failed: "+woErr.message,"error");return;
+  }
+
+  // Update plan status to Released + link production_order_id
+  await sb.from("production_plans").update({
+    status:"Released",
+    production_order_id:po.id
+  }).eq("id",planId);
+
+  showToast("Released! "+po.order_no+" + "+steps.length+" Work Orders created.","success");
+  loadPlans();
+  setTimeout(()=>window.location.href="work_orders.html",2500);
 }
+
+// DEPRECATED — removed in v3.0.5 (was creating orphan WOs)
+// createWOsFromPlan() — replaced by releasePlan() above
 
 function showToast(msg,type=""){
   const t=document.getElementById("toast");

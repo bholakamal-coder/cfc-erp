@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Mix Families — CFC ERP v3.0.6</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="shared.css"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--red:#cc2200;--red-dark:#a81c00;--navy:#1c2d42;--sidebar-w:240px;--topbar-h:56px;}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a2635;display:flex;min-height:100vh;}
+.sidebar{width:var(--sidebar-w);background:var(--navy);min-height:100vh;position:fixed;top:0;left:0;display:flex;flex-direction:column;z-index:100;}
+.sidebar-logo{padding:16px 18px 14px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px;}
+.sidebar-logo img{height:36px;filter:brightness(0) invert(1);}
+.sidebar-logo-text{font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:1.5px;text-transform:uppercase;line-height:1.3;}
+.sidebar-logo-text strong{display:block;font-size:13px;color:#fff;}
+.sidebar-nav{flex:1;overflow-y:auto;}
+.sb-dashboard a{display:flex;align-items:center;gap:10px;padding:10px 18px;font-size:13.5px;font-weight:600;color:rgba(255,255,255,0.8);text-decoration:none;border-left:3px solid transparent;}
+.sb-dashboard a:hover,.nav-item:hover{background:rgba(255,255,255,0.06);color:#fff;}
+.sb-dashboard a.active,.nav-item.active{background:rgba(204,34,0,0.2);color:#fff;border-left-color:#cc2200;}
+.sb-group{border-top:1px solid rgba(255,255,255,0.05);}
+.sb-group-header{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;cursor:pointer;user-select:none;}
+.sb-group-header:hover{background:rgba(255,255,255,0.04);}
+.sb-group-header .gh-left{display:flex;align-items:center;gap:8px;}
+.sb-group-header .gh-icon{font-size:15px;opacity:0.6;}
+.sb-group-header .gh-label{font-size:10.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.4);}
+.sb-group-header .gh-arrow{font-size:9px;color:rgba(255,255,255,0.25);transition:transform 0.2s;}
+.sb-group-header.is-open .gh-arrow{transform:rotate(90deg);}
+.sb-group-header.is-open .gh-label{color:rgba(255,255,255,0.65);}
+.sb-group-body{overflow:hidden;max-height:0;transition:max-height 0.3s ease;}
+.sb-group-body.is-open{max-height:1200px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 18px 8px 32px;font-size:13px;color:rgba(255,255,255,0.55);text-decoration:none;border-left:3px solid transparent;transition:all 0.15s;}
+.nav-item .icon{font-size:14px;width:16px;text-align:center;}
+.sidebar-bottom{padding:8px 0;border-top:1px solid rgba(255,255,255,0.08);}
+.sidebar-bottom a{display:flex;align-items:center;gap:10px;padding:9px 18px;font-size:13px;color:rgba(255,255,255,0.55);text-decoration:none;}
+.sidebar-bottom a:hover{background:rgba(255,255,255,0.06);color:#fff;}
+.topbar{position:fixed;top:0;left:var(--sidebar-w);right:0;height:var(--topbar-h);background:#fff;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;padding:0 24px;gap:16px;z-index:90;}
+.topbar-title{font-size:16px;font-weight:600;color:var(--navy);flex:1;}
+.user-chip{display:flex;align-items:center;gap:8px;cursor:pointer;}
+.user-avatar{width:30px;height:30px;background:var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;}
+.user-name{font-size:13px;font-weight:500;color:var(--navy);}
+.main{margin-left:var(--sidebar-w);padding-top:var(--topbar-h);flex:1;}
+.content{padding:24px;}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;}
+.page-header h1{font-size:20px;font-weight:700;color:var(--navy);}
+.page-header p{font-size:13px;color:#8a95a0;margin-top:2px;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:6px;font-size:13.5px;font-weight:600;cursor:pointer;border:none;transition:all 0.15s;}
+.btn-primary{background:var(--red);color:#fff;}.btn-primary:hover{background:var(--red-dark);}
+.btn-secondary{background:#fff;color:var(--navy);border:1px solid #dde3ea;}.btn-secondary:hover{background:#f4f6f9;}
+.btn-danger{background:#fee2e2;color:#991b1b;}.btn-success{background:#dcfce7;color:#166534;}
+.btn-sm{padding:5px 10px;font-size:12px;}.btn-xs{padding:3px 8px;font-size:11px;}
+.table-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;}
+table{width:100%;border-collapse:collapse;}
+thead{background:#f8fafc;}
+th{padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:#5a6878;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid #e2e8f0;}
+td{padding:10px 14px;font-size:13px;color:#1a2635;border-bottom:1px solid #f0f4f8;vertical-align:middle;}
+tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
+.pill{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;}
+.pill-active{background:#dcfce7;color:#166534;}.pill-inactive{background:#f1f5f9;color:#94a3b8;}
+.loading{text-align:center;padding:40px;color:#8a95a0;}
+.empty-state{text-align:center;padding:60px 20px;color:#8a95a0;}
+.empty-state .big{font-size:40px;margin-bottom:12px;}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:#fff;border-radius:12px;width:100%;max-width:520px;box-shadow:0 24px 60px rgba(0,0,0,0.18);max-height:92vh;overflow-y:auto;}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;justify-content:space-between;}
+.modal-header h3{font-size:17px;font-weight:700;color:var(--navy);}
+.modal-close{font-size:22px;cursor:pointer;color:#8a95a0;background:none;border:none;padding:2px 6px;border-radius:4px;}
+.modal-body{padding:20px 24px;}
+.modal-footer{padding:16px 24px;border-top:1px solid #f0f4f8;display:flex;align-items:center;justify-content:flex-end;gap:10px;}
+.form-field{margin-bottom:14px;}
+.form-field label{display:block;font-size:13px;font-weight:600;color:#4a5568;margin-bottom:5px;}
+.form-field input,.form-field select,.form-field textarea{width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:9px 12px;font-size:13.5px;color:#1a2635;background:#f9fafb;outline:none;font-family:inherit;}
+.form-field input:focus,.form-field select:focus{border-color:var(--red);background:#fff;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.req{color:var(--red);}
+.toast{position:fixed;bottom:24px;right:24px;background:#1a2635;color:#fff;padding:12px 18px;border-radius:8px;font-size:13.5px;z-index:999;opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.success{background:#166534;}.toast.error{background:#991b1b;}
+.confirm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:400;align-items:center;justify-content:center;}
+.confirm-overlay.open{display:flex;}
+.confirm-box{background:#fff;border-radius:10px;padding:28px;max-width:380px;width:90%;text-align:center;}
+.confirm-box h4{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:8px;}
+.confirm-box p{font-size:13.5px;color:#5a6878;margin-bottom:20px;}
+.confirm-box .actions{display:flex;gap:10px;justify-content:center;}
+/* Live search */
+.ls-wrap{position:relative;}
+.ls-dd{display:none;position:absolute;left:0;right:0;top:100%;z-index:9999;background:#fff;border:1px solid #dde3ea;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.12);max-height:180px;overflow-y:auto;}
+.ls-dd.open{display:block;}
+.ls-opt{padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f4f8;display:flex;gap:8px;align-items:center;}
+.ls-opt:last-child{border-bottom:none;}
+.ls-opt:hover{background:#f4f6f9;}
+.ls-code{font-family:monospace;font-size:11px;background:#f0f4f8;padding:1px 5px;border-radius:3px;}
+.ls-add-btn{padding:8px 12px;cursor:pointer;font-size:12.5px;color:var(--red);font-weight:600;border-top:1px solid #f0f4f8;display:flex;align-items:center;gap:6px;}
+.ls-add-btn:hover{background:#fef2f2;}
+.info-chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#166534;background:#dcfce7;padding:3px 8px;border-radius:4px;margin-top:4px;}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.6</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-nav">
+<div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
+<div class="sb-group" data-gid="manufacturing"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#127981;</span><span class="gh-label">Manufacturing</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body">
+<a class="nav-item" href="bom.html"><span class="icon">&#128295;</span> BOM Master</a>
+<a class="nav-item" href="routing.html"><span class="icon">&#128260;</span> Routing Master</a>
+<a class="nav-item active" href="mix_families.html"><span class="icon">&#9879;</span> Mix Families</a>
+<a class="nav-item" href="dies.html"><span class="icon">&#128299;</span> Dies</a>
+<a class="nav-item" href="machines.html"><span class="icon">&#9881;&#65039;</span> Machine Master</a>
+<a class="nav-item" href="work_orders.html"><span class="icon">&#127981;</span> Work Orders</a>
+<a class="nav-item" href="production_plan.html"><span class="icon">&#128203;</span> Production Plan</a>
+<a class="nav-item" href="mrp.html"><span class="icon">&#128200;</span> MRP</a>
+</div></div>
+<div class="sb-group" data-gid="masters"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128230;</span><span class="gh-label">Masters</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a><a class="nav-item" href="warehouse.html"><span class="icon">&#127978;</span> Warehouse</a></div></div>
+<div class="sb-group" data-gid="purchase"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128715;</span><span class="gh-label">Purchase</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="purchase_order.html"><span class="icon">&#128715;</span> Purchase Order</a><a class="nav-item" href="supplier.html"><span class="icon">&#128666;</span> Supplier Master</a><a class="nav-item" href="grn.html"><span class="icon">&#128229;</span> GRN</a></div></div>
+<div class="sb-group" data-gid="inventory"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128202;</span><span class="gh-label">Inventory</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="stock_ledger.html"><span class="icon">&#128202;</span> Stock Ledger</a><a class="nav-item" href="reports.html"><span class="icon">&#128203;</span> Stock Report</a></div></div>
+<div class="sb-group" data-gid="sales"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128188;</span><span class="gh-label">Sales</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="sales_order.html"><span class="icon">&#128188;</span> Sales Order</a><a class="nav-item" href="customer.html"><span class="icon">&#128101;</span> Customer Master</a></div></div>
+</div>
+<div class="sidebar-bottom"><a href="settings.html"><span>&#9881;&#65039;</span> Settings</a><a href="#" onclick="handleLogout()"><span>&#128682;</span> Logout</a></div>
+</aside>
+
+<div class="topbar">
+  <button type="button" class="mob-toggle" id="mob-toggle">&#9776;</button>
+  <div class="topbar-title">Mix Families</div>
+  <div class="topbar-search"><span class="search-icon">&#128269;</span><input type="text" id="central-search" placeholder="Search pages..." autocomplete="off"/><div class="search-dropdown" id="central-dd"></div></div>
+  <div class="user-chip"><div class="user-avatar" id="user-avatar">A</div><div class="user-name" id="user-name">Admin</div></div>
+</div>
+
+<div class="main"><div class="content">
+  <div class="page-header">
+    <div>
+      <h1>&#9879; Mix Families</h1>
+      <p>Premix formulas — each family defines the output Premix item and standard batch size</p>
+    </div>
+    <button type="button" class="btn btn-primary" onclick="openModal()">+ New Mix Family</button>
+  </div>
+
+  <div id="mf-wrap"><div class="loading">Loading...</div></div>
+</div></div>
+
+<!-- CREATE / EDIT MODAL -->
+<div class="modal-overlay" id="main-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-title">New Mix Family</h3>
+      <button type="button" class="modal-close" onclick="closeModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-field">
+          <label>Code <span class="req">*</span></label>
+          <input type="text" id="f-code" placeholder="e.g. VO-MIX" style="text-transform:uppercase;"/>
+        </div>
+        <div class="form-field">
+          <label>Batch Size (KG) <span class="req">*</span></label>
+          <input type="number" id="f-batch-kg" placeholder="e.g. 50" min="0.1" step="0.1"/>
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Name <span class="req">*</span></label>
+        <input type="text" id="f-name" placeholder="e.g. VO Standard Formula"/>
+      </div>
+      <!-- Mix Item — live search SFG/RM only + Add New -->
+      <div class="form-field">
+        <label>Premix Output Item <span class="req">*</span> <span style="font-size:11px;color:#8a95a0;">(SFG — the Premix item this formula produces)</span></label>
+        <div style="display:flex;gap:6px;align-items:flex-start;">
+          <div class="ls-wrap" style="flex:1;">
+            <input type="text" id="f-mix-item-search" autocomplete="off" placeholder="Type item code or name..."
+              oninput="mixItemSearch(this.value)" onfocus="mixItemSearch(this.value)"
+              style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:9px 12px;font-size:13.5px;color:#1a2635;background:#f9fafb;outline:none;"/>
+            <div class="ls-dd" id="f-mix-item-dd"></div>
+            <input type="hidden" id="f-mix-item-id"/>
+            <div id="f-mix-item-info" style="font-size:11px;color:#166534;margin-top:3px;"></div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="addNewMixItem()" style="white-space:nowrap;margin-top:1px;">+ New Item</button>
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Description</label>
+        <textarea id="f-desc" rows="2" placeholder="Optional notes about this formula..."></textarea>
+      </div>
+      <div class="form-field" style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="f-active" checked style="width:16px;height:16px;"/>
+        <label for="f-active" style="margin-bottom:0;">Active</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="saveMF()">Save Mix Family</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <div style="font-size:36px;margin-bottom:12px;">&#128465;</div>
+    <h4>Delete Mix Family?</h4>
+    <p id="confirm-msg">Yeh action undo nahi ho sakta.</p>
+    <div class="actions">
+      <button type="button" class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
+      <button type="button" class="btn btn-danger" onclick="doDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="mob-overlay" id="mob-overlay"></div>
+
+<script>
+const SUPABASE_URL='https://sdopdeqepjoshbzrpbmi.supabase.co';
+const SUPABASE_KEY='sb_publishable_eWBMrAFa7Yyvtlb-7-8IGA_KxfE7v_8';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+// Schema contract v3.0.5:
+// mix_families: id, code, name, description, mix_item_id(FK→items.id), batch_size_kg, is_active, created_at
+// items used for mix_item_id: type in SFG only (Premix items)
+
+let allMFs=[], allSFGItems=[], editingId=null, deletingId=null;
+
+document.addEventListener('DOMContentLoaded',()=>CFC_AUTH.init(init));
+async function handleLogout(){await sb.auth.signOut();window.location.href='index.html';}
+
+async function init(){
+  await Promise.all([loadItems(), loadMFs()]);
+}
+
+// Load SFG items for mix_item live search
+async function loadItems(){
+  const {data}=await sb.from('items').select('id,code,name,type,uom')
+    .in('type',['SFG','FG']).eq('is_active',true).order('code');
+  allSFGItems=data||[];
+}
+
+async function loadMFs(){
+  var wrap=document.getElementById('mf-wrap');
+  wrap.innerHTML='<div class="loading">Loading...</div>';
+  var {data,error}=await sb.from('mix_families')
+    .select('id,code,name,description,mix_item_id,batch_size_kg,is_active,created_at')
+    .order('code');
+  if(error){wrap.innerHTML=`<div class="loading" style="color:#dc2626;">Error: ${error.message}</div>`;return;}
+  allMFs=data||[];
+
+  // Fetch mix items for display — separate query (mix_item_id FK confirmed)
+  var itemIds=[...new Set(allMFs.map(m=>m.mix_item_id).filter(Boolean))];
+  var imap={};
+  if(itemIds.length){
+    var {data:items}=await sb.from('items').select('id,code,name').in('id',itemIds);
+    (items||[]).forEach(it=>{imap[it.id]=it;});
+  }
+
+  if(!allMFs.length){
+    wrap.innerHTML='<div class="empty-state"><div class="big">&#9879;</div><p>Koi Mix Family nahi. + New Mix Family create karo.</p></div>';
+    return;
+  }
+  wrap.innerHTML=`<div class="table-wrap"><table>
+    <thead><tr><th>Code</th><th>Name</th><th>Premix Output Item</th><th>Batch Size</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${allMFs.map(m=>{
+      var item=m.mix_item_id?imap[m.mix_item_id]:null;
+      return`<tr>
+        <td><strong style="font-family:monospace;">${m.code}</strong></td>
+        <td>${m.name}</td>
+        <td>${item?`<span style="font-family:monospace;font-size:12px;background:#f0f4f8;padding:2px 6px;border-radius:4px;">${item.code}</span> ${item.name}`:'<span style="color:#f59e0b;">⚠ Not set</span>'}</td>
+        <td>${m.batch_size_kg?m.batch_size_kg+' KG':'—'}</td>
+        <td><span class="pill ${m.is_active?'pill-active':'pill-inactive'}">${m.is_active?'Active':'Inactive'}</span></td>
+        <td style="white-space:nowrap;">
+          <button type="button" class="btn btn-secondary btn-xs" onclick="editMF(${m.id})">&#9998; Edit</button>
+          <button type="button" class="btn btn-danger btn-xs" onclick="toggleActive(${m.id},${m.is_active})">${m.is_active?'Deactivate':'Activate'}</button>
+          <button type="button" class="btn btn-danger btn-xs" onclick="confirmDelete(${m.id},'${(m.code||'').replace(/'/g,"\\'")}')">&#128465;</button>
+        </td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+
+// ── MIX ITEM LIVE SEARCH ──
+var _miDebounce=null;
+function mixItemSearch(q){
+  clearTimeout(_miDebounce);
+  _miDebounce=setTimeout(()=>_doMixItemSearch(q),150);
+}
+function _doMixItemSearch(q){
+  var dd=document.getElementById('f-mix-item-dd');
+  var inp=document.getElementById('f-mix-item-search');
+  var r=inp.getBoundingClientRect();
+  dd.style.cssText=`display:block;position:fixed;top:${r.bottom+2}px;left:${r.left}px;width:${r.width}px;z-index:9999;background:#fff;border:1px solid #dde3ea;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.12);max-height:180px;overflow-y:auto;`;
+  if(!q||q.length<1){dd.style.display='none';return;}
+  var ql=q.toLowerCase();
+  var res=allSFGItems.filter(it=>(it.code||'').toLowerCase().includes(ql)||(it.name||'').toLowerCase().includes(ql)).slice(0,8);
+  if(!res.length){
+    dd.innerHTML=`<div style="padding:8px 12px;font-size:12.5px;color:#8a95a0;">Not found</div>
+      <div class="ls-add-btn" onclick="addNewMixItem()">+ Add New SFG Item</div>`;
+    return;
+  }
+  dd.innerHTML=res.map(it=>`<div class="ls-opt" onclick="selectMixItem(${it.id},'${(it.code||'').replace(/'/g,"\\'")}','${(it.name||'').replace(/'/g,"\\'")}')">
+    <span class="ls-code">${it.code}</span><span>${it.name}</span>
+    <span style="margin-left:auto;font-size:10px;color:#8a95a0;">${it.type}</span>
+  </div>`).join('')+`<div class="ls-add-btn" onclick="addNewMixItem()">+ Add New SFG Item</div>`;
+}
+function selectMixItem(id,code,name){
+  document.getElementById('f-mix-item-id').value=id;
+  document.getElementById('f-mix-item-search').value=code+' — '+name;
+  document.getElementById('f-mix-item-info').textContent='✓ '+name;
+  document.getElementById('f-mix-item-dd').style.display='none';
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#f-mix-item-dd')&&e.target!==document.getElementById('f-mix-item-search'))
+    document.getElementById('f-mix-item-dd').style.display='none';
+});
+
+// Add New Item popup (Quick Create)
+function addNewMixItem(){
+  document.getElementById('f-mix-item-dd').style.display='none';
+  cfcQuickCreate({
+    title:'Add New SFG Item (Premix)',
+    fields:[
+      {id:'code',label:'Item Code',type:'text',required:true,placeholder:'e.g. PMX-VO101'},
+      {id:'name',label:'Item Name',type:'text',required:true,placeholder:'e.g. Premix VO101'},
+      {id:'type',label:'Type',type:'select',required:true,options:[{value:'SFG',label:'SFG (Semi-Finished)'}]},
+      {id:'uom',label:'UOM',type:'text',required:true,placeholder:'KG'},
+    ],
+    onSave:async(vals)=>{
+      return await sb.from('items').insert([{
+        code:(vals.code||'').toUpperCase(),name:vals.name,
+        type:vals.type||'SFG',uom:vals.uom||'KG',is_active:true
+      }]).select('id,code,name,type,uom').single();
+    },
+    onSuccess:(newItem)=>{
+      allSFGItems.push(newItem);
+      selectMixItem(newItem.id,newItem.code,newItem.name);
+    }
+  });
+}
+
+// ── OPEN / CLOSE MODAL ──
+function openModal(){
+  editingId=null;
+  document.getElementById('modal-title').textContent='New Mix Family';
+  document.getElementById('f-code').value='';
+  document.getElementById('f-name').value='';
+  document.getElementById('f-batch-kg').value='';
+  document.getElementById('f-mix-item-id').value='';
+  document.getElementById('f-mix-item-search').value='';
+  document.getElementById('f-mix-item-info').textContent='';
+  document.getElementById('f-desc').value='';
+  document.getElementById('f-active').checked=true;
+  document.getElementById('main-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('f-code').focus(),100);
+}
+function closeModal(){document.getElementById('main-modal').classList.remove('open');editingId=null;}
+document.getElementById('main-modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+function editMF(id){
+  var m=allMFs.find(x=>x.id===id);if(!m)return;
+  editingId=id;
+  document.getElementById('modal-title').textContent='Edit — '+m.code;
+  document.getElementById('f-code').value=m.code||'';
+  document.getElementById('f-name').value=m.name||'';
+  document.getElementById('f-batch-kg').value=m.batch_size_kg||'';
+  document.getElementById('f-desc').value=m.description||'';
+  document.getElementById('f-active').checked=!!m.is_active;
+  // Restore mix item
+  document.getElementById('f-mix-item-id').value=m.mix_item_id||'';
+  if(m.mix_item_id){
+    var it=allSFGItems.find(x=>x.id===m.mix_item_id);
+    if(it){
+      document.getElementById('f-mix-item-search').value=it.code+' — '+it.name;
+      document.getElementById('f-mix-item-info').textContent='✓ '+it.name;
+    }
+  } else {
+    document.getElementById('f-mix-item-search').value='';
+    document.getElementById('f-mix-item-info').textContent='';
+  }
+  document.getElementById('main-modal').classList.add('open');
+}
+
+async function saveMF(){
+  var code=(document.getElementById('f-code').value||'').trim().toUpperCase();
+  var name=document.getElementById('f-name').value.trim();
+  var batchKg=parseFloat(document.getElementById('f-batch-kg').value)||0;
+  var mixItemId=document.getElementById('f-mix-item-id').value;
+  if(!code){showToast('Code is required.','error');return;}
+  if(!name){showToast('Name is required.','error');return;}
+  if(!batchKg||batchKg<=0){showToast('Batch size (KG) is required.','error');return;}
+  if(!mixItemId){showToast('Premix output item is required.','error');return;}
+
+  var payload={
+    code,name,
+    batch_size_kg:batchKg,
+    mix_item_id:parseInt(mixItemId),   // FK → items.id ✅
+    description:document.getElementById('f-desc').value.trim()||null,
+    is_active:document.getElementById('f-active').checked
+  };
+  var error;
+  if(editingId){({error}=await sb.from('mix_families').update(payload).eq('id',editingId));}
+  else{({error}=await sb.from('mix_families').insert([payload]));}
+  if(error){showToast('Error: '+error.message,'error');return;}
+  showToast(editingId?'Updated!':'Mix Family created!','success');
+  closeModal();await loadItems();await loadMFs();
+}
+
+async function toggleActive(id,current){
+  var {error}=await sb.from('mix_families').update({is_active:!current}).eq('id',id);
+  if(error){showToast('Error: '+error.message,'error');return;}
+  showToast(current?'Deactivated.':'Activated.','success');loadMFs();
+}
+
+function confirmDelete(id,code){
+  deletingId=id;
+  document.getElementById('confirm-msg').textContent='"'+code+'" delete ho jayega.';
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+function closeConfirm(){document.getElementById('confirm-overlay').classList.remove('open');deletingId=null;}
+async function doDelete(){
+  if(!deletingId)return;
+  var {error}=await sb.from('mix_families').delete().eq('id',deletingId);
+  closeConfirm();
+  if(error){showToast('Error: '+error.message,'error');return;}
+  showToast('Deleted!','success');loadMFs();
+}
+document.getElementById('confirm-overlay').addEventListener('click',function(e){if(e.target===this)closeConfirm();});
+
+function showToast(msg,type){var t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+(type||'');setTimeout(()=>t.className='toast',4000);}
+</script>
+<script src="shared.js"></script>
+<script src="ui.js"></script>
+<script>(function(){
+  var STORE='cfc_sb_open';
+  function getOpen(){try{return localStorage.getItem(STORE)||'';}catch(e){return '';}}
+  function saveOpen(gid){try{localStorage.setItem(STORE,gid);}catch(e){}}
+  function openGroup(gid,h,b){h.classList.add('is-open');b.classList.add('is-open');saveOpen(gid);}
+  function closeGroup(h,b){h.classList.remove('is-open');b.classList.remove('is-open');}
+  function initAccordion(){
+    var cur=location.pathname.split('/').pop()||'dashboard.html',savedOpen=getOpen(),autoOpenGid=null;
+    document.querySelectorAll('.sb-group').forEach(function(g){g.querySelectorAll('.nav-item').forEach(function(a){if(a.getAttribute('href')===cur){a.classList.add('active');autoOpenGid=g.getAttribute('data-gid');}});});
+    document.querySelectorAll('.sb-group').forEach(function(g){
+      var gid=g.getAttribute('data-gid'),h=g.querySelector('.sb-group-header'),b=g.querySelector('.sb-group-body');
+      if(gid===autoOpenGid||(gid===savedOpen&&!autoOpenGid))openGroup(gid,h,b);
+      if(h.dataset.accBound)return;h.dataset.accBound='1';
+      h.addEventListener('click',function(){var isOpen=b.classList.contains('is-open');document.querySelectorAll('.sb-group').forEach(function(og){closeGroup(og.querySelector('.sb-group-header'),og.querySelector('.sb-group-body'));});if(!isOpen){openGroup(gid,h,b);}else saveOpen('');});
+    });
+  }
+  function initMobileToggle(){var btn=document.getElementById('mob-toggle'),overlay=document.getElementById('mob-overlay'),sidebar=document.querySelector('.sidebar');if(!btn||!sidebar)return;btn.addEventListener('click',function(){sidebar.classList.toggle('mob-open');if(overlay)overlay.classList.toggle('active');});if(overlay)overlay.addEventListener('click',function(){sidebar.classList.remove('mob-open');overlay.classList.remove('active');});}
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){initAccordion();initMobileToggle();});}else{initAccordion();initMobileToggle();}
+})();
+var allPages=[["dashboard.html","Dashboard"],["item_master.html","Item Master"],["warehouse.html","Warehouse"],["bom.html","BOM Master"],["routing.html","Routing Master"],["mix_families.html","Mix Families"],["dies.html","Dies"],["machines.html","Machine Master"],["work_orders.html","Work Orders"],["production_plan.html","Production Plan"],["mrp.html","MRP"],["grn.html","GRN"],["stock_ledger.html","Stock Ledger"],["sales_order.html","Sales Order"],["customer.html","Customer Master"],["reports.html","Reports"]];
+var csInp=document.getElementById('central-search'),csDd=document.getElementById('central-dd');
+if(csInp&&csDd){csInp.addEventListener('input',function(){var q=this.value.toLowerCase().trim();if(!q){csDd.classList.remove('open');return;}var res=allPages.filter(function(p){return p[1].toLowerCase().includes(q);});csDd.innerHTML=!res.length?'<div class="search-empty">Koi page nahi mila</div>':res.map(function(p){return'<a class="search-item" href="'+p[0]+'"><span class="si-icon">&#128196;</span><span class="si-name">'+p[1]+'</span></a>';}).join('');csDd.classList.add('open');});document.addEventListener('click',function(e){if(!e.target.closest('.topbar-search'))csDd.classList.remove('open');});}
+</script>
+</body>
+</html>

@@ -22,7 +22,7 @@ window.CFC_CONFIG = {
   SUPABASE_KEY: 'sb_publishable_eWBMrAFa7Yyvtlb-7-8IGA_KxfE7v_8',
   APP_NAME:     'CFC ERP v2',
   COMPANY:      'CERADRIVE BRAKES',
-  VERSION:      '3.0.3',
+  VERSION:      '3.0.6',
   QUERY_LIMIT:  500,
   DEBOUNCE_MS:  300,
 };
@@ -1824,3 +1824,172 @@ document.addEventListener('DOMContentLoaded', function() {
   // Delay slightly so body is ready
   setTimeout(function() { CFC_QC._inject && CFC_QC._inject(); }, 0);
 });
+
+// ══════════════════════════════════════════════════════════════════
+// CFC QUICK CREATE — v3.0.5
+// Shared popup utility for adding new master records without leaving
+// the current form. Used across all master-linking fields.
+//
+// Usage:
+//   cfcQuickCreate({
+//     title: 'Add New Item',
+//     fields: [{id,label,type,required,options?,placeholder?}],
+//     onSave: async (vals) => { /* return {data,error} */ },
+//     onSuccess: (newRecord) => { /* auto-select in parent */ }
+//   });
+// ══════════════════════════════════════════════════════════════════
+
+(function(){
+  var _overlay=null;
+
+  function _inject(){
+    if(document.getElementById('cfc-qc-overlay'))return;
+    var div=document.createElement('div');
+    div.id='cfc-qc-overlay';
+    div.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;';
+    div.innerHTML=`<div id="cfc-qc-box" style="background:#fff;border-radius:12px;width:100%;max-width:480px;box-shadow:0 24px 60px rgba(0,0,0,0.2);max-height:90vh;overflow-y:auto;margin:16px;">
+      <div style="padding:18px 20px 14px;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;justify-content:space-between;">
+        <h3 id="cfc-qc-title" style="font-size:16px;font-weight:700;color:#1c2d42;margin:0;"></h3>
+        <button type="button" onclick="cfcQCClose()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#8a95a0;padding:0 4px;">&times;</button>
+      </div>
+      <div id="cfc-qc-body" style="padding:18px 20px;"></div>
+      <div style="padding:14px 20px;border-top:1px solid #f0f4f8;display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" onclick="cfcQCClose()" style="padding:8px 16px;border-radius:6px;border:1px solid #dde3ea;background:#fff;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>
+        <button type="button" id="cfc-qc-save" onclick="cfcQCSave()" style="padding:8px 16px;border-radius:6px;border:none;background:#cc2200;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save</button>
+      </div>
+    </div>`;
+    document.body.appendChild(div);
+    div.addEventListener('click',function(e){if(e.target===div)cfcQCClose();});
+    _overlay=div;
+  }
+
+  var _cfg=null;
+  var _lsItems={}; // live search item caches per field id
+
+  window.cfcQuickCreate=function(cfg){
+    if(!_overlay)_inject();
+    _cfg=cfg;
+    document.getElementById('cfc-qc-title').textContent=cfg.title||'Add New';
+    var body=document.getElementById('cfc-qc-body');
+    body.innerHTML=cfg.fields.map(f=>{
+      if(f.type==='livesearch'){
+        return`<div style="margin-bottom:12px;">
+          <label style="display:block;font-size:12px;font-weight:600;color:#4a5568;margin-bottom:4px;">${f.label}${f.required?' <span style="color:#cc2200">*</span>':''}</label>
+          <div style="position:relative;">
+            <input type="text" id="cfc-qc-${f.id}-search" autocomplete="off" placeholder="${f.placeholder||'Search...'}"
+              oninput="cfcQCSearch('${f.id}')"
+              style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:8px 11px;font-size:13px;box-sizing:border-box;"/>
+            <div id="cfc-qc-${f.id}-dd" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:9999;background:#fff;border:1px solid #dde3ea;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.12);max-height:160px;overflow-y:auto;"></div>
+            <input type="hidden" id="cfc-qc-${f.id}"/>
+          </div>
+        </div>`;
+      }
+      if(f.type==='select'){
+        return`<div style="margin-bottom:12px;">
+          <label style="display:block;font-size:12px;font-weight:600;color:#4a5568;margin-bottom:4px;">${f.label}${f.required?' <span style="color:#cc2200">*</span>':''}</label>
+          <select id="cfc-qc-${f.id}" style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:8px 11px;font-size:13px;background:#f9fafb;">
+            <option value="">-- Select --</option>
+            ${(f.options||[]).map(o=>`<option value="${o.value}">${o.label}</option>`).join('')}
+          </select>
+        </div>`;
+      }
+      if(f.type==='checkbox'){
+        return`<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="cfc-qc-${f.id}" ${f.default?' checked':''} style="width:16px;height:16px;"/>
+          <label for="cfc-qc-${f.id}" style="font-size:13px;color:#1a2635;">${f.label}</label>
+        </div>`;
+      }
+      return`<div style="margin-bottom:12px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#4a5568;margin-bottom:4px;">${f.label}${f.required?' <span style="color:#cc2200">*</span>':''}</label>
+        <input type="${f.type||'text'}" id="cfc-qc-${f.id}" placeholder="${f.placeholder||''}"
+          style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:8px 11px;font-size:13px;box-sizing:border-box;background:#f9fafb;"
+          ${f.min!==undefined?`min="${f.min}"`:''}/>
+      </div>`;
+    }).join('');
+
+    // Load live search data for any livesearch fields
+    cfg.fields.filter(f=>f.type==='livesearch').forEach(f=>{
+      if(f.fetchFn)f.fetchFn().then(items=>{_lsItems[f.id]=items||[];});
+    });
+
+    _overlay.style.display='flex';
+    // Focus first text input
+    setTimeout(()=>{
+      var first=body.querySelector('input[type="text"]');
+      if(first)first.focus();
+    },80);
+  };
+
+  window.cfcQCSearch=function(fid){
+    var field=(_cfg?.fields||[]).find(f=>f.id===fid);
+    if(!field)return;
+    var q=(document.getElementById('cfc-qc-'+fid+'-search')?.value||'').toLowerCase();
+    var dd=document.getElementById('cfc-qc-'+fid+'-dd');
+    var items=_lsItems[fid]||[];
+    var res=items.filter(it=>
+      (it.code||'').toLowerCase().includes(q)||
+      (it.name||'').toLowerCase().includes(q)||
+      (it.label||'').toLowerCase().includes(q)
+    ).slice(0,8);
+    if(!q||!res.length){dd.style.display='none';return;}
+    dd.innerHTML=res.map(it=>`<div onclick="cfcQCSelectLS('${fid}',${it.id},'${(it.label||it.code||it.name||'').replace(/'/g,"\\'")}','${(it.sublabel||it.name||'').replace(/'/g,"\\'")}')"\
+      style="padding:7px 12px;cursor:pointer;font-size:12.5px;border-bottom:1px solid #f0f4f8;display:flex;gap:8px;">
+      ${it.code?`<span style="font-family:monospace;font-size:11px;background:#f0f4f8;padding:1px 5px;border-radius:3px;">${it.code}</span>`:''}
+      <span>${it.name||it.label||''}</span>
+      ${it.sublabel?`<span style="margin-left:auto;font-size:10px;color:#8a95a0;">${it.sublabel}</span>`:''}
+    </div>`).join('');
+    dd.style.display='block';
+  };
+
+  window.cfcQCSelectLS=function(fid,id,label,sublabel){
+    var searchEl=document.getElementById('cfc-qc-'+fid+'-search');
+    var hiddenEl=document.getElementById('cfc-qc-'+fid);
+    var ddEl=document.getElementById('cfc-qc-'+fid+'-dd');
+    if(searchEl)searchEl.value=label+(sublabel&&sublabel!==label?' — '+sublabel:'');
+    if(hiddenEl)hiddenEl.value=id;
+    if(ddEl)ddEl.style.display='none';
+  };
+
+  window.cfcQCSave=async function(){
+    if(!_cfg)return;
+    var saveBtn=document.getElementById('cfc-qc-save');
+    saveBtn.disabled=true;saveBtn.textContent='Saving...';
+    var vals={};
+    for(var f of (_cfg.fields||[])){
+      if(f.type==='livesearch'){
+        vals[f.id]=document.getElementById('cfc-qc-'+f.id)?.value||null;
+        vals[f.id+'_label']=document.getElementById('cfc-qc-'+f.id+'-search')?.value||null;
+      } else if(f.type==='checkbox'){
+        vals[f.id]=document.getElementById('cfc-qc-'+f.id)?.checked??false;
+      } else {
+        vals[f.id]=document.getElementById('cfc-qc-'+f.id)?.value||null;
+      }
+      if(f.required&&!vals[f.id]){
+        showToast(f.label+' is required.','error');
+        saveBtn.disabled=false;saveBtn.textContent='Save';
+        return;
+      }
+    }
+    try{
+      var result=await _cfg.onSave(vals);
+      if(result&&result.error){
+        showToast('Error: '+result.error.message,'error');
+        saveBtn.disabled=false;saveBtn.textContent='Save';
+        return;
+      }
+      showToast('Saved!','success');
+      if(_cfg.onSuccess&&result&&result.data)_cfg.onSuccess(result.data);
+      cfcQCClose();
+    }catch(e){
+      showToast('Error: '+e.message,'error');
+      saveBtn.disabled=false;saveBtn.textContent='Save';
+    }
+  };
+
+  window.cfcQCClose=function(){
+    if(_overlay)_overlay.style.display='none';
+    _cfg=null;_lsItems={};
+  };
+
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(_inject,0);});
+})();

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Work Orders — CFC ERP v3.0.3</title>
+<title>Work Orders — CFC ERP v3.0.6</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -136,7 +136,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.3</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.6</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128230;</span><span class="gh-label">Masters</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a><a class="nav-item" href="warehouse.html"><span class="icon">&#127978;</span> Warehouse</a></div></div>
@@ -319,7 +319,7 @@ const SUPABASE_URL='https://sdopdeqepjoshbzrpbmi.supabase.co';
 const SUPABASE_KEY='sb_publishable_eWBMrAFa7Yyvtlb-7-8IGA_KxfE7v_8';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-// ── SCHEMA CONTRACT (v3.0.3) ──
+// ── SCHEMA CONTRACT (v3.0.6) ──
 // work_orders columns used: id, wo_no, production_order_id, process_name,
 //   planned_qty, completed_qty, uom, status, machine_id, die_id,
 //   routing_step_id, priority, planned_start, planned_end,
@@ -347,7 +347,8 @@ async function loadMasters(){
     sb.from('machines').select('id,code,name').eq('is_active',true).order('code'),
     sb.from('dies').select('id,die_code,die_name,cavity_count').eq('is_active',true).order('die_code'),
     // routing_steps: confirmed columns id,routing_level_id,sequence,process_name,is_active
-    sb.from('routing_steps').select('id,process_name,routing_levels(code)').eq('is_active',true).order('sequence'),
+    // routing_steps: step_type confirmed column (v3.0.6 ALTER + migration)
+    sb.from('routing_steps').select('id,process_name,routing_levels(code),step_type').eq('is_active',true).order('sequence'),
     sb.from('warehouses').select('id,code,name').eq('is_active',true).order('code'),
     // production_orders: confirmed columns id,order_no,item_id,planned_qty,uom,status
     sb.from('production_orders').select('id,order_no,item_id,planned_qty,uom,status').order('order_no'),
@@ -650,6 +651,61 @@ async function updateStatus(id,status){
 // rm_batches: NO is_active column — filter by available_qty > 0 only
 // ══════════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════════
+// WO COMPLETION — BLUEPRINT-ALIGNED (v3.0.4, engine unchanged in v3.0.5)
+// Schema contract:
+//   routing_steps.output_item_id → items.id  (FK CONFIRMED 2026-05-31)
+//   mix_batches.mix_family_id → mix_families.id  (FK CONFIRMED)
+//   mix_batches.mix_item_id → items.id  (FK CONFIRMED)
+//   mix_batch_rm_usage: all FKs CONFIRMED
+//   process_batches.item_id → items.id  (FK CONFIRMED)
+//   fg_batches: item_id,warehouse_id FKs CONFIRMED
+//   batch_trace: all 4 FKs CONFIRMED
+//   work_orders.item_id: DOES NOT EXIST
+//   work_orders.bom_id: DOES NOT EXIST
+//   rm_batches.is_active: DOES NOT EXIST
+//
+// STAGE DETECTION (auto, no manual selection):
+//   process_name === 'Mixing'           → mix_batches + mix_batch_rm_usage
+//   routing_step.sequence === max seq   → fg_batches + batch_trace
+//   otherwise                           → process_batches
+//
+// OUTPUT ITEM SOURCE:
+//   Mixing stage:    mix_families.mix_item_id  (from sku_planning.mix_family_id)
+//   Intermediate:    routing_steps.output_item_id  (FK confirmed)
+//   Final stage:     production_orders.item_id
+// ══════════════════════════════════════════════════════════════════
+
+// Batch number generator
+function genBatchNo(prefix){
+  var d=new Date();
+  var dt=d.getFullYear().toString().slice(2)+
+    String(d.getMonth()+1).padStart(2,'0')+
+    String(d.getDate()).padStart(2,'0');
+  var rnd=String(Math.floor(Math.random()*900)+100);
+  return prefix+'-'+dt+'-'+rnd;
+}
+
+// ── STAGE DETECTION — v3.0.6 (Rules 31, 32, 33 fix) ──
+// Uses routing_steps.step_type (confirmed column, text, nullable)
+// NEVER uses process_name string — process_name is a display field only.
+// User can rename 'Mixing' → 'Blending' without breaking any workflow.
+// step_type values: 'mixing' | 'intermediate' | 'final' | null (= intermediate)
+function detectStageType(wo, allStepsForLevel){
+  if(!wo.routing_step_id) return 'unknown';
+  var thisStep=allStepsForLevel.find(s=>s.id===wo.routing_step_id);
+  if(!thisStep) return 'unknown';
+  // Primary: use step_type from DB — set in Routing Master, independent of name
+  if(thisStep.step_type==='mixing') return 'mixing';
+  if(thisStep.step_type==='final') return 'final';
+  if(thisStep.step_type==='intermediate') return 'intermediate';
+  // Fallback: null step_type — use sequence position (safe default)
+  // This handles steps created before v3.0.6 migration
+  var maxSeq=Math.max(...allStepsForLevel.map(s=>s.sequence||0));
+  if((thisStep.sequence||0)===maxSeq) return 'final';
+  return 'intermediate';
+}
+
 async function openCompleteModal(woId){
   var w=allWOs.find(x=>x.id===woId);
   if(!w){showToast('WO nahi mila.','error');return;}
@@ -657,76 +713,132 @@ async function openCompleteModal(woId){
   var body=document.getElementById('cmp-body');
   var saveBtn=document.getElementById('cmp-save-btn');
   document.getElementById('cmp-title').textContent='Complete — '+(w.wo_no||'WO');
-  saveBtn.disabled=false;saveBtn.innerHTML='&#10003; Complete &amp; Update Stock';
+  saveBtn.disabled=false;saveBtn.style.display='';
+  saveBtn.innerHTML='&#10003; Complete &amp; Update Stock';
+
+  function block(msg){
+    body.innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; ${msg}</div></div>`;
+    saveBtn.style.display='none';
+    document.getElementById('complete-modal').classList.add('open');
+  }
 
   // BLOCK: no production_order_id
   if(!w.production_order_id){
-    body.innerHTML=`<div class="block-box">
-      <div class="block-box-title">&#10060; Production Order Not Linked</div>
-      <p style="font-size:13px;color:#5a6878;">Production Order not linked. WO edit karein aur Production Order select karein.</p>
-    </div>`;
-    saveBtn.style.display='none';
-    document.getElementById('complete-modal').classList.add('open');
-    return;
+    return block('Production Order not linked. WO edit karein aur Production Order select karein.');
   }
-  saveBtn.style.display='';
-  body.innerHTML='<div class="loading">BOM aur stock check ho raha hai...</div>';
+  // BLOCK: no routing_step_id — needed for stage detection
+  if(!w.routing_step_id){
+    return block('Routing step not linked to this WO. WO edit karein aur routing step assign karein.');
+  }
+
+  body.innerHTML='<div class="loading">Stage detect ho raha hai...</div>';
   document.getElementById('complete-modal').classList.add('open');
 
-  // Step 1: Fetch production_order — confirmed columns: id,order_no,item_id,planned_qty,completed_qty,uom,status
+  // ── Fetch production_order (confirmed columns)
   var {data:po,error:poErr}=await sb.from('production_orders')
     .select('id,order_no,item_id,planned_qty,completed_qty,uom,status')
     .eq('id',w.production_order_id).maybeSingle();
-  if(poErr||!po){
-    body.innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; Production Order fetch failed</div><p style="font-size:13px;color:#5a6878;">${poErr?.message||'Record nahi mila.'}</p></div>`;
-    saveBtn.disabled=true;return;
-  }
-  if(!po.item_id){
-    body.innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; Item Not Set on Production Order</div><p style="font-size:13px;color:#5a6878;">Production Order ${po.order_no} mein item set nahi hai. Production Order update karein.</p></div>`;
-    saveBtn.disabled=true;return;
-  }
+  if(poErr||!po) return block('Production Order fetch failed: '+(poErr?.message||'not found'));
+  if(!po.item_id) return block('Production Order '+po.order_no+' mein item set nahi hai.');
 
-  // Step 2: Fetch item — confirmed columns: id,code,name,type,uom
+  // ── Fetch FG item (confirmed columns: id,code,name,type,uom)
   var {data:fgItem}=await sb.from('items').select('id,code,name,type,uom').eq('id',po.item_id).maybeSingle();
-  if(!fgItem){
-    body.innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; FG Item Not Found</div></div>`;
-    saveBtn.disabled=true;return;
-  }
+  if(!fgItem) return block('FG Item not found in items table.');
 
-  // Step 3: Fetch default active BOM — confirmed bom_headers columns
+  // ── Fetch all routing steps for this WO's routing level (to detect stage)
+  // Get routing_level_id via bom_headers (confirmed: bom_headers.routing_level_id)
   var {data:bh}=await sb.from('bom_headers')
-    .select('id,item_id,output_qty,output_uom,version,status,is_default')
+    .select('id,item_id,output_qty,output_uom,version,routing_level_id,status,is_default')
     .eq('item_id',po.item_id).eq('is_default',true).eq('status','Active')
     .maybeSingle();
-  if(!bh){
-    body.innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; BOM Nahi Mila</div><p style="font-size:13px;color:#5a6878;">${fgItem.code} ke liye koi active default BOM nahi. BOM Master mein banao.</p></div>`;
-    saveBtn.disabled=true;return;
-  }
-  if(!bh.output_qty||bh.output_qty<=0){
-    body.innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; BOM output_qty invalid</div></div>`;
-    saveBtn.disabled=true;return;
-  }
+  if(!bh) return block(fgItem.code+' ke liye koi active default BOM nahi. BOM Master mein banao.');
+  if(!bh.output_qty||bh.output_qty<=0) return block('BOM output_qty invalid (0).');
+  if(!bh.routing_level_id) return block('BOM mein routing level set nahi hai. BOM Master update karein.');
 
-  // Step 4: Fetch BOM lines — confirmed bom_lines columns + verified bom_lines→items join
+  // Fetch all steps — step_type confirmed column (v3.0.6) — used for stage detection
+  // process_name is display only — never used in logic (Rules 31/32/33)
+  var {data:allSteps}=await sb.from('routing_steps')
+    .select('id,sequence,process_name,output_item_id,is_active,step_type')
+    .eq('routing_level_id',bh.routing_level_id)
+    .eq('is_active',true)
+    .order('sequence',{ascending:true});
+  allSteps=allSteps||[];
+  if(!allSteps.length) return block('Is routing level mein koi active step nahi hai.');
+
+  // ── Detect stage type
+  var stageType=detectStageType(w,allSteps);
+  if(stageType==='unknown') return block('Routing step is WO se match nahi karta. Routing Master check karein.');
+
+  // ── Fetch BOM lines for RM calculation (used by Mixing stage)
   var {data:lines}=await sb.from('bom_lines')
     .select('id,item_id,qty,uom,scrap_percent,is_optional,items(code,name,type)')
     .eq('bom_id',bh.id).order('line_no');
   var bomLines=(lines||[]).filter(l=>!l.is_optional);
+
+  // ── Stage-specific setup
+  var stageLabel='';
+  var stageColor='';
+  var outputItemInfo='';
+  var extraBlock=null;
+
+  if(stageType==='mixing'){
+    stageLabel='🔴 MIXING STAGE';stageColor='#991b1b';
+    // Fetch sku_planning for mix_family_id (confirmed: sku_planning.item_id FK, mix_family_id no-FK)
+    var {data:sku}=await sb.from('sku_planning')
+      .select('mix_family_id,preform_weight_g,cavity_count,pcs_per_set')
+      .eq('item_id',po.item_id).maybeSingle();
+    if(!sku||!sku.mix_family_id){
+      return block('SKU Planning mein '+fgItem.code+' ke liye mix_family set nahi hai. SKU Planning update karein.');
+    }
+    // Fetch mix_families (confirmed FK: mix_families.mix_item_id → items)
+    var {data:mf}=await sb.from('mix_families')
+      .select('id,code,name,mix_item_id,batch_size_kg')
+      .eq('id',sku.mix_family_id).maybeSingle();
+    if(!mf) return block('Mix Family nahi mila (id='+sku.mix_family_id+'). Mix Families Master check karein.');
+    if(!mf.mix_item_id) return block('Mix Family '+mf.name+' mein Premix item set nahi hai.');
+    var {data:premixItem}=await sb.from('items').select('id,code,name,uom').eq('id',mf.mix_item_id).maybeSingle();
+    if(!premixItem) return block('Premix item not found in items table.');
+    completingWO._sku=sku;completingWO._mf=mf;completingWO._premixItem=premixItem;
+    outputItemInfo=`Output: <strong>${premixItem.code}</strong> ${premixItem.name} | Formula: ${mf.name} | Batch size: ${mf.batch_size_kg||'?'} KG`;
+  } else if(stageType==='intermediate'){
+    stageLabel='🟡 INTERMEDIATE STAGE';stageColor='#92400e';
+    var thisStep=allSteps.find(s=>s.id===w.routing_step_id);
+    if(!thisStep.output_item_id){
+      return block('Routing step "'+thisStep.process_name+'" mein output_item_id set nahi hai. Routing Master update karein.');
+    }
+    var {data:outItem}=await sb.from('items').select('id,code,name,uom').eq('id',thisStep.output_item_id).maybeSingle();
+    if(!outItem) return block('Output item for step "'+thisStep.process_name+'" not found.');
+    completingWO._outputItem=outItem;completingWO._thisStep=thisStep;
+    outputItemInfo=`Output: <strong>${outItem.code}</strong> ${outItem.name}`;
+  } else {
+    stageLabel='🟢 FINAL STAGE';stageColor='#166534';
+    outputItemInfo=`Output: <strong>${fgItem.code}</strong> ${fgItem.name} (FG)`;
+    // Fetch sku_planning for pcs_per_set
+    var {data:skuF}=await sb.from('sku_planning')
+      .select('pcs_per_set').eq('item_id',po.item_id).maybeSingle();
+    completingWO._skuF=skuF;
+  }
 
   var remaining=Math.max(0,(w.planned_qty||0)-(w.completed_qty||0));
   var whOpts=allWarehouses.map(wh=>`<option value="${wh.id}">${wh.code} — ${wh.name}</option>`).join('');
 
   body.innerHTML=`
     <div class="info-box">
-      <strong>${w.wo_no}</strong> — ${po.order_no}<br>
-      FG: <strong>${fgItem.code}</strong> ${fgItem.name} | BOM v${bh.version}<br>
-      Planned: ${w.planned_qty} ${w.uom||'PCS'} | Already done: ${w.completed_qty||0} | Remaining: ${remaining}
+      <strong style="color:${stageColor}">${stageLabel}</strong><br>
+      <strong>${w.wo_no}</strong> — ${po.order_no} | BOM v${bh.version}<br>
+      ${outputItemInfo}<br>
+      Planned: ${w.planned_qty} ${w.uom||'KG/PCS'} | Done: ${w.completed_qty||0} | Remaining: ${remaining}
     </div>
+    ${stageType==='mixing'?`
+    <div class="bom-summary">
+      <div class="bom-summary-title">&#128295; RM to Consume (BOM ratio)</div>
+      <div id="bom-preview-rows"></div>
+    </div>`:''}
     <div class="form-row" style="margin-bottom:14px;">
       <div class="form-field">
-        <label>Actual Qty Produced <span class="req">*</span></label>
+        <label>Actual Qty ${stageType==='mixing'?'(KG)':stageType==='final'?'(Sets)':'(Units)'} <span class="req">*</span></label>
         <input type="number" id="cmp-qty" value="${remaining||1}" min="0.001" step="0.001"
-          oninput="updateBOMPreview()" style="font-size:16px;font-weight:700;"/>
+          oninput="${stageType==='mixing'?'updateBOMPreview()':''}" style="font-size:16px;font-weight:700;"/>
       </div>
       <div class="form-field">
         <label>Output Warehouse <span class="req">*</span></label>
@@ -735,37 +847,33 @@ async function openCompleteModal(woId){
     </div>
     <div class="form-field" style="margin-bottom:14px;">
       <label>Notes</label>
-      <input type="text" id="cmp-notes" placeholder="e.g. Shift A completion"/>
-    </div>
-    <div class="bom-summary">
-      <div class="bom-summary-title">&#128295; RM to Consume (per output_qty=${bh.output_qty})</div>
-      <div id="bom-preview-rows"></div>
+      <input type="text" id="cmp-notes" placeholder="e.g. Shift A, Operator: Raju"/>
     </div>
     <div id="stock-check-result"></div>`;
 
-  completingWO._po=po;
-  completingWO._fgItem=fgItem;
-  completingWO._bomHeader=bh;
-  completingWO._bomLines=bomLines;
-  updateBOMPreview();
+  completingWO._po=po;completingWO._fgItem=fgItem;
+  completingWO._bomHeader=bh;completingWO._bomLines=bomLines;
+  completingWO._stageType=stageType;completingWO._allSteps=allSteps;
+  if(stageType==='mixing') updateBOMPreview();
 }
 
 function updateBOMPreview(){
   var qtyEl=document.getElementById('cmp-qty');
-  if(!qtyEl||!completingWO?._bomLines)return;
+  var rowsEl=document.getElementById('bom-preview-rows');
+  if(!qtyEl||!rowsEl||!completingWO?._bomLines)return;
   var actualQty=parseFloat(qtyEl.value)||0;
   var bh=completingWO._bomHeader;
   var lines=completingWO._bomLines;
   var ratio=actualQty/bh.output_qty;
-  var html=lines.map(l=>{
+  rowsEl.innerHTML=lines.map(l=>{
     var consume=Math.round(l.qty*ratio*(1+(l.scrap_percent||0)/100)*1000)/1000;
     return`<div class="bom-line-row">
       <span><strong style="font-family:monospace;">${l.items?.code||'?'}</strong> ${l.items?.name||''}</span>
-      <span style="font-weight:700;color:#cc2200;">${consume.toFixed(3)} ${l.uom||'PCS'}</span>
+      <span style="font-weight:700;color:#cc2200;">${consume.toFixed(3)} ${l.uom||'KG'}</span>
     </div>`;
-  }).join('');
-  document.getElementById('bom-preview-rows').innerHTML=html||'<div style="color:#8a95a0;font-size:12px;padding:8px 0;">No required components.</div>';
-  document.getElementById('stock-check-result').innerHTML='';
+  }).join('')||'<div style="color:#8a95a0;font-size:12px;padding:8px 0;">No components.</div>';
+  var scr=document.getElementById('stock-check-result');
+  if(scr)scr.innerHTML='';
   var sb2=document.getElementById('cmp-save-btn');
   if(sb2){sb2.disabled=false;sb2.innerHTML='&#10003; Complete &amp; Update Stock';}
 }
@@ -776,106 +884,248 @@ function closeCompleteModal(){
 }
 document.getElementById('complete-modal').addEventListener('click',function(e){if(e.target===this)closeCompleteModal();});
 
-// ── SUBMIT COMPLETION ──
+// ── SUBMIT COMPLETION — routes to correct stage handler ──
 async function submitCompletion(){
   if(!completingWO)return;
   var saveBtn=document.getElementById('cmp-save-btn');
   saveBtn.disabled=true;saveBtn.innerHTML='&#9203; Processing...';
+  var unlock=()=>{saveBtn.disabled=false;saveBtn.innerHTML='&#10003; Complete &amp; Update Stock';};
 
   var actualQty=parseFloat(document.getElementById('cmp-qty')?.value)||0;
   var outWhId=document.getElementById('cmp-wh')?.value;
   var notes=document.getElementById('cmp-notes')?.value||'';
-  if(actualQty<=0){saveBtn.disabled=false;saveBtn.innerHTML='&#10003; Complete &amp; Update Stock';showToast('Actual qty > 0 chahiye.','error');return;}
-  if(!outWhId){saveBtn.disabled=false;saveBtn.innerHTML='&#10003; Complete &amp; Update Stock';showToast('Output warehouse select karein.','error');return;}
+  if(actualQty<=0){unlock();showToast('Qty > 0 chahiye.','error');return;}
+  if(!outWhId){unlock();showToast('Output warehouse select karein.','error');return;}
 
-  var wo=completingWO;
-  var po=wo._po;
-  var fgItem=wo._fgItem;
-  var bh=wo._bomHeader;
-  var bomLines=wo._bomLines;
+  var st=completingWO._stageType;
+  try{
+    if(st==='mixing')      await _completeMixing(actualQty,outWhId,notes);
+    else if(st==='intermediate') await _completeIntermediate(actualQty,outWhId,notes);
+    else                   await _completeFinal(actualQty,outWhId,notes);
+    showToast('WO Complete! Stage recorded.','success');
+    closeCompleteModal();loadWOs();
+  }catch(err){
+    unlock();
+    document.getElementById('stock-check-result').innerHTML=
+      `<div class="block-box"><div class="block-box-title">&#10060; Error</div><p style="font-size:12px;color:#5a6878;">${err.message}</p></div>`;
+  }
+}
+
+// ── MIXING STAGE COMPLETION ──
+// Writes: mix_batches + mix_batch_rm_usage + stock_ledger(RM) + inventory(RM) + work_orders
+async function _completeMixing(actualQty,outWhId,notes){
+  var wo=completingWO,po=wo._po,bh=wo._bomHeader,bomLines=wo._bomLines;
+  var mf=wo._mf,premixItem=wo._premixItem;
   var ratio=actualQty/bh.output_qty;
+  var session=(await sb.auth.getSession()).data?.session;
+  var userId=session?.user?.id||null;
+  var completionNote='Mixing Complete: '+wo.wo_no+(notes?' | '+notes:'');
 
   // Calculate RM requirements
   var requirements=bomLines.map(l=>({
     item_id:l.item_id,item_code:l.items?.code||'?',item_name:l.items?.name||'',
-    uom:l.uom||'PCS',
+    uom:l.uom||'KG',
     total_consume:Math.round(l.qty*ratio*(1+(l.scrap_percent||0)/100)*1000)/1000
   }));
 
-  // HARD STOCK CHECK — no override
+  // Hard stock check — no override
   var shortages=[];
   for(var req of requirements){
     if(req.total_consume<=0)continue;
     var {data:inv}=await sb.from('inventory').select('current_stock').eq('item_id',req.item_id).maybeSingle();
-    var available=parseFloat(inv?.current_stock||0);
-    if(available<req.total_consume)shortages.push({...req,available,shortage:req.total_consume-available});
+    var avail=parseFloat(inv?.current_stock||0);
+    if(avail<req.total_consume)shortages.push({...req,available:avail,shortage:req.total_consume-avail});
   }
   if(shortages.length>0){
-    var tbl='<table class="shortage-table"><thead><tr><th>Item</th><th>Required</th><th>Available</th><th>Shortage</th></tr></thead><tbody>';
-    tbl+=shortages.map(s=>`<tr><td><strong>${s.item_code}</strong> ${s.item_name}</td><td>${s.total_consume.toFixed(3)} ${s.uom}</td><td style="color:#991b1b;">${s.available.toFixed(3)} ${s.uom}</td><td style="color:#991b1b;font-weight:700;">${s.shortage.toFixed(3)} ${s.uom}</td></tr>`).join('');
-    tbl+='</tbody></table>';
-    document.getElementById('stock-check-result').innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; Insufficient Stock — WO complete nahi ho sakta</div>${tbl}<p style="margin-top:8px;font-size:12px;color:#5a6878;">GRN ke through pehle stock receive karein.</p></div>`;
-    saveBtn.disabled=true;saveBtn.innerHTML='&#10060; Stock Insufficient';return;
+    var tbl='<table class="shortage-table"><thead><tr><th>Item</th><th>Required</th><th>Available</th><th>Shortage</th></tr></thead><tbody>'+
+      shortages.map(s=>`<tr><td><strong>${s.item_code}</strong> ${s.item_name}</td><td>${s.total_consume.toFixed(3)} ${s.uom}</td><td style="color:#991b1b;">${s.available.toFixed(3)}</td><td style="color:#991b1b;font-weight:700;">${s.shortage.toFixed(3)}</td></tr>`).join('')+
+      '</tbody></table>';
+    document.getElementById('stock-check-result').innerHTML=
+      `<div class="block-box"><div class="block-box-title">&#10060; Insufficient Stock</div>${tbl}<p style="margin-top:8px;font-size:12px;color:#5a6878;">GRN se pehle stock receive karein.</p></div>`;
+    var sb2=document.getElementById('cmp-save-btn');
+    if(sb2){sb2.disabled=true;sb2.innerHTML='&#10060; Stock Insufficient';}
+    throw new Error('STOCK_BLOCK'); // caught in submitCompletion, no toast
   }
 
-  var session=(await sb.auth.getSession()).data?.session;
-  var userId=session?.user?.id||null;
-  var completionNote='WO Complete: '+wo.wo_no+(notes?' | '+notes:'');
-
-  // FIFO RM CONSUMPTION
-  // rm_batches columns used: id,batch_no,item_id,available_qty,consumed_qty,purchase_rate,warehouse_id,received_date
-  // NO is_active filter — column does not exist
+  // FIFO RM consumption — rm_batches: available_qty, consumed_qty (NO is_active)
+  var usedRMBatches=[];
   for(var req of requirements){
     if(req.total_consume<=0)continue;
-    var remaining_consume=req.total_consume;
-
+    var rem=req.total_consume;
     var {data:batches}=await sb.from('rm_batches')
-      .select('id,batch_no,available_qty,consumed_qty,purchase_rate,warehouse_id')
-      .eq('item_id',req.item_id)
-      .gt('available_qty',0)           // filter by available_qty > 0, NOT is_active
-      .order('received_date',{ascending:true})
-      .order('id',{ascending:true});
-
-    for(var batch of (batches||[])){
-      if(remaining_consume<=0)break;
-      var take=Math.round(Math.min(parseFloat(batch.available_qty),remaining_consume)*1000)/1000;
-      var newAvail=Math.round((parseFloat(batch.available_qty)-take)*1000)/1000;
-      var newConsumed=Math.round((parseFloat(batch.consumed_qty||0)+take)*1000)/1000;
-
-      // Update rm_batches — only available_qty and consumed_qty — NO is_active
+      .select('id,batch_no,available_qty,consumed_qty,purchase_rate,warehouse_id,uom')
+      .eq('item_id',req.item_id).gt('available_qty',0)
+      .order('received_date',{ascending:true}).order('id',{ascending:true});
+    for(var b of (batches||[])){
+      if(rem<=0)break;
+      var take=Math.round(Math.min(parseFloat(b.available_qty),rem)*1000)/1000;
       await sb.from('rm_batches').update({
-        available_qty:newAvail,
-        consumed_qty:newConsumed
-      }).eq('id',batch.id);
-
-      // stock_ledger Production Issue — confirmed columns
+        available_qty:Math.round((parseFloat(b.available_qty)-take)*1000)/1000,
+        consumed_qty:Math.round((parseFloat(b.consumed_qty||0)+take)*1000)/1000
+      }).eq('id',b.id);
+      // Stock ledger — Production Issue (RM out)
       await sb.from('stock_ledger').insert([{
-        item_id:req.item_id,
-        warehouse_id:batch.warehouse_id||null,
-        txn_type:'Production Issue',
-        qty:-take,
-        rate:parseFloat(batch.purchase_rate||0),
-        value:-take*parseFloat(batch.purchase_rate||0),
-        batch_no:batch.batch_no||null,
-        reference_no:wo.wo_no,
-        reference_type:'Work Order',
-        notes:completionNote,
-        created_by:userId
+        item_id:req.item_id,warehouse_id:b.warehouse_id||null,
+        txn_type:'Production Issue',qty:-take,
+        rate:parseFloat(b.purchase_rate||0),value:-take*parseFloat(b.purchase_rate||0),
+        batch_no:b.batch_no||null,reference_no:wo.wo_no,
+        reference_type:'Work Order',notes:completionNote,created_by:userId
       }]);
-      remaining_consume=Math.round((remaining_consume-take)*1000)/1000;
+      // Track for mix_batch_rm_usage
+      usedRMBatches.push({rm_batch_id:b.id,item_id:req.item_id,qty_used:take,uom:req.uom});
+      rem=Math.round((rem-take)*1000)/1000;
     }
-
-    // Deduct from inventory — confirmed columns
-    var {data:invRow}=await sb.from('inventory').select('id,current_stock').eq('item_id',req.item_id).maybeSingle();
-    if(invRow){
-      await sb.from('inventory').update({
-        current_stock:Math.max(0,Math.round((parseFloat(invRow.current_stock||0)-req.total_consume)*1000)/1000),
-        last_updated:new Date().toISOString()
-      }).eq('id',invRow.id);
-    }
+    // Update inventory (RM)
+    var {data:invR}=await sb.from('inventory').select('id,current_stock').eq('item_id',req.item_id).maybeSingle();
+    if(invR) await sb.from('inventory').update({
+      current_stock:Math.max(0,Math.round((parseFloat(invR.current_stock||0)-req.total_consume)*1000)/1000),
+      last_updated:new Date().toISOString()
+    }).eq('id',invR.id);
   }
 
-  // ADD FG INVENTORY — confirmed inventory columns
+  // CREATE mix_batches row — confirmed columns + confirmed FKs
+  var {data:mb,error:mbErr}=await sb.from('mix_batches').insert([{
+    batch_no:genBatchNo('PMX'),
+    mix_family_id:mf.id,       // FK → mix_families.id  ✅
+    mix_item_id:premixItem.id,  // FK → items.id  ✅
+    production_order_id:po.id,  // no FK constraint, safe to write
+    batch_qty_kg:actualQty,
+    available_qty_kg:actualQty,
+    consumed_qty_kg:0,
+    machine_id:wo.machine_id||null,  // FK → machines.id  ✅
+    status:'Completed',
+    qc_status:'Pending',
+    notes:completionNote
+  }]).select('id').single();
+  if(mbErr) throw new Error('mix_batches insert failed: '+mbErr.message);
+
+  // CREATE mix_batch_rm_usage rows — all FKs confirmed
+  if(usedRMBatches.length){
+    var usageRows=usedRMBatches.map(u=>({
+      mix_batch_id:mb.id,   // FK → mix_batches.id  ✅
+      rm_batch_id:u.rm_batch_id,  // FK → rm_batches.id  ✅
+      item_id:u.item_id,    // FK → items.id  ✅
+      qty_used:u.qty_used,
+      uom:u.uom
+    }));
+    var {error:uErr}=await sb.from('mix_batch_rm_usage').insert(usageRows);
+    if(uErr) console.warn('mix_batch_rm_usage warn:',uErr.message);
+  }
+
+  // Update work_orders (confirmed columns)
+  var newComp=Math.round(((wo.completed_qty||0)+actualQty)*1000)/1000;
+  var newSt=newComp>=(wo.planned_qty||0)?'Done':'In Progress';
+  var woUp={completed_qty:newComp,status:newSt};
+  if(newSt==='Done')woUp.actual_end=new Date().toISOString();
+  await sb.from('work_orders').update(woUp).eq('id',wo.id);
+}
+
+// ── INTERMEDIATE STAGE COMPLETION ──
+// Writes: process_batches + stock_ledger(summary) + work_orders
+async function _completeIntermediate(actualQty,outWhId,notes){
+  var wo=completingWO,po=wo._po;
+  var outItem=wo._outputItem,thisStep=wo._thisStep;
+  var session=(await sb.auth.getSession()).data?.session;
+  var userId=session?.user?.id||null;
+  var completionNote=thisStep.process_name+' Complete: '+wo.wo_no+(notes?' | '+notes:'');
+
+  // CREATE process_batches row — item_id FK confirmed, work_order_id/production_order_id no FK (safe)
+  var {data:pb,error:pbErr}=await sb.from('process_batches').insert([{
+    batch_no:genBatchNo(thisStep.process_name.substring(0,3).toUpperCase()),
+    process_name:thisStep.process_name,
+    item_id:outItem.id,         // FK → items.id  ✅
+    production_order_id:po.id,  // no FK, safe
+    work_order_id:wo.id,        // no FK, safe
+    machine_id:wo.machine_id||null,  // FK → machines.id  ✅
+    input_qty:actualQty,
+    output_qty:actualQty,
+    rejected_qty:0,
+    uom:wo.uom||outItem.uom||'PCS',
+    status:'Completed',
+    qc_status:'Pending',
+    notes:completionNote
+  }]).select('id').single();
+  if(pbErr) throw new Error('process_batches insert failed: '+pbErr.message);
+
+  // Stock ledger summary — Production Receipt for stage output
+  await sb.from('stock_ledger').insert([{
+    item_id:outItem.id,warehouse_id:parseInt(outWhId),
+    txn_type:'Production Receipt',qty:actualQty,rate:0,value:0,
+    reference_no:wo.wo_no,reference_type:'Work Order',
+    notes:completionNote,created_by:userId
+  }]);
+
+  // Update work_orders
+  var newComp=Math.round(((wo.completed_qty||0)+actualQty)*1000)/1000;
+  var newSt=newComp>=(wo.planned_qty||0)?'Done':'In Progress';
+  var woUp={completed_qty:newComp,status:newSt};
+  if(newSt==='Done')woUp.actual_end=new Date().toISOString();
+  await sb.from('work_orders').update(woUp).eq('id',wo.id);
+}
+
+// ── FINAL STAGE COMPLETION ──
+// Writes: process_batches + fg_batches + batch_trace + inventory(FG) + stock_ledger + work_orders + production_orders
+async function _completeFinal(actualQty,outWhId,notes){
+  var wo=completingWO,po=wo._po,fgItem=wo._fgItem;
+  var allSteps=wo._allSteps,skuF=wo._skuF;
+  var session=(await sb.auth.getSession()).data?.session;
+  var userId=session?.user?.id||null;
+  var completionNote='Final Stage Complete: '+wo.wo_no+(notes?' | '+notes:'');
+  var thisStep=allSteps.find(s=>s.id===wo.routing_step_id);
+
+  // CREATE process_batches row
+  var {data:pb,error:pbErr}=await sb.from('process_batches').insert([{
+    batch_no:genBatchNo('FIN'),
+    process_name:thisStep?.process_name||'Final',
+    item_id:fgItem.id,
+    production_order_id:po.id,
+    work_order_id:wo.id,
+    machine_id:wo.machine_id||null,
+    input_qty:actualQty,output_qty:actualQty,rejected_qty:0,
+    uom:wo.uom||fgItem.uom||'PCS',
+    status:'Completed',qc_status:'Pending',notes:completionNote
+  }]).select('id').single();
+  if(pbErr) throw new Error('process_batches insert failed: '+pbErr.message);
+
+  // CREATE fg_batches row — item_id,warehouse_id FKs confirmed
+  var pcsPerSet=parseInt(skuF?.pcs_per_set||1);
+  var {data:fg,error:fgErr}=await sb.from('fg_batches').insert([{
+    batch_no:genBatchNo(fgItem.code),
+    item_id:fgItem.id,          // FK → items.id  ✅
+    production_order_id:po.id,  // no FK, safe
+    qty_pcs:actualQty*pcsPerSet,
+    qty_sets:actualQty,
+    warehouse_id:parseInt(outWhId),  // FK → warehouses.id  ✅
+    status:'Available'
+  }]).select('id').single();
+  if(fgErr) throw new Error('fg_batches insert failed: '+fgErr.message);
+
+  // CREATE batch_trace rows — all FKs confirmed
+  // Link fg_batch to mix_batches used in this production_order
+  var {data:mbUsed}=await sb.from('mix_batches')
+    .select('id').eq('production_order_id',po.id);
+  var traceRows=[];
+  for(var mb of (mbUsed||[])){
+    traceRows.push({fg_batch_id:fg.id,mix_batch_id:mb.id,trace_level:2,batch_type:'mix'});
+    // Also link rm_batches via mix_batch_rm_usage
+    var {data:rmUsed}=await sb.from('mix_batch_rm_usage')
+      .select('rm_batch_id').eq('mix_batch_id',mb.id);
+    for(var ru of (rmUsed||[])){
+      traceRows.push({fg_batch_id:fg.id,rm_batch_id:ru.rm_batch_id,trace_level:1,batch_type:'rm'});
+    }
+  }
+  // Link fg_batch to process_batches in this production_order
+  var {data:pbUsed}=await sb.from('process_batches')
+    .select('id').eq('production_order_id',po.id);
+  for(var pb2 of (pbUsed||[])){
+    traceRows.push({fg_batch_id:fg.id,process_batch_id:pb2.id,trace_level:3,batch_type:'process'});
+  }
+  if(traceRows.length){
+    var {error:trErr}=await sb.from('batch_trace').insert(traceRows);
+    if(trErr) console.warn('batch_trace warn:',trErr.message);
+  }
+
+  // FG inventory update
   var {data:fgInv}=await sb.from('inventory').select('id,current_stock').eq('item_id',fgItem.id).maybeSingle();
   if(fgInv){
     await sb.from('inventory').update({
@@ -889,30 +1139,28 @@ async function submitCompletion(){
     }]);
   }
 
-  // stock_ledger Production Receipt
+  // Stock ledger Production Receipt
   await sb.from('stock_ledger').insert([{
     item_id:fgItem.id,warehouse_id:parseInt(outWhId),
-    txn_type:'Production Receipt',qty:actualQty,rate:0,value:0,batch_no:null,
+    txn_type:'Production Receipt',qty:actualQty,rate:0,value:0,
+    batch_no:fg.batch_no||null,
     reference_no:wo.wo_no,reference_type:'Work Order',
     notes:completionNote,created_by:userId
   }]);
 
-  // Update work_orders — confirmed columns: completed_qty, status, actual_end
-  var newCompleted=Math.round(((wo.completed_qty||0)+actualQty)*1000)/1000;
-  var newStatus=newCompleted>=(wo.planned_qty||0)?'Done':'In Progress';
-  var woUpdate={completed_qty:newCompleted,status:newStatus};
-  if(newStatus==='Done')woUpdate.actual_end=new Date().toISOString();
-  await sb.from('work_orders').update(woUpdate).eq('id',wo.id);
+  // Update work_orders
+  var newComp=Math.round(((wo.completed_qty||0)+actualQty)*1000)/1000;
+  var newSt=newComp>=(wo.planned_qty||0)?'Done':'In Progress';
+  var woUp={completed_qty:newComp,status:newSt};
+  if(newSt==='Done')woUp.actual_end=new Date().toISOString();
+  await sb.from('work_orders').update(woUp).eq('id',wo.id);
 
-  // Update production_orders.completed_qty — confirmed column
-  var newPOCompleted=Math.round(((po.completed_qty||0)+actualQty)*1000)/1000;
-  var newPOStatus=newPOCompleted>=(po.planned_qty||0)?'Done':'In Progress';
+  // Update production_orders
+  var newPOComp=Math.round(((po.completed_qty||0)+actualQty)*1000)/1000;
   await sb.from('production_orders').update({
-    completed_qty:newPOCompleted,status:newPOStatus
+    completed_qty:newPOComp,
+    status:newPOComp>=(po.planned_qty||0)?'Done':'In Progress'
   }).eq('id',po.id);
-
-  showToast('WO Complete! RM deducted. FG +'+actualQty+' '+wo.uom+' added.','success');
-  closeCompleteModal();loadWOs();
 }
 
 // ── DELETE ──
