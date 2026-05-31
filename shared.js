@@ -22,7 +22,7 @@ window.CFC_CONFIG = {
   SUPABASE_KEY: 'sb_publishable_eWBMrAFa7Yyvtlb-7-8IGA_KxfE7v_8',
   APP_NAME:     'CFC ERP v2',
   COMPANY:      'CERADRIVE BRAKES',
-  VERSION:      '2.9.6',
+  VERSION:      '3.0.1',
   QUERY_LIMIT:  500,
   DEBOUNCE_MS:  300,
 };
