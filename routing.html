@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Routing Master — CFC ERP v3.0.6</title>
+<title>Routing Master — CFC ERP v3.0.7</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -154,7 +154,7 @@ tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.6</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -632,7 +632,7 @@ function openStepModal(levelId,stepData){
     document.getElementById("rs-planning").value=stepData.planning_type||"weight_based";
     document.getElementById("rs-qc").value=String(stepData.is_qc_required||false);
     document.getElementById("rs-qc-type").value=stepData.qc_type||"optional";
-    // v3.0.6: step_type (confirmed column) — Rule 31/32/33 fix
+    // v3.0.7: step_type (confirmed column) — Rule 31/32/33 fix
     document.getElementById("rs-step-type").value=stepData.step_type||"intermediate";
     if(stepData.machine_id)document.getElementById("rs-machine").value=stepData.machine_id;
     // v3.0.5: Load output from output_item_id (FK → items.id), NOT from notes
@@ -763,7 +763,7 @@ async function saveStep(){
   });
   
   // v3.0.5: output_item_id (FK → items.id, confirmed) replaces notes text storage
-  // routing_steps.machine_id does NOT exist (confirmed Supabase ERROR 42703) — removed
+  // v3.0.7: machine_id confirmed in routing_steps schema — now saved in payload
   const outputItemId=document.getElementById("rs-output-id").value;
 
   const payload={
@@ -776,11 +776,11 @@ async function saveStep(){
     planning_type:document.getElementById("rs-planning").value,
     is_qc_required:document.getElementById("rs-qc").value==="true",
     qc_type:document.getElementById("rs-qc-type").value,
-    // v3.0.6: step_type (confirmed column, text, nullable) — Rule 31/32/33
+    // v3.0.7: step_type (confirmed column, text, nullable) — Rule 31/32/33
     // Drives stage detection in WO completion — NOT process_name
     step_type:document.getElementById("rs-step-type").value||"intermediate",
+    machine_id:parseInt(document.getElementById("rs-machine").value)||null,
     is_active:true
-    // machine_id NOT included — column does not exist in routing_steps (Supabase confirmed)
   };
   
   let error;

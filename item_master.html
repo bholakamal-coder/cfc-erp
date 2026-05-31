@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Item Master — CFC ERP v3.0.6</title>
+<title>Item Master — CFC ERP v3.0.7</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -192,7 +192,7 @@ tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.6</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -281,6 +281,39 @@ tr:hover td{background:#fafbfc;}
       <input type="file" id="import-file" accept=".csv" style="display:none;" onchange="importCSV(event)"/>
       <button type="button" class="btn btn-secondary" onclick="document.getElementById('import-file').click()">&#11014; Import</button>
       <button type="button" class="btn btn-secondary" onclick="exportCSV()">&#11015; Export</button>
+      <!-- v3.0.7: Import Template Downloads -->
+      <div style="position:relative;display:inline-block;" id="tmpl-wrap">
+        <button type="button" class="btn btn-secondary" onclick="toggleTemplateMenu()"
+          style="background:#f0f9ff;border-color:#bfdbfe;color:#1e40af;">
+          &#128196; Templates &#9660;
+        </button>
+        <div id="tmpl-menu" style="display:none;position:absolute;right:0;top:110%;background:#fff;
+          border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);
+          z-index:999;min-width:230px;padding:6px 0;">
+          <div style="padding:6px 14px;font-size:11px;font-weight:700;color:#8a95a0;
+            text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #f0f4f8;margin-bottom:4px;">
+            Download Import Templates
+          </div>
+          <a onclick="downloadTemplate('item')" style="display:flex;align-items:center;gap:10px;
+            padding:9px 14px;cursor:pointer;font-size:13px;color:#1e293b;text-decoration:none;">
+            <span style="font-size:16px;">&#128230;</span>
+            <div><div style="font-weight:600;">Item Master Template</div>
+            <div style="font-size:11px;color:#8a95a0;">code, name, type, uom…</div></div>
+          </a>
+          <a onclick="downloadTemplate('sku')" style="display:flex;align-items:center;gap:10px;
+            padding:9px 14px;cursor:pointer;font-size:13px;color:#1e293b;text-decoration:none;">
+            <span style="font-size:16px;">&#128295;</span>
+            <div><div style="font-weight:600;">SKU Planning Template</div>
+            <div style="font-size:11px;color:#8a95a0;">weight_g, cavity_count, tray…</div></div>
+          </a>
+          <a onclick="downloadTemplate('stock')" style="display:flex;align-items:center;gap:10px;
+            padding:9px 14px;cursor:pointer;font-size:13px;color:#1e293b;text-decoration:none;">
+            <span style="font-size:16px;">&#128200;</span>
+            <div><div style="font-weight:600;">Opening Stock Template</div>
+            <div style="font-size:11px;color:#8a95a0;">item_code, warehouse, qty…</div></div>
+          </a>
+        </div>
+      </div>
       <button type="button" class="btn btn-primary" onclick="openQuickAdd()">+ Add Item</button>
     </div>
   </div>
@@ -447,96 +480,222 @@ tr:hover td{background:#fafbfc;}
         </div>
       </div>
 
-      <!-- TAB 4: SKU Planning -->
+      <!-- TAB 4: SKU Planning — v3.0.7 FINAL ARCHITECTURE -->
+      <!-- Approved 2026-05-31. 6 sections. Advanced Manufacturing collapsible. -->
       <div id="tab-sku" class="tab-pane">
-        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px;font-size:12.5px;color:#1e40af;margin-bottom:14px;">
-          &#128295; SKU Planning fields sirf FG/SFG items ke liye fill karein. Yeh production planning mein use honge.
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px 14px;font-size:12.5px;color:#1e40af;margin-bottom:16px;line-height:1.6;">
+          &#128295; <strong>SKU Planning</strong> stores physical and planning attributes per item.
+          Fill only relevant fields. Blank = not applicable. No calculation error on blank.
         </div>
 
-        <div style="font-size:11px;font-weight:700;color:#8a95a0;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #f0f4f8;">Mix & Preform</div>
-        <div class="form-grid" style="margin-bottom:16px;">
+        <!-- ── GENERAL ── -->
+        <div style="font-size:11px;font-weight:700;color:#5a6878;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">General</div>
+        <div class="form-grid" style="margin-bottom:20px;">
           <div class="form-field">
-            <label>Mix Family (VO/HP/HE)</label>
-            <select id="sku-mix-family">
-              <option value="">-- Select --</option>
-            </select>
+            <label>Weight (g)</label>
+            <input type="number" id="sku-weight-g" placeholder="e.g. 185" min="0" step="0.01"/>
           </div>
           <div class="form-field">
-            <label>Preform Weight (g)</label>
-            <input type="number" id="sku-preform-weight" placeholder="e.g. 185" min="0" step="0.1"/>
-          </div>
-        </div>
-
-        <div style="font-size:11px;font-weight:700;color:#8a95a0;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #f0f4f8;">Back Plate</div>
-        <div class="form-grid" style="margin-bottom:16px;">
-          <div class="form-field">
-            <label>BP Item (Raw)</label>
-            <div class="item-search-wrap" style="position:relative;">
-              <input type="text" id="sku-bp-search" placeholder="BP item search..." oninput="skuItemSearch('sku-bp-search','sku-bp-dd','sku-bp-id')" autocomplete="off"/>
-              <div class="sku-dropdown" id="sku-bp-dd"></div>
-            </div>
-            <input type="hidden" id="sku-bp-id"/>
+            <label>Length (mm)</label>
+            <input type="number" id="sku-length-mm" placeholder="e.g. 120" min="0" step="0.1"/>
           </div>
           <div class="form-field">
-            <label>BP Weight (g)</label>
-            <input type="number" id="sku-bp-weight" placeholder="e.g. 120" min="0" step="0.1"/>
+            <label>Width (mm)</label>
+            <input type="number" id="sku-width-mm" placeholder="e.g. 55" min="0" step="0.1"/>
           </div>
           <div class="form-field">
-            <label>BP Coated Item</label>
-            <div class="item-search-wrap" style="position:relative;">
-              <input type="text" id="sku-bpc-search" placeholder="Coated BP search..." oninput="skuItemSearch('sku-bpc-search','sku-bpc-dd','sku-bpc-id')" autocomplete="off"/>
-              <div class="sku-dropdown" id="sku-bpc-dd"></div>
-            </div>
-            <input type="hidden" id="sku-bpc-id"/>
+            <label>Thickness (mm)</label>
+            <input type="number" id="sku-thickness-mm" placeholder="e.g. 18" min="0" step="0.1"/>
           </div>
         </div>
 
-        <div style="font-size:11px;font-weight:700;color:#8a95a0;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #f0f4f8;">Die & Moulding</div>
-        <div class="form-grid-3" style="margin-bottom:16px;">
+        <!-- ── MOULDING ── -->
+        <div style="font-size:11px;font-weight:700;color:#5a6878;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">Moulding</div>
+        <div class="form-grid" style="margin-bottom:20px;">
           <div class="form-field">
             <label>Die</label>
-            <select id="sku-die">
-              <option value="">-- Select Die --</option>
-            </select>
+            <div style="display:flex;gap:6px;align-items:flex-start;">
+              <div style="position:relative;flex:1;">
+                <input type="text" id="sku-die-search" autocomplete="off"
+                  placeholder="Type to search dies..."
+                  oninput="skuDieSearch(this.value)" onfocus="skuDieSearch(this.value)"
+                  style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:8px 11px;font-size:13px;background:#f9fafb;outline:none;box-sizing:border-box;"/>
+                <div id="sku-die-dd" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:999;background:#fff;border:1px solid #dde3ea;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.12);max-height:180px;overflow-y:auto;"></div>
+                <input type="hidden" id="sku-die-id"/>
+                <div id="sku-die-info" style="font-size:11px;color:#166534;margin-top:3px;"></div>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="skuAddNewDie()" style="white-space:nowrap;margin-top:1px;">+ New</button>
+            </div>
           </div>
           <div class="form-field">
-            <label>Cavity Count</label>
-            <input type="number" id="sku-cavity" placeholder="e.g. 2" min="1"/>
-          </div>
-          <div class="form-field">
-            <label>Cycle Time (min)</label>
-            <input type="number" id="sku-cycle-time" placeholder="8.5" min="0" step="0.1" value="8.5"/>
+            <label>Die Cavity Count</label>
+            <input type="number" id="sku-cavity" placeholder="e.g. 4" min="1" step="1"/>
           </div>
         </div>
 
-        <div style="font-size:11px;font-weight:700;color:#8a95a0;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #f0f4f8;">Tray & Grinder</div>
-        <div class="form-grid" style="margin-bottom:16px;">
+        <!-- ── CAPACITY / STORAGE ── -->
+        <div style="font-size:11px;font-weight:700;color:#5a6878;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">Capacity / Storage</div>
+        <div class="form-grid" style="margin-bottom:6px;">
           <div class="form-field">
-            <label>Tray Capacity (pcs)</label>
-            <input type="number" id="sku-tray-cap" placeholder="e.g. 72" min="1"/>
+            <label>Pieces In Tray</label>
+            <input type="number" id="sku-tray-cap" placeholder="e.g. 74" min="1" step="1"/>
           </div>
           <div class="form-field">
-            <label>Pcs per Set</label>
-            <input type="number" id="sku-pcs-set" placeholder="4" min="1" value="4"/>
+            <label>Pieces In Crate</label>
+            <input type="number" id="sku-pcs-in-crate" placeholder="e.g. 500" min="1" step="1"/>
           </div>
           <div class="form-field">
-            <label>Grinder Category</label>
-            <select id="sku-grinder-cat">
-              <option value="">-- Select --</option>
-              <option value="Small">Small</option>
-              <option value="Medium">Medium</option>
-              <option value="Large">Large</option>
-            </select>
+            <label>Pieces Per Set</label>
+            <input type="number" id="sku-pcs-set" placeholder="e.g. 4" min="1" step="1" value="4"/>
           </div>
           <div class="form-field">
-            <label>Grinder Machine</label>
-            <select id="sku-grinder-machine">
-              <option value="">-- Select --</option>
-            </select>
+            <label>Time Per Piece (seconds)</label>
+            <input type="number" id="sku-time-per-piece" placeholder="e.g. 8.5" min="0" step="0.001"/>
+          </div>
+        </div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;font-size:11.5px;color:#5a6878;margin-bottom:20px;line-height:1.5;">
+          &#128161; <strong>Time Per Piece</strong> — one generic field for all timed processes:
+          Printing, Riveting, Laser, Bedding Coat, Inspection, Packing, Shrink Wrapping.
+        </div>
+
+        <!-- ── PACKAGING ── -->
+        <div style="font-size:11px;font-weight:700;color:#5a6878;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">Packaging</div>
+        <div class="form-grid" style="margin-bottom:20px;">
+          <div class="form-field">
+            <label>Total Box Weight (kg)</label>
+            <input type="number" id="sku-box-weight-kg" placeholder="e.g. 2.5" min="0" step="0.001"/>
+          </div>
+          <div class="form-field">
+            <label>Box Length (mm)</label>
+            <input type="number" id="sku-box-length-mm" placeholder="e.g. 350" min="0" step="1"/>
+          </div>
+          <div class="form-field">
+            <label>Box Width (mm)</label>
+            <input type="number" id="sku-box-width-mm" placeholder="e.g. 200" min="0" step="1"/>
+          </div>
+          <div class="form-field">
+            <label>Box Height (mm)</label>
+            <input type="number" id="sku-box-height-mm" placeholder="e.g. 120" min="0" step="1"/>
           </div>
         </div>
 
-        <div style="font-size:11px;font-weight:700;color:#8a95a0;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #f0f4f8;">Vehicle & Application</div>
+        <!-- ── LINKAGES ── -->
+        <div style="font-size:11px;font-weight:700;color:#5a6878;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">Linkages</div>
+        <div class="form-grid" style="margin-bottom:20px;">
+          <div class="form-field">
+            <label>Formulation Family</label>
+            <div style="display:flex;gap:6px;align-items:flex-start;">
+              <div style="position:relative;flex:1;">
+                <input type="text" id="sku-mf-search" autocomplete="off"
+                  placeholder="Type to search formulations..."
+                  oninput="skuMfSearch(this.value)" onfocus="skuMfSearch(this.value)"
+                  style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:8px 11px;font-size:13px;background:#f9fafb;outline:none;box-sizing:border-box;"/>
+                <div id="sku-mf-dd" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:999;background:#fff;border:1px solid #dde3ea;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.12);max-height:180px;overflow-y:auto;"></div>
+                <input type="hidden" id="sku-mf-id"/>
+                <div id="sku-mf-info" style="font-size:11px;color:#166534;margin-top:3px;"></div>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="skuAddNewMf()" style="white-space:nowrap;margin-top:1px;">+ New</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── ADVANCED MANUFACTURING (collapsible) ── -->
+        <div style="border:1.5px solid #e2e8f0;border-radius:8px;margin-bottom:16px;overflow:hidden;">
+          <div onclick="toggleAdvMfg()" style="display:flex;justify-content:space-between;align-items:center;
+            padding:10px 14px;cursor:pointer;background:#f8fafc;user-select:none;"
+            id="adv-mfg-hdr">
+            <div style="font-size:11px;font-weight:700;color:#5a6878;text-transform:uppercase;letter-spacing:1.2px;">
+              &#9881; Advanced Manufacturing
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:11px;color:#8a95a0;">BP Weight, Cycle Time, Grinder, Routing</span>
+              <span id="adv-mfg-arrow" style="color:#8a95a0;font-size:14px;transition:transform 0.2s;">&#9654;</span>
+            </div>
+          </div>
+          <div id="adv-mfg-body" style="display:none;padding:16px 14px 8px;">
+
+            <div style="font-size:11px;color:#5a6878;background:#fffbeb;border:1px solid #fde68a;
+              border-radius:5px;padding:8px 10px;margin-bottom:14px;line-height:1.5;">
+              These fields drive production planning calculations. Fill for the specific item type that uses them.
+              BP Weight → Shot Blasting. Cycle Time → Moulding. Grinder → Grinding. Routing → Process flow.
+            </div>
+
+            <div class="form-grid" style="margin-bottom:16px;">
+              <div class="form-field">
+                <label>BP Weight (g)</label>
+                <input type="number" id="sku-bp-weight" placeholder="e.g. 120" min="0" step="0.1"/>
+              </div>
+              <div class="form-field">
+                <label>Cycle Time (min)</label>
+                <input type="number" id="sku-cycle-time" placeholder="e.g. 8.5" min="0" step="0.1"/>
+              </div>
+            </div>
+
+            <div class="form-grid" style="margin-bottom:16px;">
+              <div class="form-field">
+                <label>Grinder Category</label>
+                <select id="sku-grinder-cat">
+                  <option value="">-- Select --</option>
+                  <option value="Small">Small</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Large">Large</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Grinder Machine</label>
+                <div style="position:relative;">
+                  <input type="text" id="sku-grinder-search" autocomplete="off"
+                    placeholder="Type to search grinders..."
+                    oninput="skuGrinderSearch(this.value)" onfocus="skuGrinderSearch(this.value)"
+                    style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:8px 11px;font-size:13px;background:#f9fafb;outline:none;box-sizing:border-box;"/>
+                  <div id="sku-grinder-dd" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:999;background:#fff;border:1px solid #dde3ea;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.12);max-height:160px;overflow-y:auto;"></div>
+                  <input type="hidden" id="sku-grinder-id"/>
+                </div>
+              </div>
+            </div>
+
+            <div style="font-size:11px;font-weight:600;color:#5a6878;margin-bottom:8px;">Routing Links</div>
+            <div class="form-grid-3" style="margin-bottom:8px;">
+              <div class="form-field">
+                <label>Preform Routing</label>
+                <div style="position:relative;">
+                  <input type="text" id="sku-pf-routing-search" autocomplete="off"
+                    placeholder="Search routing..."
+                    oninput="skuRoutingSearch('pf',this.value)" onfocus="skuRoutingSearch('pf',this.value)"
+                    style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:8px 11px;font-size:13px;background:#f9fafb;outline:none;box-sizing:border-box;"/>
+                  <div id="sku-pf-routing-dd" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:999;background:#fff;border:1px solid #dde3ea;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.12);max-height:160px;overflow-y:auto;"></div>
+                  <input type="hidden" id="sku-pf-routing-id"/>
+                </div>
+              </div>
+              <div class="form-field">
+                <label>BP Routing</label>
+                <div style="position:relative;">
+                  <input type="text" id="sku-bp-routing-search" autocomplete="off"
+                    placeholder="Search routing..."
+                    oninput="skuRoutingSearch('bp',this.value)" onfocus="skuRoutingSearch('bp',this.value)"
+                    style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:8px 11px;font-size:13px;background:#f9fafb;outline:none;box-sizing:border-box;"/>
+                  <div id="sku-bp-routing-dd" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:999;background:#fff;border:1px solid #dde3ea;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.12);max-height:160px;overflow-y:auto;"></div>
+                  <input type="hidden" id="sku-bp-routing-id"/>
+                </div>
+              </div>
+              <div class="form-field">
+                <label>Final Routing</label>
+                <div style="position:relative;">
+                  <input type="text" id="sku-final-routing-search" autocomplete="off"
+                    placeholder="Search routing..."
+                    oninput="skuRoutingSearch('final',this.value)" onfocus="skuRoutingSearch('final',this.value)"
+                    style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:8px 11px;font-size:13px;background:#f9fafb;outline:none;box-sizing:border-box;"/>
+                  <div id="sku-final-routing-dd" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:999;background:#fff;border:1px solid #dde3ea;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.12);max-height:160px;overflow-y:auto;"></div>
+                  <input type="hidden" id="sku-final-routing-id"/>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ── VEHICLE & APPLICATION ── -->
+        <div style="font-size:11px;font-weight:700;color:#5a6878;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">Vehicle &amp; Application</div>
         <div class="form-grid" style="margin-bottom:8px;">
           <div class="form-field">
             <label>Vehicle Name</label>
@@ -1031,26 +1190,16 @@ function switchTab(tabId, btn){
 let mixFamilies=[], dies=[], grinderMachines=[], allItemsForSku=[];
 
 async function loadSkuMasterData(){
-  // Mix families
-  const {data:mf}=await sb.from("mix_families").select("id,code,name").eq("is_active",true).order("code");
+  // v3.0.7: dropdowns removed — live search replaces mix_family and die selects
+  // Load data into caches for live search
+  const {data:mf}=await sb.from('mix_families').select('id,code,name').eq('is_active',true).order('code');
   mixFamilies=mf||[];
-  const mfSel=document.getElementById("sku-mix-family");
-  if(mfSel) mfSel.innerHTML='<option value="">-- Select --</option>'+
-    mixFamilies.map(m=>`<option value="${m.id}">${m.code} — ${m.name}</option>`).join("");
 
-  // Dies
-  const {data:dieData}=await sb.from("dies").select("id,die_code,die_name,cavity_count").eq("is_active",true).order("die_code");
+  const {data:dieData}=await sb.from('dies').select('id,die_code,die_name,cavity_count').eq('is_active',true).order('die_code');
   dies=dieData||[];
-  const dieSel=document.getElementById("sku-die");
-  if(dieSel) dieSel.innerHTML='<option value="">-- Select Die --</option>'+
-    dies.map(d=>`<option value="${d.id}">${d.die_code}${d.die_name?" — "+d.die_name:""} (${d.cavity_count} cav)</option>`).join("");
-
-  // Grinder machines
-  const {data:gm}=await sb.from("machines").select("id,code,name").eq("is_active",true).ilike("process_name","%grind%").order("code");
+  // grinder machines: kept in cache for backward compat (hidden from UI but data preserved)
+  const {data:gm}=await sb.from('machines').select('id,code,name').eq('is_active',true).order('code');
   grinderMachines=gm||[];
-  const gmSel=document.getElementById("sku-grinder-machine");
-  if(gmSel) gmSel.innerHTML='<option value="">-- Select --</option>'+
-    grinderMachines.map(m=>`<option value="${m.id}">${m.code} — ${m.name}</option>`).join("");
 }
 
 function skuItemSearch(inputId, ddId, hiddenId){
@@ -1072,107 +1221,334 @@ function selectSkuItem(inputId, ddId, hiddenId, id, code, name){
   document.getElementById(ddId).classList.remove("open");
 }
 
+// ── SKU PLANNING LIVE SEARCH — Formulation Family (v3.0.7) ──
+var _skuMfDebounce=null;
+function skuMfSearch(q){
+  clearTimeout(_skuMfDebounce);
+  _skuMfDebounce=setTimeout(function(){_doSkuMfSearch(q);},120);
+}
+function _doSkuMfSearch(q){
+  var dd=document.getElementById('sku-mf-dd');
+  if(!q||q.length<1){dd.style.display='none';return;}
+  var ql=q.toLowerCase();
+  var res=(mixFamilies||[]).filter(function(m){
+    return (m.code||'').toLowerCase().includes(ql)||(m.name||'').toLowerCase().includes(ql);
+  }).slice(0,8);
+  var addNew='<div style="padding:8px 12px;font-size:12px;color:#cc2200;font-weight:600;cursor:pointer;border-top:1px solid #f0f4f8;" onclick="skuAddNewMf()">+ Add New Formulation Family</div>';
+  if(!res.length){
+    dd.innerHTML='<div style="padding:8px 12px;font-size:12px;color:#8a95a0;">Not found</div>'+addNew;
+    dd.style.display='block';return;
+  }
+  dd.innerHTML=res.map(function(m){
+    var c=(m.code||'').replace(/'/g,"\\'");
+    var n=(m.name||'').replace(/'/g,"\\'");
+    return '<div onclick="skuSelectMf('+m.id+',\''+c+'\',\''+n+'\')" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f4f8;display:flex;gap:8px;align-items:center;"><span style="font-family:monospace;font-size:11px;background:#f0f4f8;padding:1px 5px;border-radius:3px;">'+m.code+'</span><span>'+m.name+'</span></div>';
+  }).join('')+addNew;
+  dd.style.display='block';
+}
+function skuSelectMf(id,code,name){
+  document.getElementById('sku-mf-search').value=code+' \u2014 '+name;
+  document.getElementById('sku-mf-id').value=id;
+  document.getElementById('sku-mf-info').textContent='\u2713 '+name;
+  document.getElementById('sku-mf-dd').style.display='none';
+}
+function skuAddNewMf(){
+  document.getElementById('sku-mf-dd').style.display='none';
+  cfcQuickCreate({
+    title:'Add New Formulation Family',
+    fields:[
+      {id:'code',label:'Code',type:'text',required:true,placeholder:'e.g. VO, HP, CDHE, RACING'},
+      {id:'name',label:'Name',type:'text',required:true,placeholder:'e.g. VO Standard Formula'},
+      {id:'batch_size_kg',label:'Batch Size (KG)',type:'number',required:true,placeholder:'e.g. 50'},
+    ],
+    onSave:async function(vals){
+      return await sb.from('mix_families').insert([{
+        code:(vals.code||'').toUpperCase(),name:vals.name,
+        batch_size_kg:parseFloat(vals.batch_size_kg)||null,is_active:true
+      }]).select('id,code,name').single();
+    },
+    onSuccess:function(newMf){mixFamilies.push(newMf);skuSelectMf(newMf.id,newMf.code,newMf.name);}
+  });
+}
+
+// ── SKU PLANNING LIVE SEARCH — Die (v3.0.7) ──
+var _skuDieDebounce=null;
+function skuDieSearch(q){
+  clearTimeout(_skuDieDebounce);
+  _skuDieDebounce=setTimeout(function(){_doSkuDieSearch(q);},120);
+}
+function _doSkuDieSearch(q){
+  var dd=document.getElementById('sku-die-dd');
+  if(!q||q.length<1){dd.style.display='none';return;}
+  var ql=q.toLowerCase();
+  var res=(dies||[]).filter(function(d){
+    return (d.die_code||'').toLowerCase().includes(ql)||(d.die_name||'').toLowerCase().includes(ql);
+  }).slice(0,8);
+  var addNew='<div style="padding:8px 12px;font-size:12px;color:#cc2200;font-weight:600;cursor:pointer;border-top:1px solid #f0f4f8;" onclick="skuAddNewDie()">+ Add New Die</div>';
+  if(!res.length){
+    dd.innerHTML='<div style="padding:8px 12px;font-size:12px;color:#8a95a0;">Not found</div>'+addNew;
+    dd.style.display='block';return;
+  }
+  dd.innerHTML=res.map(function(d){
+    var label=d.die_code+(d.die_name?' \u2014 '+d.die_name:'')+(d.cavity_count?' ('+d.cavity_count+' cav)':'');
+    var lesc=label.replace(/'/g,"\\'");
+    return '<div onclick="skuSelectDie('+d.id+',\''+lesc+'\')" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f4f8;display:flex;gap:8px;align-items:center;"><span style="font-family:monospace;font-size:11px;background:#f0f4f8;padding:1px 5px;border-radius:3px;">'+d.die_code+'</span><span>'+label+'</span></div>';
+  }).join('')+addNew;
+  dd.style.display='block';
+}
+function skuSelectDie(id,label){
+  document.getElementById('sku-die-search').value=label;
+  document.getElementById('sku-die-id').value=id;
+  document.getElementById('sku-die-info').textContent='\u2713 '+label;
+  document.getElementById('sku-die-dd').style.display='none';
+}
+function skuAddNewDie(){
+  document.getElementById('sku-die-dd').style.display='none';
+  cfcQuickCreate({
+    title:'Add New Die',
+    fields:[
+      {id:'die_code',label:'Die Code',type:'text',required:true,placeholder:'e.g. D-VO101-4C'},
+      {id:'die_name',label:'Die Name',type:'text',required:false,placeholder:'e.g. VO101 4-Cavity Die'},
+      {id:'cavity_count',label:'Cavity Count',type:'number',required:true,placeholder:'e.g. 4'},
+    ],
+    onSave:async function(vals){
+      return await sb.from('dies').insert([{
+        die_code:(vals.die_code||'').toUpperCase(),die_name:vals.die_name||null,
+        cavity_count:parseInt(vals.cavity_count)||null,is_active:true
+      }]).select('id,die_code,die_name,cavity_count').single();
+    },
+    onSuccess:function(d){
+      dies.push(d);
+      var label=d.die_code+(d.die_name?' \u2014 '+d.die_name:'')+(d.cavity_count?' ('+d.cavity_count+' cav)':'');
+      skuSelectDie(d.id,label);
+    }
+  });
+}
+
+// Close dropdowns on outside click
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#sku-mf-dd')&&e.target!==document.getElementById('sku-mf-search'))
+    {var d=document.getElementById('sku-mf-dd');if(d)d.style.display='none';}
+  if(!e.target.closest('#sku-die-dd')&&e.target!==document.getElementById('sku-die-search'))
+    {var d=document.getElementById('sku-die-dd');if(d)d.style.display='none';}
+});
+
 async function saveSkuPlanning(itemId){
   var _saveBtn=document.activeElement;if(_saveBtn&&_saveBtn.tagName==='BUTTON'){_saveBtn.disabled=true;}
-  const mix_family_id=parseInt(document.getElementById("sku-mix-family").value)||null;
-  const die_id=parseInt(document.getElementById("sku-die").value)||null;
-  const grinder_machine_id=parseInt(document.getElementById("sku-grinder-machine").value)||null;
-  const bp_item_id=parseInt(document.getElementById("sku-bp-id").value)||null;
-  const bp_coated_item_id=parseInt(document.getElementById("sku-bpc-id").value)||null;
-  const vehicle_name=document.getElementById("sku-vehicle-name").value.trim()||null;
-  const vehicle_model=document.getElementById("sku-vehicle-model").value.trim()||null;
-  const axle=document.getElementById("sku-axle").value||null;
-  const oem_ref=document.getElementById("sku-oem-ref").value.trim()||null;
-
-  const skuPayload={
+  var mix_family_id=parseInt(document.getElementById('sku-mf-id').value)||null;
+  var die_id=parseInt(document.getElementById('sku-die-id').value)||null;
+  var grinder_machine_id=parseInt(document.getElementById('sku-grinder-id').value)||null;
+  var preform_routing_id=parseInt(document.getElementById('sku-pf-routing-id').value)||null;
+  var bp_routing_id=parseInt(document.getElementById('sku-bp-routing-id').value)||null;
+  var final_routing_id=parseInt(document.getElementById('sku-final-routing-id').value)||null;
+  var vehicle_name=document.getElementById('sku-vehicle-name').value.trim()||null;
+  var vehicle_model=document.getElementById('sku-vehicle-model').value.trim()||null;
+  var axle=document.getElementById('sku-axle').value||null;
+  var oem_ref=document.getElementById('sku-oem-ref').value.trim()||null;
+  var skuPayload={
     item_id: itemId,
-    mix_family_id, die_id, grinder_machine_id,
-    bp_item_id, bp_coated_item_id,
-    preform_weight_g: parseFloat(document.getElementById("sku-preform-weight").value)||null,
-    bp_weight_g: parseFloat(document.getElementById("sku-bp-weight").value)||null,
-    cavity_count: parseInt(document.getElementById("sku-cavity").value)||null,
-    cycle_time_min: parseFloat(document.getElementById("sku-cycle-time").value)||8.5,
-    tray_capacity: parseInt(document.getElementById("sku-tray-cap").value)||null,
-    pcs_per_set: parseInt(document.getElementById("sku-pcs-set").value)||4,
-    grinder_category: document.getElementById("sku-grinder-cat").value||null,
-    standard_cost: parseFloat(document.getElementById("sku-std-cost").value)||null,
+    weight_g:           parseFloat(document.getElementById('sku-weight-g').value)||null,
+    length_mm:          parseFloat(document.getElementById('sku-length-mm').value)||null,
+    width_mm:           parseFloat(document.getElementById('sku-width-mm').value)||null,
+    thickness_mm:       parseFloat(document.getElementById('sku-thickness-mm').value)||null,
+    die_id,
+    cavity_count:       parseInt(document.getElementById('sku-cavity').value)||null,
+    tray_capacity:      parseInt(document.getElementById('sku-tray-cap').value)||null,
+    pcs_in_crate:       parseInt(document.getElementById('sku-pcs-in-crate').value)||null,
+    pcs_per_set:        parseInt(document.getElementById('sku-pcs-set').value)||null,
+    time_per_piece_sec: parseFloat(document.getElementById('sku-time-per-piece').value)||null,
+    box_weight_kg:      parseFloat(document.getElementById('sku-box-weight-kg').value)||null,
+    box_length_mm:      parseFloat(document.getElementById('sku-box-length-mm').value)||null,
+    box_width_mm:       parseFloat(document.getElementById('sku-box-width-mm').value)||null,
+    box_height_mm:      parseFloat(document.getElementById('sku-box-height-mm').value)||null,
+    mix_family_id,
+    bp_weight_g:        parseFloat(document.getElementById('sku-bp-weight').value)||null,
+    cycle_time_min:     parseFloat(document.getElementById('sku-cycle-time').value)||null,
+    grinder_category:   document.getElementById('sku-grinder-cat').value||null,
+    grinder_machine_id, preform_routing_id, bp_routing_id, final_routing_id,
     vehicle_name, vehicle_model, axle, oem_ref,
-    reorder_level: parseFloat(document.getElementById("f-reorder").value)||0,
-    reorder_qty: parseFloat(document.getElementById("f-max-order").value)||0,
-    min_stock: parseFloat(document.getElementById("f-min-stock").value)||0,
+    standard_cost:  parseFloat(document.getElementById('sku-std-cost').value)||null,
+    reorder_level:  parseFloat(document.getElementById('f-reorder')?.value)||0,
+    reorder_qty:    parseFloat(document.getElementById('f-max-order')?.value)||0,
+    min_stock:      parseFloat(document.getElementById('f-min-stock')?.value)||0,
   };
-  const {error}=await sb.from("sku_planning").upsert([skuPayload],{onConflict:"item_id"});
-  if(error) console.error("SKU save error:",error.message);
+  var {error}=await sb.from('sku_planning').upsert([skuPayload],{onConflict:'item_id'});
+  if(error) console.error('SKU save error:',error.message);
 }
 
 async function loadSkuPlanning(itemId){
-  const {data}=await sb.from("sku_planning").select("*").eq("item_id",itemId).single();
+  var {data}=await sb.from('sku_planning').select('*').eq('item_id',itemId).maybeSingle();
   if(!data) return;
-  // Mix family
-  const mfSel=document.getElementById("sku-mix-family");
-  if(mfSel&&data.mix_family_id) mfSel.value=data.mix_family_id;
-  // Preform weight
-  const pw=document.getElementById("sku-preform-weight");
-  if(pw) pw.value=data.preform_weight_g||"";
-  // BP
-  if(data.bp_item_id){
-    const bpItem=allItems.find(x=>x.id==data.bp_item_id);
-    if(bpItem){
-      document.getElementById("sku-bp-search").value=bpItem.code+" — "+bpItem.name;
-      document.getElementById("sku-bp-id").value=data.bp_item_id;
+  var el;
+  el=document.getElementById('sku-weight-g');     if(el) el.value=data.weight_g||'';
+  el=document.getElementById('sku-length-mm');    if(el) el.value=data.length_mm||'';
+  el=document.getElementById('sku-width-mm');     if(el) el.value=data.width_mm||'';
+  el=document.getElementById('sku-thickness-mm'); if(el) el.value=data.thickness_mm||'';
+  el=document.getElementById('sku-cavity');        if(el) el.value=data.cavity_count||'';
+  el=document.getElementById('sku-tray-cap');      if(el) el.value=data.tray_capacity||'';
+  el=document.getElementById('sku-pcs-in-crate');  if(el) el.value=data.pcs_in_crate||'';
+  el=document.getElementById('sku-pcs-set');       if(el) el.value=data.pcs_per_set||'';
+  el=document.getElementById('sku-time-per-piece');if(el) el.value=data.time_per_piece_sec||'';
+  el=document.getElementById('sku-box-weight-kg'); if(el) el.value=data.box_weight_kg||'';
+  el=document.getElementById('sku-box-length-mm'); if(el) el.value=data.box_length_mm||'';
+  el=document.getElementById('sku-box-width-mm');  if(el) el.value=data.box_width_mm||'';
+  el=document.getElementById('sku-box-height-mm'); if(el) el.value=data.box_height_mm||'';
+  el=document.getElementById('sku-bp-weight');     if(el) el.value=data.bp_weight_g||'';
+  el=document.getElementById('sku-cycle-time');    if(el) el.value=data.cycle_time_min||'';
+  el=document.getElementById('sku-grinder-cat');   if(el) el.value=data.grinder_category||'';
+  el=document.getElementById('sku-vehicle-name');  if(el) el.value=data.vehicle_name||'';
+  el=document.getElementById('sku-vehicle-model'); if(el) el.value=data.vehicle_model||'';
+  el=document.getElementById('sku-axle');          if(el) el.value=data.axle||'';
+  el=document.getElementById('sku-oem-ref');       if(el) el.value=data.oem_ref||'';
+  el=document.getElementById('sku-std-cost');      if(el) el.value=data.standard_cost||'';
+  if(data.mix_family_id){
+    var mf=mixFamilies.find(function(x){return x.id===data.mix_family_id;});
+    if(mf){
+      document.getElementById('sku-mf-search').value=mf.code+' \u2014 '+mf.name;
+      document.getElementById('sku-mf-id').value=mf.id;
+      document.getElementById('sku-mf-info').textContent='\u2713 '+mf.name;
+    } else {
+      sb.from('mix_families').select('id,code,name').eq('id',data.mix_family_id).maybeSingle()
+        .then(function(r){if(r.data){
+          document.getElementById('sku-mf-search').value=r.data.code+' \u2014 '+r.data.name;
+          document.getElementById('sku-mf-id').value=r.data.id;
+          document.getElementById('sku-mf-info').textContent='\u2713 '+r.data.name;
+        }});
     }
   }
-  const bpw=document.getElementById("sku-bp-weight");
-  if(bpw) bpw.value=data.bp_weight_g||"";
-  if(data.bp_coated_item_id){
-    const bpcItem=allItems.find(x=>x.id==data.bp_coated_item_id);
-    if(bpcItem){
-      document.getElementById("sku-bpc-search").value=bpcItem.code+" — "+bpcItem.name;
-      document.getElementById("sku-bpc-id").value=data.bp_coated_item_id;
+  if(data.die_id){
+    var die=dies.find(function(x){return x.id===data.die_id;});
+    if(die){
+      var dl=die.die_code+(die.die_name?' \u2014 '+die.die_name:'')+(die.cavity_count?' ('+die.cavity_count+' cav)':'');
+      document.getElementById('sku-die-search').value=dl;
+      document.getElementById('sku-die-id').value=die.id;
+      document.getElementById('sku-die-info').textContent='\u2713 '+dl;
+    } else {
+      sb.from('dies').select('id,die_code,die_name,cavity_count').eq('id',data.die_id).maybeSingle()
+        .then(function(r){if(r.data){
+          var dl=r.data.die_code+(r.data.die_name?' \u2014 '+r.data.die_name:'')+(r.data.cavity_count?' ('+r.data.cavity_count+' cav)':'');
+          document.getElementById('sku-die-search').value=dl;
+          document.getElementById('sku-die-id').value=r.data.id;
+          document.getElementById('sku-die-info').textContent='\u2713 '+dl;
+        }});
     }
   }
-  // Die
-  const dieSel=document.getElementById("sku-die");
-  if(dieSel&&data.die_id) dieSel.value=data.die_id;
-  const cv=document.getElementById("sku-cavity");
-  if(cv) cv.value=data.cavity_count||"";
-  const ct=document.getElementById("sku-cycle-time");
-  if(ct) ct.value=data.cycle_time_min||8.5;
-  // Tray
-  const tc=document.getElementById("sku-tray-cap");
-  if(tc) tc.value=data.tray_capacity||"";
-  const ps=document.getElementById("sku-pcs-set");
-  if(ps) ps.value=data.pcs_per_set||4;
-  // Grinder
-  const gc=document.getElementById("sku-grinder-cat");
-  if(gc) gc.value=data.grinder_category||"";
-  const gmSel=document.getElementById("sku-grinder-machine");
-  if(gmSel&&data.grinder_machine_id) gmSel.value=data.grinder_machine_id;
-  // Vehicle
-  const vn=document.getElementById("sku-vehicle-name");
-  if(vn) vn.value=data.vehicle_name||"";
-  const vm=document.getElementById("sku-vehicle-model");
-  if(vm) vm.value=data.vehicle_model||"";
-  const ax=document.getElementById("sku-axle");
-  if(ax) ax.value=data.axle||"";
-  const oem=document.getElementById("sku-oem-ref");
-  if(oem) oem.value=data.oem_ref||"";
-  const sc=document.getElementById("sku-std-cost");
-  if(sc) sc.value=data.standard_cost||"";
+  if(data.grinder_machine_id){
+    var gm=grinderMachines.find(function(x){return x.id===data.grinder_machine_id;});
+    if(gm){document.getElementById('sku-grinder-search').value=gm.code+' \u2014 '+gm.name;document.getElementById('sku-grinder-id').value=gm.id;}
+  }
+  var routingCache=(window._routingLevelsCache||[]);
+  function restoreRouting(searchId,hiddenId,rid){
+    if(!rid) return;
+    var r=routingCache.find(function(x){return x.id===rid;});
+    if(r){document.getElementById(searchId).value=r.code+' \u2014 '+r.name;document.getElementById(hiddenId).value=r.id;}
+  }
+  restoreRouting('sku-pf-routing-search','sku-pf-routing-id',data.preform_routing_id);
+  restoreRouting('sku-bp-routing-search','sku-bp-routing-id',data.bp_routing_id);
+  restoreRouting('sku-final-routing-search','sku-final-routing-id',data.final_routing_id);
+  if(data.preform_routing_id||data.bp_routing_id||data.final_routing_id||
+     data.bp_weight_g||data.cycle_time_min||data.grinder_category||data.grinder_machine_id){
+    var body=document.getElementById('adv-mfg-body');
+    var arrow=document.getElementById('adv-mfg-arrow');
+    if(body){body.style.display='block';}
+    if(arrow){arrow.style.transform='rotate(90deg)';}
+  }
 }
 
 function clearSkuForm(){
-  ["sku-preform-weight","sku-bp-search","sku-bp-weight","sku-bpc-search",
-   "sku-cavity","sku-tray-cap","sku-vehicle-name","sku-vehicle-model","sku-oem-ref","sku-std-cost"].forEach(id=>{
-    const el=document.getElementById(id);if(el)el.value="";
-  });
-  ["sku-bp-id","sku-bpc-id"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
-  ["sku-mix-family","sku-die","sku-grinder-cat","sku-grinder-machine","sku-axle"].forEach(id=>{
-    const el=document.getElementById(id);if(el)el.value="";
-  });
-  const ct=document.getElementById("sku-cycle-time");if(ct)ct.value="8.5";
-  const ps=document.getElementById("sku-pcs-set");if(ps)ps.value="4";
+  ['sku-weight-g','sku-length-mm','sku-width-mm','sku-thickness-mm',
+   'sku-cavity','sku-tray-cap','sku-pcs-in-crate','sku-pcs-set','sku-time-per-piece',
+   'sku-box-weight-kg','sku-box-length-mm','sku-box-width-mm','sku-box-height-mm',
+   'sku-mf-search','sku-die-search','sku-grinder-search',
+   'sku-pf-routing-search','sku-bp-routing-search','sku-final-routing-search',
+   'sku-bp-weight','sku-cycle-time',
+   'sku-vehicle-name','sku-vehicle-model','sku-oem-ref','sku-std-cost'
+  ].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  ['sku-mf-id','sku-die-id','sku-grinder-id','sku-pf-routing-id','sku-bp-routing-id','sku-final-routing-id']
+    .forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  ['sku-mf-info','sku-die-info'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent='';});
+  var ax=document.getElementById('sku-axle');if(ax)ax.value='';
+  var gc=document.getElementById('sku-grinder-cat');if(gc)gc.value='';
+  var ps=document.getElementById('sku-pcs-set');if(ps)ps.value='4';
+  var body=document.getElementById('adv-mfg-body');if(body)body.style.display='none';
+  var arrow=document.getElementById('adv-mfg-arrow');if(arrow)arrow.style.transform='';
 }
+
+function toggleAdvMfg(){
+  var body=document.getElementById('adv-mfg-body');
+  var arrow=document.getElementById('adv-mfg-arrow');
+  if(!body) return;
+  var open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  if(arrow) arrow.style.transform=open?'':'rotate(90deg)';
+}
+
+// ── Grinder live search ─────────────────────────────────────
+var _skuGrindDebounce=null;
+function skuGrinderSearch(q){
+  clearTimeout(_skuGrindDebounce);
+  _skuGrindDebounce=setTimeout(function(){_doSkuGrindSearch(q);},120);
+}
+function _doSkuGrindSearch(q){
+  var dd=document.getElementById('sku-grinder-dd');
+  if(!q){dd.style.display='none';return;}
+  var ql=q.toLowerCase();
+  var res=(grinderMachines||[]).filter(function(m){
+    return (m.code||'').toLowerCase().includes(ql)||(m.name||'').toLowerCase().includes(ql);
+  }).slice(0,8);
+  if(!res.length){dd.innerHTML='<div style="padding:8px 12px;font-size:12px;color:#8a95a0;">Not found</div>';dd.style.display='block';return;}
+  dd.innerHTML=res.map(function(m){
+    var c=(m.code||'').replace(/'/g,"\\'");var n=(m.name||'').replace(/'/g,"\\'");
+    return '<div onclick="skuSelectGrinder('+m.id+',\''+c+'\',\''+n+'\')" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f4f8;"><span style="font-family:monospace;font-size:11px;background:#f0f4f8;padding:1px 5px;border-radius:3px;">'+m.code+'</span> '+m.name+'</div>';
+  }).join('');
+  dd.style.display='block';
+}
+function skuSelectGrinder(id,code,name){
+  document.getElementById('sku-grinder-search').value=code+' \u2014 '+name;
+  document.getElementById('sku-grinder-id').value=id;
+  document.getElementById('sku-grinder-dd').style.display='none';
+}
+
+// ── Routing live search (shared for pf/bp/final) ────────────
+var _skuRoutingCache=null;
+async function _loadRoutingCache(){
+  if(_skuRoutingCache) return _skuRoutingCache;
+  var {data}=await sb.from('routing_levels').select('id,code,name').eq('is_active',true).order('code');
+  _skuRoutingCache=data||[];
+  window._routingLevelsCache=_skuRoutingCache;
+  return _skuRoutingCache;
+}
+var _skuRtDebounce={};
+function skuRoutingSearch(prefix,q){
+  clearTimeout(_skuRtDebounce[prefix]);
+  _skuRtDebounce[prefix]=setTimeout(function(){_doSkuRoutingSearch(prefix,q);},150);
+}
+async function _doSkuRoutingSearch(prefix,q){
+  var dd=document.getElementById('sku-'+prefix+'-routing-dd');
+  if(!q){dd.style.display='none';return;}
+  var ql=q.toLowerCase();
+  var cache=await _loadRoutingCache();
+  var res=cache.filter(function(r){
+    return (r.code||'').toLowerCase().includes(ql)||(r.name||'').toLowerCase().includes(ql);
+  }).slice(0,8);
+  if(!res.length){dd.innerHTML='<div style="padding:8px 12px;font-size:12px;color:#8a95a0;">Not found</div>';dd.style.display='block';return;}
+  dd.innerHTML=res.map(function(r){
+    var c=(r.code||'').replace(/'/g,"\\'");var n=(r.name||'').replace(/'/g,"\\'");
+    return '<div onclick="skuSelectRouting(\''+prefix+'\','+r.id+',\''+c+'\',\''+n+'\')" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f4f8;"><span style="font-family:monospace;font-size:11px;background:#f0f4f8;padding:1px 5px;border-radius:3px;">'+r.code+'</span> '+r.name+'</div>';
+  }).join('');
+  dd.style.display='block';
+}
+function skuSelectRouting(prefix,id,code,name){
+  document.getElementById('sku-'+prefix+'-routing-search').value=code+' \u2014 '+name;
+  document.getElementById('sku-'+prefix+'-routing-id').value=id;
+  document.getElementById('sku-'+prefix+'-routing-dd').style.display='none';
+}
+document.addEventListener('click',function(e){
+  ['sku-grinder-dd','sku-pf-routing-dd','sku-bp-routing-dd','sku-final-routing-dd'].forEach(function(did){
+    if(!e.target.closest('#'+did)&&e.target.id!==did.replace('-dd','-search'))
+      {var d=document.getElementById(did);if(d)d.style.display='none';}
+  });
+});
 
 async function loadWarehouses(){
   const {data,error}=await sb.from("warehouses").select("id,code,name,type").eq("is_active",true).order("code");
@@ -1796,6 +2172,79 @@ if(csInp&&csDd){
   document.addEventListener('click',function(e){
     if(!e.target.closest('.topbar-search'))csDd.classList.remove('open');
   });
+}
+
+// ── TEMPLATE DOWNLOADS v3.0.7 ────────────────────────────────
+// Generates CSV templates in-browser — no server needed
+function toggleTemplateMenu(){
+  var m=document.getElementById('tmpl-menu');
+  m.style.display=m.style.display==='none'?'block':'none';
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#tmpl-wrap'))
+    {var m=document.getElementById('tmpl-menu');if(m)m.style.display='none';}
+});
+
+function downloadTemplate(type){
+  document.getElementById('tmpl-menu').style.display='none';
+  var csv='',filename='';
+  if(type==='item'){
+    filename='CFC_Item_Master_Import_Template_v3.0.7.csv';
+    csv=[
+      '# CFC ERP — Item Master Import Template v3.0.7',
+      '# Fill one row per item. Delete sample rows before importing.',
+      '# type allowed values: RM | SFG | FG | Consumable | Packing',
+      '# is_active: TRUE or FALSE',
+      '# Do NOT include the # comment rows when importing.',
+      'code,name,type,uom,category,hsn_code,tax_rate,is_active,notes',
+      '# REQUIRED,REQUIRED,REQUIRED,REQUIRED,Optional,Optional,Optional,Optional,Optional',
+      'RM01,Friction Material RM01,RM,KG,Raw Material,68138100,18,TRUE,Main friction RM',
+      'BP01,Back Plate Steel BP01,RM,PCS,Raw Material,73089090,18,TRUE,',
+      'VO101S,Brake Pad Set VO101S,FG,Set,Finished Goods,87083000,28,TRUE,VO formulation',
+      'PMX-VO101,Premix VO101,SFG,KG,Semi Finished,38099300,18,TRUE,',
+      'BX1,Export Box Small,Packing,PCS,Packing,48191000,12,TRUE,',
+    ].join('\r\n');
+  } else if(type==='sku'){
+    filename='CFC_SKU_Planning_Import_Template_v3.0.7.csv';
+    csv=[
+      '# CFC ERP — SKU Planning Import Template v3.0.7',
+      '# item_code must already exist in Item Master.',
+      '# weight_g is the ONLY weight field. Do NOT use preform_weight_g.',
+      '# Blank fields are ignored. Fill only what applies to this item type.',
+      '# Advanced Manufacturing fields: bp_weight_g (Shot Blasting), cycle_time_min (Moulding),',
+      '#   grinder_category (Grinding), grinder_machine_code (Grinding),',
+      '#   preform_routing_code / bp_routing_code / final_routing_code (Routing links)',
+      'item_code,formulation_family_code,die_code,weight_g,length_mm,width_mm,thickness_mm,cavity_count,tray_capacity,pcs_in_crate,pcs_per_set,time_per_piece_sec,box_weight_kg,box_length_mm,box_width_mm,box_height_mm,bp_weight_g,cycle_time_min,grinder_category,grinder_machine_code,preform_routing_code,bp_routing_code,final_routing_code',
+      '# REQUIRED,Optional,Optional,Optional,Optional,Optional,Optional,Optional,Optional,Optional,Optional,Optional,Optional,Optional,Optional,Optional,Optional,Optional,Optional,Optional,Optional,Optional,Optional',
+      'VO101S,VO,DY102,185,120,55,18,4,74,,4,,1.2,350,200,120,120,8.5,Large,GRD-01,VO-STD,VO-STD,VO-STD',
+      'HP101S,HP,,170,,,,4,74,,4,,,,,, 120,8.5,Large,GRD-01,HP-STD,HP-STD,HP-STD',
+      'HE101S,HE,,165,,,,4,74,,4,,,,,, 120,8.5,Large,GRD-01,HE-STD,HE-STD,HE-STD',
+      'VO-MBM,VO,,,,,,,,,,,,,,,,,,,,, ',
+      'VO-SBP101,,,120,,,,,74,,,,,,,,,,,,,, ',
+      'VO-MLD101,,,185,,,,4,,,,,,,,,,8.5,,MLD-01,,, ',
+    ].join('\r\n');
+  } else if(type==='stock'){
+    filename='CFC_Opening_Stock_Import_Template_v3.0.7.csv';
+    csv=[
+      '# CFC ERP — Opening Stock Import Template v3.0.7',
+      '# Run ONCE during initial setup. Do not re-import.',
+      '# item_code and warehouse_code must already exist.',
+      '# mfg_date / expiry_date format: YYYY-MM-DD',
+      'item_code,warehouse_code,opening_qty,uom,rate,batch_no,mfg_date,expiry_date,notes',
+      '# REQUIRED,REQUIRED,REQUIRED,REQUIRED,Optional,Optional,Optional,Optional,Optional',
+      'RM01,WH-MAIN,5000,KG,180,RM-2026-001,2026-01-01,,Opening stock',
+      'RM02,WH-MAIN,3000,KG,220,RM-2026-002,2026-01-01,,Opening stock',
+      'BP01,WH-MAIN,2000,PCS,45,BP-2026-001,,,Raw BP opening',
+      'AD,WH-MAIN,500,LTR,120,,,,Adhesive opening',
+      'PC,WH-MAIN,200,KG,350,,,,Powder coat opening',
+    ].join('\r\n');
+  }
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
 }
 
 </script>

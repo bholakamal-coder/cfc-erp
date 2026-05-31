@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Work Orders — CFC ERP v3.0.6</title>
+<title>Work Orders — CFC ERP v3.0.7</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -136,7 +136,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.6</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128230;</span><span class="gh-label">Masters</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a><a class="nav-item" href="warehouse.html"><span class="icon">&#127978;</span> Warehouse</a></div></div>
@@ -319,7 +319,7 @@ const SUPABASE_URL='https://sdopdeqepjoshbzrpbmi.supabase.co';
 const SUPABASE_KEY='sb_publishable_eWBMrAFa7Yyvtlb-7-8IGA_KxfE7v_8';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-// ── SCHEMA CONTRACT (v3.0.6) ──
+// ── SCHEMA CONTRACT (v3.0.7) ──
 // work_orders columns used: id, wo_no, production_order_id, process_name,
 //   planned_qty, completed_qty, uom, status, machine_id, die_id,
 //   routing_step_id, priority, planned_start, planned_end,
@@ -347,7 +347,7 @@ async function loadMasters(){
     sb.from('machines').select('id,code,name').eq('is_active',true).order('code'),
     sb.from('dies').select('id,die_code,die_name,cavity_count').eq('is_active',true).order('die_code'),
     // routing_steps: confirmed columns id,routing_level_id,sequence,process_name,is_active
-    // routing_steps: step_type confirmed column (v3.0.6 ALTER + migration)
+    // routing_steps: step_type confirmed column (v3.0.7 ALTER + migration)
     sb.from('routing_steps').select('id,process_name,routing_levels(code),step_type').eq('is_active',true).order('sequence'),
     sb.from('warehouses').select('id,code,name').eq('is_active',true).order('code'),
     // production_orders: confirmed columns id,order_no,item_id,planned_qty,uom,status
@@ -686,7 +686,7 @@ function genBatchNo(prefix){
   return prefix+'-'+dt+'-'+rnd;
 }
 
-// ── STAGE DETECTION — v3.0.6 (Rules 31, 32, 33 fix) ──
+// ── STAGE DETECTION — v3.0.7 (Rules 31, 32, 33 fix) ──
 // Uses routing_steps.step_type (confirmed column, text, nullable)
 // NEVER uses process_name string — process_name is a display field only.
 // User can rename 'Mixing' → 'Blending' without breaking any workflow.
@@ -700,7 +700,7 @@ function detectStageType(wo, allStepsForLevel){
   if(thisStep.step_type==='final') return 'final';
   if(thisStep.step_type==='intermediate') return 'intermediate';
   // Fallback: null step_type — use sequence position (safe default)
-  // This handles steps created before v3.0.6 migration
+  // This handles steps created before v3.0.7 migration
   var maxSeq=Math.max(...allStepsForLevel.map(s=>s.sequence||0));
   if((thisStep.sequence||0)===maxSeq) return 'final';
   return 'intermediate';
@@ -755,7 +755,7 @@ async function openCompleteModal(woId){
   if(!bh.output_qty||bh.output_qty<=0) return block('BOM output_qty invalid (0).');
   if(!bh.routing_level_id) return block('BOM mein routing level set nahi hai. BOM Master update karein.');
 
-  // Fetch all steps — step_type confirmed column (v3.0.6) — used for stage detection
+  // Fetch all steps — step_type confirmed column (v3.0.7) — used for stage detection
   // process_name is display only — never used in logic (Rules 31/32/33)
   var {data:allSteps}=await sb.from('routing_steps')
     .select('id,sequence,process_name,output_item_id,is_active,step_type')

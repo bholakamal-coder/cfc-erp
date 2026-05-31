@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Production Plan — CFC ERP v3.0.6</title>
+<title>Production Plan — CFC ERP v3.0.7</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -144,7 +144,7 @@ tr:last-child td{border-bottom:none;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.6</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -245,71 +245,29 @@ tr:last-child td{border-bottom:none;}
           <input type="hidden" id="calc-item-id"/>
           <span id="calc-item-info" style="font-size:11px;color:#166534;display:block;margin-top:3px;"></span>
         </div>
+        <!-- AUTO-RESOLVED FROM SKU PLANNING — read only, no manual selection -->
+        <div id="calc-sku-panel" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:12px 14px;margin-bottom:12px;font-size:12.5px;">
+          <div style="font-size:10px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Auto-resolved from SKU Planning</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 16px;line-height:1.7;">
+            <div><span style="color:#5a6878;">Formulation:</span> <strong id="cp-mf">—</strong></div>
+            <div><span style="color:#5a6878;">Premix Item:</span> <strong id="cp-pmx">—</strong></div>
+            <div><span style="color:#5a6878;">Batch Size:</span> <strong id="cp-batch">—</strong></div>
+            <div><span style="color:#5a6878;">Weight (g):</span> <strong id="cp-wt">—</strong></div>
+            <div><span style="color:#5a6878;">Cavity Count:</span> <strong id="cp-cav">—</strong></div>
+            <div><span style="color:#5a6878;">Cycle Time:</span> <strong id="cp-cyc">—</strong></div>
+            <div><span style="color:#5a6878;">Tray Capacity:</span> <strong id="cp-tray">—</strong></div>
+            <div><span style="color:#5a6878;">Pcs/Set:</span> <strong id="cp-pps">—</strong></div>
+          </div>
+        </div>
+
         <div class="form-row">
           <div class="form-field">
             <label>Quantity (Sets) <span class="req">*</span></label>
             <input type="number" id="calc-qty" value="100" min="1" step="1" oninput="runCalculator()"/>
           </div>
           <div class="form-field">
-            <label>Pcs per Set</label>
-            <input type="number" id="calc-pcs-per-set" value="4" min="1" step="1" oninput="runCalculator()"/>
-          </div>
-        </div>
-        <div class="section-divider">Premix Settings</div>
-        <div class="form-row">
-          <div class="form-field">
-            <label>Premix Item</label>
-            <select id="calc-premix">
-              <option value="726">726 — Premix VO</option>
-              <option value="706">706 — Premix HP</option>
-              <option value="715">715 — Premix HE</option>
-            </select>
-          </div>
-          <div class="form-field">
-            <label>Batch Size (kg)</label>
-            <input type="number" id="calc-batch-kg" value="20" min="1" oninput="runCalculator()"/>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-field">
-            <label>Preform Weight (gms)</label>
-            <input type="number" id="calc-preform-wt" value="185" min="1" oninput="runCalculator()"/>
-          </div>
-          <div class="form-field">
             <label>Scrap % (mixing)</label>
             <input type="number" id="calc-scrap" value="2" min="0" max="20" step="0.1" oninput="runCalculator()"/>
-          </div>
-        </div>
-        <div class="section-divider">Moulding Settings</div>
-        <div class="form-field" style="margin-bottom:10px;">
-          <label>Moulding Machine (optional)</label>
-          <div style="position:relative;">
-            <input type="text" id="calc-machine-search" autocomplete="off"
-              placeholder="Tap to search machines..." oninput="searchCalcMachine()" onfocus="if(!allMachines.length){loadMachines().then(()=>showMachineDD(''));}else{showMachineDD('');}"
-              style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:9px 12px;font-size:13px;background:#f9fafb;outline:none;"/>
-            <div id="calc-machine-dd" style="display:none;position:fixed;background:#fff;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:9999;max-height:220px;overflow-y:auto;min-width:240px;"></div>
-            <input type="hidden" id="calc-machine-id"/>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-field">
-            <label>Die Cavity Count</label>
-            <input type="number" id="calc-cavity" value="2" min="1" oninput="runCalculator()"/>
-          </div>
-          <div class="form-field">
-            <label>Cycle Time (min)</label>
-            <input type="number" id="calc-cycle" value="8.5" min="0.1" step="0.1" oninput="runCalculator()"/>
-          </div>
-        </div>
-        <div class="section-divider">Curing Oven Settings</div>
-        <div class="form-row">
-          <div class="form-field">
-            <label>Oven Capacity (pcs)</label>
-            <input type="number" id="calc-oven-cap" value="200" min="1" oninput="runCalculator()"/>
-          </div>
-          <div class="form-field">
-            <label>Curing Time (min)</label>
-            <input type="number" id="calc-curing-min" value="240" min="1" oninput="runCalculator()"/>
           </div>
         </div>
         <div class="section-divider">Shift Settings</div>
@@ -320,12 +278,11 @@ tr:last-child td{border-bottom:none;}
           </div>
           <div class="form-field">
             <label>No. of Shifts/Day</label>
-            <input type="number" id="calc-shifts-day" value="2" min="1" max="3" oninput="runCalculator()"/>
+            <input type="number" id="calc-shifts-day" value="3" min="1" max="3" oninput="runCalculator()"/>
           </div>
         </div>
         <button type="button" class="btn btn-primary" style="width:100%;margin-top:8px;" onclick="runCalculator()">&#9881;&#65039; Calculate</button>
       </div>
-
       <!-- RESULT PANEL -->
       <div>
         <div class="card" id="result-panel">
@@ -421,239 +378,232 @@ function searchCalcItem(){
   </div>`).join("");
   dd.style.display="block";
 }
+// ── selectCalcItem — v3.0.7 FIXED ──────────────────────────
+// Fix 1: .single() → .maybeSingle() — no crash on missing SKU
+// Fix 2: reads weight_g (not preform_weight_g)
+// Fix 3: chained queries: sku_planning → mix_families → items
+// Fix 4: auto-resolves Formulation Family — user never selects manually
+// Fix 5: no hardcoded premix codes (726/706/715 removed)
+var _calcSku = null;   // cached SKU data for current item
+
 async function selectCalcItem(id,code,name){
-  document.getElementById("calc-item-search").value=code+" — "+name;
-  document.getElementById("calc-item-id").value=id;
-  document.getElementById("calc-item-info").textContent="✓ "+name+" — loading SKU data...";
-  document.getElementById("calc-item-dd").style.display="none";
+  document.getElementById('calc-item-search').value=code+' \u2014 '+name;
+  document.getElementById('calc-item-id').value=id;
+  document.getElementById('calc-item-info').textContent='\u23f3 Loading SKU data...';
+  document.getElementById('calc-item-dd').style.display='none';
+  document.getElementById('calc-sku-panel').style.display='none';
+  _calcSku=null;
 
-  // Auto-fill from sku_planning + BOM
-  const {data:sku}=await sb.from("sku_planning")
-    .select("id,item_id,preform_weight_g,cavity_count,cycle_time_min,tray_capacity,pcs_per_set,die_id,dies(die_code,cavity_count,cycle_time_min)")
-    .eq("item_id",id).single();
+  // Query 1: sku_planning — no JOIN, no .single()
+  var {data:sku}=await sb.from('sku_planning')
+    .select('*')
+    .eq('item_id',id)
+    .maybeSingle();
 
-  if(sku){
-    // Preform weight — from sku_planning
-    if(sku.preform_weight_g)
-      document.getElementById("calc-preform-wt").value=sku.preform_weight_g;
-
-    // Cavity count — from sku_planning directly, fallback to linked die
-    var cavCount = sku.cavity_count || (sku.dies && sku.dies.cavity_count) || null;
-    if(cavCount){
-      document.getElementById("calc-cavity").value=cavCount;
-      document.getElementById("calc-cavity").style.background="#f0fdf4";
-    }
-
-    // Cycle time — from sku_planning directly, fallback to linked die
-    var cycTime = sku.cycle_time_min || (sku.dies && sku.dies.cycle_time_min) || null;
-    if(cycTime){
-      document.getElementById("calc-cycle").value=cycTime;
-      document.getElementById("calc-cycle").style.background="#f0fdf4";
-    }
-
-    // Pcs per set
-    if(sku.pcs_per_set)
-      document.getElementById("calc-pcs-per-set").value=sku.pcs_per_set;
-
-    // Oven/tray capacity
-    if(sku.tray_capacity)
-      document.getElementById("calc-oven-cap").value=sku.tray_capacity;
-
-    // Show what was loaded
-    var loadedFields=[];
-    if(cavCount) loadedFields.push("Cavity: "+cavCount);
-    if(cycTime) loadedFields.push("Cycle: "+cycTime+"min");
-    if(sku.preform_weight_g) loadedFields.push("Preform: "+sku.preform_weight_g+"g");
-    if(loadedFields.length){
-      document.getElementById("calc-item-info").textContent="✓ "+name+" — "+loadedFields.join(", ")+" loaded from SKU ✅";
-    }
-  } else {
-    document.getElementById("calc-item-info").textContent="⚠ "+name+" — SKU data nahi mila. Manually enter karo.";
-    document.getElementById("calc-item-info").style.color="#dc2626";
-  }
-
-  // Auto-fill premix from BOM lines
-  const {data:bom}=await sb.from("bom_headers")
-    .select("id,bom_lines(items(code,type))")
-    .eq("item_id",id).eq("is_default",true).single();
-
-  if(bom&&bom.bom_lines){
-    const premixLine=bom.bom_lines.find(l=>l.items&&l.items.type==="SFG"&&
-      ["726","706","715"].some(c=>l.items.code===c));
-    if(premixLine){
-      document.getElementById("calc-premix").value=premixLine.items.code;
-    }
-  }
-
-  const infoMsg="✓ "+name+(sku?" — SKU data loaded ✅":" — SKU data nahi mila");
-  document.getElementById("calc-item-info").textContent=infoMsg;
-  runCalculator();
-}
-document.addEventListener("click",function(e){
-  if(!e.target.closest("#calc-item-search"))document.getElementById("calc-item-dd").style.display="none";
-});
-
-// ── CALCULATOR ──
-
-var allMachines = [];
-async function loadMachines(){
-  if(allMachines.length) return;
-  const {data} = await sb.from('machines').select('id,code,name,process_name').eq('is_active',true).order('code');
-  allMachines = data||[];
-}
-function showMachineDD(q){
-  const dd = document.getElementById('calc-machine-dd');
-  const inp = document.getElementById('calc-machine-search');
-  const r = inp.getBoundingClientRect();
-  dd.style.cssText = 'display:block;position:fixed;background:#fff;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:9999;max-height:280px;overflow-y:auto;'
-    + 'top:'+(r.bottom+window.scrollY+4)+'px;'
-    + 'left:'+Math.max(8,r.left)+'px;'
-    + 'width:'+Math.min(320,window.innerWidth-16)+'px;';
-
-  const filtered = q
-    ? allMachines.filter(m=>(m.code||'').toLowerCase().includes(q)||(m.name||'').toLowerCase().includes(q)||(m.process_name||'').toLowerCase().includes(q))
-    : allMachines; // show ALL on focus
-
-  if(!filtered.length && !q){
-    dd.innerHTML='<div style="padding:12px;color:#8a95a0;text-align:center;font-size:13px;">Koi machine nahi. Add New karo.</div>';
-  } else if(!filtered.length){
-    dd.innerHTML='<div style="padding:12px;color:#8a95a0;text-align:center;font-size:13px;">"'+q+'" nahi mila</div>';
-  } else {
-    dd.innerHTML = filtered.slice(0,10).map(m=>`
-      <div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f0f4f8;"
-        onmousedown="selectCalcMachine(${m.id},'${m.code}','${(m.name||'').replace(/'/g,"\'").replace(/"/g,'\"')}')">
-        <div style="font-size:13px;font-weight:600;color:#1a2635;">⚙️ ${m.code} — ${m.name}</div>
-        ${m.process_name?'<div style="font-size:11px;color:#8a95a0;">'+m.process_name+'</div>':''}
-      </div>`).join('');
-  }
-  dd.innerHTML += `<div style="padding:10px 12px;cursor:pointer;color:#cc2200;font-weight:600;border-top:2px solid #e2e8f0;font-size:13px;display:flex;align-items:center;gap:6px;"
-    onmousedown="CFC_QUICK_ADD.show('machine',function(nm){document.getElementById('calc-machine-search').value=nm.code+' — '+nm.name;document.getElementById('calc-machine-id').value=nm.id;allMachines=[];loadMachines();})">
-    ➕ Add New Machine</div>`;
-}
-
-function searchCalcMachine(){
-  const q = document.getElementById('calc-machine-search').value.toLowerCase().trim();
-  if(!allMachines.length){
-    loadMachines().then(()=>showMachineDD(q));
+  if(!sku){
+    document.getElementById('calc-item-info').textContent=
+      '\u26a0 SKU Planning not configured for this item. Add it in Item Master \u2192 SKU Planning tab.';
+    document.getElementById('calc-item-info').style.color='#dc2626';
+    runCalculator();
     return;
   }
-  showMachineDD(q);
+
+  // Query 2: mix_families (via mix_family_id)
+  var mf=null, pmxItem=null;
+  if(sku.mix_family_id){
+    var {data:mfData}=await sb.from('mix_families')
+      .select('id,code,name,mix_item_id,batch_size_kg')
+      .eq('id',sku.mix_family_id)
+      .maybeSingle();
+    mf=mfData;
+  }
+
+  // Query 3: premix item name (via mix_item_id)
+  if(mf&&mf.mix_item_id){
+    var {data:pmx}=await sb.from('items')
+      .select('id,code,name')
+      .eq('id',mf.mix_item_id)
+      .maybeSingle();
+    pmxItem=pmx;
+  }
+
+  // Cache resolved SKU data
+  _calcSku={
+    weight_g:       sku.weight_g,
+    cavity_count:   sku.cavity_count,
+    cycle_time_min: sku.cycle_time_min,
+    tray_capacity:  sku.tray_capacity,
+    pcs_per_set:    sku.pcs_per_set||4,
+    batch_size_kg:  mf?mf.batch_size_kg:null,
+    mf_code:        mf?mf.code:null,
+    mf_name:        mf?mf.name:null,
+    pmx_code:       pmxItem?pmxItem.code:null,
+  };
+
+  // Update read-only info panel
+  var set=function(id,v){var el=document.getElementById(id);if(el)el.textContent=v||'\u2014';};
+  set('cp-mf',   mf?(mf.code+' \u2014 '+mf.name):'Not set');
+  set('cp-pmx',  pmxItem?pmxItem.code:'Not set');
+  set('cp-batch',mf?(mf.batch_size_kg+' KG/batch'):'Not set');
+  set('cp-wt',   sku.weight_g?(sku.weight_g+' g'):'Not set');
+  set('cp-cav',  sku.cavity_count?sku.cavity_count:'Not set');
+  set('cp-cyc',  sku.cycle_time_min?(sku.cycle_time_min+' min'):'Not set');
+  set('cp-tray', sku.tray_capacity?sku.tray_capacity:'Not set');
+  set('cp-pps',  sku.pcs_per_set?sku.pcs_per_set:'Not set');
+  document.getElementById('calc-sku-panel').style.display='block';
+
+  document.getElementById('calc-item-info').textContent=
+    '\u2713 '+name+' \u2014 SKU data loaded \u2705';
+  document.getElementById('calc-item-info').style.color='#166534';
+
+  runCalculator();
 }
-function selectCalcMachine(id,code,name){
-  document.getElementById('calc-machine-search').value=code+' — '+name;
-  document.getElementById('calc-machine-id').value=id;
-  document.getElementById('calc-machine-dd').style.display='none';
-}
-document.addEventListener('click',function(e){
-  if(!e.target.closest('#calc-machine-search')&&!e.target.closest('#calc-machine-dd'))
-    if(document.getElementById('calc-machine-dd')) document.getElementById('calc-machine-dd').style.display='none';
-});
+
+// ── FACTORY DEFAULTS (TEMP — will move to Machine Master in v3.1.x) ─
+var FACTORY_DEFAULTS = {
+  mixer_1_kg:          270,    // CONFIRMED
+  mixer_2_kg:          150,    // CONFIRMED
+  mixer_cycle_min:     45,     // TEMP
+  preform_presses:     2,      // CONFIRMED
+  preform_cycle_sec:   20,     // CONFIRMED
+  shot_blast_kg:       60,     // CONFIRMED
+  shot_blast_min:      30,     // TEMP
+  mould_presses:       2,      // CONFIRMED
+  mould_efficiency:    0.85,   // TEMP
+  grinder_1_hr:        500,    // CONFIRMED
+  grinder_2_hr:        250,    // CONFIRMED
+  powder_min_tray:     15,     // TEMP
+  oven_cycle_hrs:      8,      // CONFIRMED
+};
 
 function runCalculator(){
-  const qty=parseFloat(document.getElementById("calc-qty").value)||0;
-  const pcsPerSet=parseFloat(document.getElementById("calc-pcs-per-set").value)||4;
-  const batchKg=parseFloat(document.getElementById("calc-batch-kg").value)||20;
-  const preformWt=parseFloat(document.getElementById("calc-preform-wt").value)||185;
-  const scrapPct=parseFloat(document.getElementById("calc-scrap").value)||2;
-  const cavity=parseFloat(document.getElementById("calc-cavity").value)||2;
-  const cycleMin=parseFloat(document.getElementById("calc-cycle").value)||8.5;
-  const ovenCap=parseFloat(document.getElementById("calc-oven-cap").value)||200;
-  const curingMin=parseFloat(document.getElementById("calc-curing-min").value)||240;
-  const shiftHrs=parseFloat(document.getElementById("calc-shift-hrs").value)||8;
-  const shiftsDay=parseFloat(document.getElementById("calc-shifts-day").value)||2;
-  const premix=document.getElementById("calc-premix").value;
+  if(!_calcSku){return;}
+  var F=FACTORY_DEFAULTS;
+  var S=_calcSku;
 
-  if(!qty){return;}
+  var sets=parseFloat(document.getElementById('calc-qty').value)||0;
+  var scrapPct=parseFloat(document.getElementById('calc-scrap').value)||2;
+  var shiftHrs=parseFloat(document.getElementById('calc-shift-hrs').value)||8;
+  var shiftsDay=parseFloat(document.getElementById('calc-shifts-day').value)||3;
 
-  // Core calculations
-  const totalPcs = qty * pcsPerSet;
-  const preformKgNet = (totalPcs * preformWt) / 1000;
-  const preformKgGross = preformKgNet * (1 + scrapPct/100);
-  const mixBatches = Math.ceil(preformKgGross / batchKg);
-  const actualMixKg = mixBatches * batchKg;
+  if(!sets){return;}
 
-  // Moulding
-  const mouldingCycles = Math.ceil(totalPcs / cavity);
-  const mouldingMins = mouldingCycles * cycleMin;
-  const mouldingHrs = mouldingMins / 60;
+  var pcsPerSet=S.pcs_per_set||4;
+  var weightG=S.weight_g||185;
+  var cavity=S.cavity_count||4;
+  var cycMin=S.cycle_time_min||8.5;
+  var tray=S.tray_capacity||74;
+  var batchKg=S.batch_size_kg||50;
 
-  // Oven / Curing
-  const ovenBatches = Math.ceil(totalPcs / ovenCap);
-  const curingTotalMins = ovenBatches * curingMin;
-  const curingHrs = curingTotalMins / 60;
+  var totalPcs=sets*pcsPerSet;
 
-  // Shift planning
-  const shiftMinsPerDay = shiftHrs * 60 * shiftsDay;
-  const mouldingDays = Math.ceil(mouldingMins / shiftMinsPerDay);
-  const curingDays = Math.ceil(curingTotalMins / shiftMinsPerDay);
-  const totalDays = Math.max(mouldingDays, curingDays) + 1; // +1 for mixing day
+  // MIXING — 2 mixers parallel
+  var premixKgNet=(totalPcs*weightG)/1000;
+  var premixKgGross=premixKgNet*(1+scrapPct/100);
+  var mixBatches=Math.ceil(premixKgGross/batchKg);
+  var m1=Math.ceil(mixBatches*F.mixer_1_kg/(F.mixer_1_kg+F.mixer_2_kg));
+  var m2=mixBatches-m1;
+  var mixHrs=Math.max(m1,m2)*(F.mixer_cycle_min/60);
 
-  calcResult = {qty,totalPcs,premix,preformKgNet,preformKgGross,mixBatches,actualMixKg,
-    mouldingCycles,mouldingMins,mouldingHrs,mouldingDays,
-    ovenBatches,curingTotalMins,curingHrs,curingDays,totalDays,
-    batchKg,cavity,cycleMin,ovenCap,curingMin,shiftHrs,shiftsDay};
+  // PREFORMING — 2 presses parallel (after mixing)
+  var pfCyclesEach=Math.ceil(totalPcs/F.preform_presses);
+  var pfHrs=(pfCyclesEach*F.preform_cycle_sec)/3600;
+  var frictionHrs=mixHrs+pfHrs;
 
-  renderResults(calcResult);
+  // MOULDING — 2 presses, N shifts — BOTTLENECK
+  var mouldCycEach=Math.ceil(totalPcs/(F.mould_presses*cavity));
+  var mouldCycTotal=mouldCycEach*F.mould_presses;
+  var mouldNetHrs=(mouldCycEach*cycMin)/60;
+  var mouldEffHrs=mouldNetHrs/F.mould_efficiency;
+  var mouldAvailHrDay=shiftsDay*shiftHrs*F.mould_efficiency;
+  var mouldDays=mouldEffHrs/mouldAvailHrDay;
+  var pcsPerDay=F.mould_presses*cavity*(60/cycMin)*shiftsDay*shiftHrs*F.mould_efficiency;
+
+  // OVEN — pipelined
+  var ovenBatches=Math.ceil(totalPcs/tray);
+  var ovenHrs=ovenBatches*F.oven_cycle_hrs;
+
+  // GRINDING — G1+G2 parallel
+  var grindHrs=totalPcs/(F.grinder_1_hr+F.grinder_2_hr);
+
+  // CRITICAL PATH — moulding is bottleneck
+  var lastTrayHrs=(tray/(F.grinder_1_hr+F.grinder_2_hr))
+    +(F.powder_min_tray/60)+F.oven_cycle_hrs;
+  var leadHrs=mouldEffHrs+lastTrayHrs;
+  var leadDays=leadHrs/(shiftsDay*shiftHrs);
+
+  // Earliest completion date
+  var compDate=new Date();
+  compDate.setDate(compDate.getDate()+Math.ceil(leadDays));
+  var compStr=compDate.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+
+  // Warnings
+  var warnings=[];
+  if(frictionHrs>mouldEffHrs*0.3) warnings.push('Pre-moulding track may delay start — arrange buffer stock');
+  if(!S.weight_g) warnings.push('weight_g not set in SKU Planning — using default 185g');
+  if(!S.cycle_time_min) warnings.push('cycle_time_min not set in SKU Planning — using default 8.5 min');
+  if(!S.tray_capacity) warnings.push('tray_capacity not set in SKU Planning — using default 74');
+  if(!S.batch_size_kg) warnings.push('Formulation Family batch_size_kg not set — using default 50 KG');
+
+  var result={
+    sets,totalPcs,pcsPerSet,scrapPct,
+    premixKgNet,premixKgGross,mixBatches,m1,m2,mixHrs,batchKg,
+    pfCyclesEach,pfHrs,frictionHrs,
+    mouldCycEach,mouldCycTotal,mouldNetHrs,mouldEffHrs,mouldDays,pcsPerDay,
+    ovenBatches,ovenHrs,grindHrs,
+    leadHrs,leadDays,compStr,
+    shiftHrs,shiftsDay,warnings,
+    mfCode:S.mf_code,pmxCode:S.pmx_code,
+  };
+  renderResults(result);
 }
 
 function renderResults(r){
-  const container=document.getElementById("result-content");
-  container.innerHTML=`
-    <div class="result-grid">
-      <div class="result-card highlight">
-        <div class="rc-label">Total Pieces</div>
-        <div class="rc-value">${r.totalPcs.toLocaleString()}</div>
-        <div class="rc-sub">${r.qty} Sets × ${r.totalPcs/r.qty} pcs/set</div>
-      </div>
-      <div class="result-card highlight">
-        <div class="rc-label">Total Days</div>
-        <div class="rc-value">${r.totalDays}</div>
-        <div class="rc-sub">${r.shiftsDay} shifts/day × ${r.shiftHrs}hrs</div>
-      </div>
-    </div>
+  var container=document.getElementById('result-content');
+  var warnHtml=r.warnings.length?
+    '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:12px;">'
+    +'<strong>&#9888; Warnings:</strong><ul style="margin:4px 0 0 16px;">'
+    +r.warnings.map(function(w){return '<li>'+w+'</li>';}).join('')
+    +'</ul></div>':'';
 
-    <div class="steps-list">
-      <div class="step-row">
-        <div class="step-num">1</div>
-        <div class="step-info">
-          <div class="step-name">&#129516; Mixing (${r.premix})</div>
-          <div class="step-detail">Preform needed: ${r.preformKgNet.toFixed(1)} kg net + ${r.preformKgGross.toFixed(1)} kg gross (${document.getElementById("calc-scrap").value}% scrap) | Batch size: ${r.batchKg} kg</div>
-        </div>
-        <div class="step-result">${r.mixBatches} Batches<br><span style="font-size:11px;font-weight:400;color:#5a6878;">${r.actualMixKg} kg total</span></div>
-      </div>
+  container.innerHTML=
+    '<div class="result-grid">'
+    +'<div class="result-card highlight"><div class="rc-label">&#9888; BOTTLENECK</div><div class="rc-value" style="font-size:16px;">MOULDING</div></div>'
+    +'<div class="result-card highlight"><div class="rc-label">Lead Time</div><div class="rc-value">'+r.leadDays.toFixed(1)+'d</div><div class="rc-sub">'+r.shiftsDay+' shifts/day</div></div>'
+    +'<div class="result-card"><div class="rc-label">Total Pieces</div><div class="rc-value">'+r.totalPcs.toLocaleString()+'</div><div class="rc-sub">'+r.sets+' sets \xd7 '+r.pcsPerSet+' pcs</div></div>'
+    +'<div class="result-card"><div class="rc-label">Earliest Finish</div><div class="rc-value" style="font-size:14px;">'+r.compStr+'</div></div>'
+    +'</div>'
+    +warnHtml
+    +'<div class="steps-list">'
+    +'<div class="step-row"><div class="step-num">1</div><div class="step-info">'
+    +'<div class="step-name">&#129516; Mixing '+(r.mfCode?'('+r.mfCode+')'):'')+'</div>'
+    +'<div class="step-detail">'+r.premixKgNet.toFixed(1)+' KG net \u2192 '+r.premixKgGross.toFixed(1)+' KG gross (+'+r.scrapPct+'% scrap) | '+r.batchKg+' KG/batch | M1:'+r.m1+' M2:'+r.m2+' batches (parallel)</div>'
+    +'</div><div class="step-result">'+r.mixBatches+' Batches<br><span style="font-size:11px;color:#5a6878;">'+r.mixHrs.toFixed(1)+' hrs</span></div></div>'
+    +'<div class="step-row"><div class="step-num">2</div><div class="step-info">'
+    +'<div class="step-name">&#128299; Preforming</div>'
+    +'<div class="step-detail">'+r.totalPcs.toLocaleString()+' pcs \xf7 2 presses = '+r.pfCyclesEach.toLocaleString()+' cycles/press \xd7 20 sec</div>'
+    +'</div><div class="step-result">'+r.pfCyclesEach.toLocaleString()+' Cycles<br><span style="font-size:11px;color:#5a6878;">'+r.pfHrs.toFixed(1)+' hrs</span></div></div>'
+    +'<div class="step-row" style="background:#fff0ee;border-color:#f4b8ae;"><div class="step-num" style="background:var(--red);">&#9654;</div><div class="step-info">'
+    +'<div class="step-name">&#128299; Moulding — BOTTLENECK</div>'
+    +'<div class="step-detail">'+r.totalPcs.toLocaleString()+' pcs \xf7 (2 presses \xd7 '+r.mouldCycEach+' cav) = '+r.mouldCycTotal.toLocaleString()+' total cycles \xd7 '+r.leadHrs.toFixed(0)+' hrs effective (\xf785% uptime)</div>'
+    +'</div><div class="step-result">'+r.mouldCycTotal.toLocaleString()+' Cycles<br><span style="font-size:11px;color:#5a6878;">'+r.mouldDays.toFixed(1)+' days</span></div></div>'
+    +'<div class="step-row"><div class="step-num">4</div><div class="step-info">'
+    +'<div class="step-name">&#9881; Grinding (G1+G2)</div>'
+    +'<div class="step-detail">'+r.totalPcs.toLocaleString()+' pcs \xf7 750/hr (500+250) | pipelined from moulding</div>'
+    +'</div><div class="step-result">'+r.grindHrs.toFixed(1)+' hrs</div></div>'
+    +'<div class="step-row"><div class="step-num">5</div><div class="step-info">'
+    +'<div class="step-name">&#128293; Oven Curing (pipelined)</div>'
+    +'<div class="step-detail">'+r.ovenBatches+' batches \xd7 8 hrs | last batch drives end date</div>'
+    +'</div><div class="step-result">'+r.ovenBatches+' Batches<br><span style="font-size:11px;color:#5a6878;">'+r.ovenHrs.toFixed(0)+' hrs total</span></div></div>'
+    +'</div>'
+    +'<div style="margin-top:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px 12px;font-size:11.5px;color:#5a6878;">'
+    +'Critical path: Moulding ('+r.mouldEffHrs.toFixed(1)+' hrs) + last tray post ('+r.leadHrs.toFixed(1)+'h total) = <strong>'+r.leadDays.toFixed(1)+' working days</strong>'
+    +'</div>'
+    +'<div style="margin-top:12px;display:flex;gap:10px;">'
+    +'<button type="button" class="btn btn-primary" onclick="openPlanModal()">&#128190; Save Plan</button>'
+    +'</div>';
+}
 
-      <div class="step-row">
-        <div class="step-num">2</div>
-        <div class="step-info">
-          <div class="step-name">&#128299; Moulding</div>
-          <div class="step-detail">${r.totalPcs} pcs ÷ ${r.cavity} cavity = ${r.mouldingCycles} cycles × ${r.cycleMin} min = ${r.mouldingMins.toFixed(0)} min</div>
-        </div>
-        <div class="step-result">${r.mouldingCycles} Cycles<br><span style="font-size:11px;font-weight:400;color:#5a6878;">${r.mouldingHrs.toFixed(1)} hrs / ${r.mouldingDays} days</span></div>
-      </div>
-
-      <div class="step-row">
-        <div class="step-num">3</div>
-        <div class="step-info">
-          <div class="step-name">&#128293; Curing Oven</div>
-          <div class="step-detail">${r.totalPcs} pcs ÷ ${r.ovenCap} capacity = ${r.ovenBatches} batches × ${r.curingMin} min = ${r.curingTotalMins.toFixed(0)} min</div>
-        </div>
-        <div class="step-result">${r.ovenBatches} Batches<br><span style="font-size:11px;font-weight:400;color:#5a6878;">${r.curingHrs.toFixed(1)} hrs / ${r.curingDays} days</span></div>
-      </div>
-
-      <div class="step-row" style="background:#fff0ee;border-color:#f4b8ae;">
-        <div class="step-num" style="background:var(--red);">&#10003;</div>
-        <div class="step-info">
-          <div class="step-name">&#128197; Total Production Time</div>
-          <div class="step-detail">Moulding: ${r.mouldingDays}d + Curing: ${r.curingDays}d + 1d setup = ${r.totalDays} working days</div>
-        </div>
-        <div class="step-result">${r.totalDays} Days</div>
-      </div>
-    </div>
-
-    <div style="margin-top:16px;display:flex;gap:10px;">
-      <button type="button" class="btn btn-primary" onclick="openPlanModal()">&#128190; Save as Plan</button>
-      <button type="button" class="btn btn-primary" onclick="openPlanModal()">&#128190; Save Plan</button>
-    </div>`;
 }
 
 // ── TABS ──

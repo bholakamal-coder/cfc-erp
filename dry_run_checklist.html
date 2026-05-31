@@ -108,12 +108,12 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a263
         <h1>&#9989; CFC ERP — Dry Run Checklist</h1>
         <div class="header-sub">Manufacturing Workflow Acceptance Test &nbsp;|&nbsp; Ceradrive Brakes</div>
       </div>
-      <span class="version-badge" id="hdr-version">v3.0.6</span>
+      <span class="version-badge" id="hdr-version">v3.0.7</span>
     </div>
     <div class="meta-row">
       <div class="meta-field">
         <span class="meta-label">Test Version</span>
-        <input class="meta-input" id="m-version" placeholder="e.g. v3.0.6" oninput="saveState()"/>
+        <input class="meta-input" id="m-version" placeholder="e.g. v3.0.7" oninput="saveState()"/>
       </div>
       <div class="meta-field">
         <span class="meta-label">Tested By</span>
@@ -826,7 +826,7 @@ function resetAll() {
 
 // Set default meta values
 document.addEventListener('DOMContentLoaded', function(){
-  document.getElementById('m-version').value = 'v3.0.6';
+  document.getElementById('m-version').value = 'v3.0.7';
   document.getElementById('m-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('m-sku').value = 'VO101S — 5000 Sets';
   document.getElementById('m-env').value = 'Production';
