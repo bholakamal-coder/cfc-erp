@@ -1,275 +1,383 @@
-# CFC ERP — Manufacturing Blueprint v3.0.7
-**Ceradrive Brakes | Date: 2026-05-31 | Status: Clean Slate — Demo Rebuild Pending**
+# CFC ERP — Final Implementation Report v3.0.7
+**Ceradrive Brakes | Date: 2026-06-01 | Status: LIVE — Demo Data Loaded**
 
 ---
 
-## 1. Version Summary
+## 1. Final Database Structure
 
-| Version | Key Changes |
-|---|---|
-| v3.0.1–3.0.4 | Core ERP build, schema, forbidden columns fixed |
-| v3.0.5 | mix_families.html, production plan release flow |
-| v3.0.6 | routing_steps.step_type added; detectStageType() reads step_type only |
-| **v3.0.7** | SKU Planning tab rebuilt (5 sections, 10 new columns). `weight_g` as single weight field (renamed from `preform_weight_g`). Formulation Family and Die dropdowns → live search + Quick Create. Cycle time, grinder fields removed from SKU Planning (→ Machine Master). Import templates added. Full database clean-slate rebuild. |
+### Tables Modified in v3.0.7
 
-**Stack:** Pure HTML/JS + Supabase | **Deploy:** Cloudflare Pages
+**`sku_planning`** — 18 columns in INSERT (confirmed schema):
 
----
-
-## 2. Database Clean-Slate Status (2026-05-31)
-
-All demo/test data deleted. Only real factory master data retained.
-
-| Table | Count | Notes |
+| Column | Type | Purpose |
 |---|---|---|
-| items FG | 0 | Deleted — rebuild fresh |
-| items SFG | 0 | Deleted — rebuild fresh |
-| items RM/Packing | 41 | KEPT — real factory inputs |
-| bom_headers | 0 | Deleted |
-| routing_levels | 0 | Deleted |
-| routing_steps | 0 | Deleted |
-| mix_families | 0 | Deleted — rebuild 3 families |
-| sku_planning | 0 | Deleted + schema fixed |
-| machines | 16 | KEPT — proper-coded only |
-| dies | 1 | KEPT — DY102/INDICA/12cav |
-| inventory | 0 | Cleared |
-| stock_ledger | 0 | Cleared |
+| item_id | integer FK | → items |
+| mix_family_id | integer FK | → mix_families (PMX items only) |
+| die_id | integer FK | → dies (MLD items only) |
+| weight_g | numeric | Item weight — single source of truth |
+| cavity_count | integer | Die cavity count (MLD items only) |
+| tray_capacity | integer | Pieces per tray (ACBP, PWC, CUR) |
+| pcs_in_crate | integer | Pieces per crate (STK items) |
+| pcs_per_set | integer | Pieces per sales set (SW, FG) |
+| time_per_piece_sec | numeric | Generic per-piece time (PRN, RIV, SW) |
+| box_weight_kg | numeric | Box weight (FG items) |
+| box_length_mm | numeric | Box length (FG items) |
+| box_width_mm | numeric | Box width (FG items) |
+| box_height_mm | numeric | Box height (FG items) |
+| grinder_category | text | Small/Medium/Large (FG items) |
+| grinder_machine_id | integer FK | → machines |
+| preform_routing_id | integer FK | → routing_levels |
+| bp_routing_id | integer FK | → routing_levels |
+| final_routing_id | integer FK | → routing_levels |
 
-**Machines kept:** MIX-01/02, PF-01/02, SB-01, ADH-01, MLD-01/02, GRD-01/02, PC-01, OVN-01, STK-01, PKG-01, PRN-01, RIV-01
+**`routing_steps`** — `machine_id` column added:
+```sql
+ALTER TABLE routing_steps ADD COLUMN machine_id integer REFERENCES machines(id);
+```
+
+### Tables Confirmed Unchanged
+- `items` — code, name, type, uom, is_active
+- `machines` — 16 records kept
+- `dies` — DY101 added (PAD 101, 8 cavity)
+- `bom_headers` — uses `bom_id` FK in bom_lines, `is_default`, `output_qty`, `output_uom`
+- `bom_lines` — uses `bom_id`, `line_no`, `item_id`, `qty`, `uom`, `notes`
+- `mix_families` — code, name, mix_item_id, batch_size_kg, is_active
 
 ---
 
-## 3. Item Naming Convention
+## 2. Final SKU Planning Structure
 
-| Series | FG Code | SFG Stage Items |
-|---|---|---|
-| VO | VO101S | PMX-VO101, PF-VO101, BP-SB-VO101, BP-CT-VO101, PAD-RAW-VO101, PAD-GND-VO101, PAD-STK-VO101 |
-| HP | HP101S | PMX-HP101, PF-HP101, BP-SB-HP101, BP-CT-HP101, PAD-RAW-HP101, PAD-GND-HP101, PAD-STK-HP101 |
-| HE | HE101S | PMX-HE101, PF-HE101, BP-SB-HE101, BP-CT-HE101, PAD-RAW-HE101, PAD-GND-HE101, PAD-STK-HE101 |
+### UI Sections (item_master.html — Tab 4)
 
-**Pattern:** `[SERIES][SKU NUMBER][SUFFIX]`
-- FG: `VO101S` (S = Set)
-- Premix: `PMX-[SERIES][SKU]`
-- Preform: `PF-[SERIES][SKU]`
-- Back Plate stages: `BP-SB-`, `BP-CT-` prefix
-- Pad stages: `PAD-RAW-`, `PAD-GND-`, `PAD-STK-` prefix
+**GENERAL**
+- Weight (g) → `weight_g`
+- Length (mm) → `length_mm`
+- Width (mm) → `width_mm`
+- Thickness (mm) → `thickness_mm`
+
+**MOULDING**
+- Die → `die_id` (live search + Quick Create)
+- Die Cavity Count → `cavity_count`
+
+**CAPACITY / STORAGE**
+- Pieces In Tray → `tray_capacity`
+- Pieces In Crate → `pcs_in_crate`
+- Pieces Per Set → `pcs_per_set`
+- Time Per Piece (sec) → `time_per_piece_sec`
+
+**PACKAGING**
+- Total Box Weight (kg) → `box_weight_kg`
+- Box Length (mm) → `box_length_mm`
+- Box Width (mm) → `box_width_mm`
+- Box Height (mm) → `box_height_mm`
+
+**LINKAGES**
+- Formulation Family → `mix_family_id` (live search + Quick Create)
+
+**ADVANCED MANUFACTURING** *(collapsible — collapsed by default)*
+- BP Weight (g) → `bp_weight_g`
+- Cycle Time (min) → `cycle_time_min` *(Machine Master — not in sku_planning INSERT)*
+- Grinder Category → `grinder_category`
+- Grinder Machine → `grinder_machine_id` (live search)
+- Preform Routing → `preform_routing_id` (live search)
+- BP Routing → `bp_routing_id` (live search)
+- Final Routing → `final_routing_id` (live search)
+
+### Architecture Rules
+- `weight_g` = single weight field. `preform_weight_g` permanently removed.
+- `cycle_time_min` = Machine Master only. Never in `sku_planning` VALUES.
+- Blank field = NULL = ignored. No calculation error on blank.
+- `mix_family_id` on PMX items only (not MBM, not FG).
+- `die_id` on MLD items only.
 
 ---
 
-## 4. MTS Workflow (Make to Stock)
+## 3. Formulation Families
 
-```
-Sales Forecast
-  → Production Plan (calculator reads SKU Planning)
-  → Release Plan → Work Orders (9 stages per VO-STD routing)
-  → Stage 1: Mixing        → mix_batches
-  → Stage 2: Preforming    → process_batches
-  → Stage 3: Shot Blasting → process_batches
-  → Stage 4: Adhesive Coat → process_batches
-  → Stage 5: Moulding      → process_batches (final stage → fg_batches)
-  → Stage 6: Grinding      → process_batches
-  → Stage 7: Powder Coat   → process_batches
-  → Stage 8: Curing        → process_batches
-  → Stage 9: Stacking/Packing → fg_batches → inventory
-```
+| Code | Name | Premix Item | Batch Size |
+|---|---|---|---|
+| VO | VO Standard Formula | VO-PMX | 50 KG |
+| HP | HP Standard Formula | HP-PMX | 50 KG |
+| HE | HE Standard Formula | HE-PMX | 50 KG |
+
+- Unlimited families — no VO/HP/HE hardcoding in any logic
+- `mix_item_id` linked to PMX item via UPDATE after INSERT
+- Production Planner auto-resolves formulation from SKU Planning — user never selects manually
 
 ---
 
-## 5. MTO Workflow (Make to Order)
+## 4. Routing Levels
 
-```
-Sales Order (customer + qty)
-  → MRP check (inventory vs requirement)
-  → Production Plan created for order qty
-  → Same 9-stage routing as MTS
-  → FG dispatched against Sales Order
-```
+| Code | Name | Steps | Series |
+|---|---|---|---|
+| VO-STD | Standard VO Pad Routing | 14 | VO |
+| HP-STD | Standard HP Pad Routing | 14 | HP |
+| HE-STD | Standard HE Pad Routing | 14 | HE |
+
+- Independent records — changing one does not affect others
+- Steps 1–10 = MTS (Make to Stock)
+- Steps 11–14 = MTO (Make to Order)
+
+---
+
+## 5. Routing Step Machine Assignments
+
+*(VO-STD shown — HP-STD and HE-STD identical)*
+
+| Seq | Process Name | step_type | Machine | Track |
+|---|---|---|---|---|
+| 1 | Raw Material Batch Mix | mixing | MIX-01 | MTS |
+| 2 | Premixing | mixing | MIX-01 | MTS |
+| 3 | Preforming | preforming | PF-01 | MTS |
+| 4 | Shot Blasting | shot_blasting | SB-01 | MTS |
+| 5 | Adhesive Coating | adhesive_coating | ADH-01 | MTS |
+| 6 | Moulding | moulding | MLD-01 | MTS |
+| 7 | Grinding | grinding | GRD-01 | MTS |
+| 8 | Powder Coating | powder_coating | PC-01 | MTS |
+| 9 | Curing | curing | OVN-01 | MTS |
+| 10 | Stacking ◄MTS END | stacking | STK-01 | MTS |
+| 11 | Printing | printing | PRN-01 | MTO |
+| 12 | Riveting | riveting | RIV-01 | MTO |
+| 13 | Set Assembly | set_assembly | PKG-01 | MTO |
+| 14 | Packing ◄FG | final | PKG-01 | MTO |
+
+- `machine_id` column confirmed in `routing_steps` schema
+- `null_machine_id` count = 0 (all steps have machine assigned)
+- Parallel machines (MIX-02, MLD-02, GRD-02) handled by Production Planner capacity logic
+- `machine_id` stores primary machine only
 
 ---
 
 ## 6. Multi-Level BOM Structure
 
-```
-VO101S (FG — 1 Set = 4 pads)
-  └─ PMX-VO101  (Premix — formulation output)
-       └─ RM01 (Friction Material)
-       └─ RM02 (Resin)
-       └─ RM03 (Barite)
-       └─ RM04 (Vermiculite)
-       └─ RM05 (Iron Powder)
-  └─ BP01       (Raw Back Plate)
-  └─ AD         (Adhesive)
-  └─ PC         (Powder Coat)
-  └─ CL1        (Clip)
-  └─ SH7        (Shim)
-  └─ BX1        (Box)
-  └─ PY1        (Polythene)
-```
+### Architecture
+- 42 BOM headers (14 per series × 3)
+- 87 BOM lines (29 per series × 3)
+- MTS BOM: RM → MBM → PMX → PF → SBP → ACBP → MLD → GRD → PWC → CUR → STK
+- MTO BOM: STK → PRN → RIV → SW → FG
 
-Each SFG item (PMX, PF, BP-SB, etc.) can have its own BOM line if needed. BOM is linked to FG item via `bom_headers.item_id`. Routing is linked via `bom_headers.routing_level_id`.
+### VO Series BOM Chain
 
----
-
-## 7. SKU Planning Field Rules
-
-**Principle:** SKU Planning = physical and planning attributes of the item only.
-
-| Section | Field | DB Column | Purpose |
-|---|---|---|---|
-| General | Weight (g) | `weight_g` | Universal item weight. Used by Mixing, Shot Blasting. |
-| General | Length (mm) | `length_mm` | Physical dimension |
-| General | Width (mm) | `width_mm` | Physical dimension |
-| General | Thickness (mm) | `thickness_mm` | Physical dimension |
-| Moulding | Die Cavity Count | `cavity_count` | Used by moulding throughput calculation |
-| Capacity | Pieces In Tray | `tray_capacity` | Used by Adhesive Coat, Powder Coat, Oven |
-| Capacity | Pieces In Crate | `pcs_in_crate` | Used by Stacking, Storage calculations |
-| Capacity | Pieces Per Set | `pcs_per_set` | Used by Production Plan (sets → pads) |
-| Capacity | Time Per Piece (sec) | `time_per_piece_sec` | Generic — reused for Laser, Bedding, Riveting, Printing, Inspection, Packing, Shrink |
-| Packaging | Total Box Weight (kg) | `box_weight_kg` | Shipping/logistics |
-| Packaging | Box Length (mm) | `box_length_mm` | Shipping/logistics |
-| Packaging | Box Width (mm) | `box_width_mm` | Shipping/logistics |
-| Packaging | Box Height (mm) | `box_height_mm` | Shipping/logistics |
-| Linkages | Formulation Family | `mix_family_id` | FK → mix_families. Display only in Production Plan. |
-| Linkages | Die | `die_id` | FK → dies |
-
-**Rules:**
-- Blank = not applicable. Never causes errors.
-- `weight_g` is the ONLY weight field. `preform_weight_g` has been permanently removed.
-- Cycle times, machine rates, batch sizes → Machine Master.
-- Routing links → Routing Master / BOM. Not in SKU Planning.
-- No process-specific fields (no laser_time, rivet_time, pack_time, etc.).
-
-**Hidden in DB (not in UI, available to logic):**
-`bp_item_id`, `bp_weight_g`, `bp_coated_item_id`, `cycle_time_min`, `grinder_category`, `grinder_machine_id`, `preform_routing_id`, `bp_routing_id`, `final_routing_id`
-
----
-
-## 8. Formulation Family Rules
-
-| Property | Value |
+| Output Item | Input Components |
 |---|---|
-| DB table | `mix_families` (name unchanged) |
-| DB column | `mix_family_id` (FK in sku_planning) |
-| UI label | "Formulation Family" everywhere |
-| Stores | code, name, mix_item_id (FK → items), batch_size_kg, is_active |
-| Does NOT store | Preform weight, cavity count, tray capacity, cycle time, any SKU attribute |
-| Unlimited | VO, HP, HE, CDHE, RACING, EXPORT, TAXI, ABC123 — no code change needed |
-| In Production Plan | Auto-resolved from SKU Planning. Never manually selected by user. |
+| VO-MBM | RM01, RM02, RM03, RM04, RM05, RM06, RM07, RM08 |
+| VO-PMX | VO-MBM |
+| VO-PF101 | VO-PMX (0.185 KG) |
+| VO-SBP101 | BP01 |
+| VO-ACBP101 | VO-SBP101 + AD |
+| VO-MLD101 | VO-PF101 + VO-ACBP101 |
+| VO-GRD101 | VO-MLD101 |
+| VO-PWC101 | VO-GRD101 + PC |
+| VO-CUR101 | VO-PWC101 |
+| VO-STK101 | VO-CUR101 |
+| VO-PRN101 | VO-STK101 |
+| VO-RIV101 | VO-PRN101 + CL1 + SH7 |
+| VO-SW101 | VO-RIV101 × 4 |
+| VO101S | VO-SW101 + BX1 + PY1 + SW1 |
 
-**What Formulation Family contributes to calculator:** `batch_size_kg` only.
-
----
-
-## 9. Routing Step → Machine → SKU Field Mapping
-
-| Process | Machine | SKU Field Used | Column |
-|---|---|---|---|
-| Mixing | MIX-01, MIX-02 | Weight of FG item | `weight_g` |
-| Preforming | PF-01, PF-02 | Weight of preform item | `weight_g` |
-| Shot Blasting | SB-01 | Weight of BP item | `weight_g` (via bp_item_id) |
-| Adhesive Coating | ADH-01 | Pieces per tray | `tray_capacity` |
-| Moulding | MLD-01, MLD-02 | Cavity count | `cavity_count` |
-| Grinding | GRD-01, GRD-02 | — | — |
-| Powder Coating | PC-01 | Pieces per tray | `tray_capacity` |
-| Oven Curing | OVN-01 | Pieces per tray | `tray_capacity` |
-| Stacking | STK-01 | Pieces per crate | `pcs_in_crate` |
-| Laser Marking | PRN-01 | Time per piece | `time_per_piece_sec` |
-| Bedding Coat | — | Time per piece | `time_per_piece_sec` |
-| Orbital Riveting | RIV-01 | Time per piece | `time_per_piece_sec` |
-| Pad Printing | PRN-01 | Time per piece | `time_per_piece_sec` |
-| Inspection | — | Time per piece | `time_per_piece_sec` |
-| Packing | PKG-01 | Time per piece | `time_per_piece_sec` |
-| Shrink Wrapping | — | Time per piece | `time_per_piece_sec` |
-
-**Rule 32/33:** Process name never appears in logic. Only IDs, step_type, and generic field names.
+HP and HE series: identical structure with own item codes.
 
 ---
 
-## 10. Import Templates
+## 7. Production Planner Logic
 
-Three Excel templates available for download from Item Master page:
+### Data Sources (no hardcoding)
+```
+SKU Planning (sku_planning)
+  weight_g          → premix KG calculation
+  cavity_count      → moulding cycles per press
+  tray_capacity     → oven/powder/adhesive batch size
+  pcs_in_crate      → storage planning
+  pcs_per_set       → sets → pads conversion
+  time_per_piece_sec→ printing/riveting/packing time
+
+Routing Step (routing_steps)
+  machine_id        → which machine runs this step
+  step_type         → drives WO completion logic
+
+Machine Master (machines)
+  cycle_time        → from Machine Master (not SKU Planning)
+  capacity          → from Machine Master
+```
+
+### Calculator Fixes (v3.0.7)
+- `.single()` → `.maybeSingle()` — no crash on missing SKU
+- Reads `weight_g` (not `preform_weight_g`)
+- 3-query chain: `sku_planning` → `mix_families` → `items`
+- Formulation Family auto-resolved — user never selects manually
+- `calc-premix` hardcoded dropdown REMOVED
+- `calc-preform-wt` manual field REMOVED
+- Auto-resolved read-only panel shows: Formulation, Premix, Batch, Weight, Cavity, Tray, Pcs/Set
+- Default cavity fallback = 8 (DY101)
+- FACTORY_DEFAULTS object — all assumptions named and visible
+
+### Bottleneck Logic
+- Critical path: Moulding (bottleneck) → last tray post-processing
+- Lead time = moulding effective hours + last tray downstream
+- Parallel machines handled in FACTORY_DEFAULTS (MIX-02, MLD-02, GRD-02)
+- Warnings shown when SKU Planning fields are missing
+
+---
+
+## 8. Import Templates
+
+Three templates downloadable from Item Master → Templates button:
 
 ### Template 1 — Item Master
-File: `CFC_Item_Master_Import_Template_v3.0.7.xlsx`
 Columns: `code, name, type, uom, category, hsn_code, tax_rate, is_active, notes`
 Allowed type values: `RM | SFG | FG | Consumable | Packing`
 
-### Template 2 — SKU Planning
-File: `CFC_SKU_Planning_Import_Template_v3.0.7.xlsx`
-Columns: `item_code, formulation_family_code, die_code, weight_g, length_mm, width_mm, thickness_mm, cavity_count, tray_capacity, pcs_in_crate, pcs_per_set, time_per_piece_sec, box_weight_kg, box_length_mm, box_width_mm, box_height_mm`
+### Template 2 — SKU Planning (23 columns)
+Columns: `item_code, formulation_family_code, die_code, weight_g, length_mm, width_mm, thickness_mm, cavity_count, tray_capacity, pcs_in_crate, pcs_per_set, time_per_piece_sec, box_weight_kg, box_length_mm, box_width_mm, box_height_mm, bp_weight_g, cycle_time_min, grinder_category, grinder_machine_code, preform_routing_code, bp_routing_code, final_routing_code`
+
+Rules:
+- `weight_g` only — `preform_weight_g` never used
+- Blank fields ignored
 - `item_code` must exist in Item Master
-- `weight_g` is the only weight field — do NOT use `preform_weight_g`
 
 ### Template 3 — Opening Stock
-File: `CFC_Opening_Stock_Import_Template_v3.0.7.xlsx`
 Columns: `item_code, warehouse_code, opening_qty, uom, rate, batch_no, mfg_date, expiry_date, notes`
-- Run once during initial setup only
+
+All templates download as CSV directly from browser — no server needed.
 
 ---
 
-## 11. Demo Data Blueprint
+## 9. Demo Data Counts (Verified Live)
 
-### Three Series (Rule 23)
-
-**VO Series:**
-- FG: VO101S | Pcs/Set: 4 | Weight: 185g | Cavity: 4 | Tray: 74
-- Formulation Family: VO — VO Standard Formula | Batch: 50 KG | Premix: PMX-VO101
-- Routing: VO-STD — 9 steps (mixing→preforming→shotblast→adhesive→moulding→grinding→powder→curing→stacking)
-- SFG chain: PMX-VO101, PF-VO101, BP-SB-VO101, BP-CT-VO101, PAD-RAW-VO101, PAD-GND-VO101, PAD-STK-VO101
-
-**HP Series:**
-- FG: HP101S | Pcs/Set: 4 | Weight: 170g | Cavity: 4 | Tray: 74
-- Formulation Family: HP — HP Standard Formula | Batch: 50 KG | Premix: PMX-HP101
-- Routing: HP-STD (same 9 steps, separate routing_level record)
-
-**HE Series:**
-- FG: HE101S | Pcs/Set: 4 | Weight: 165g | Cavity: 4 | Tray: 74
-- Formulation Family: HE — HE Standard Formula | Batch: 50 KG | Premix: PMX-HE101
-- Routing: HE-STD (same 9 steps, separate routing_level record)
-
----
-
-## 12. Dry Run Procedure
-
-1. Create one FG item (e.g. VO101S) in Item Master
-2. Create Formulation Family (VO) in mix_families.html
-3. Fill SKU Planning tab for VO101S — all 14 visible fields
-4. Create Routing Level VO-STD with 9 steps, step_type set on each
-5. Create BOM for VO101S with RM components
-6. Open Production Plan — select VO101S
-7. Verify: Formulation Family auto-resolves, no manual selection
-8. Enter 1000 Sets — click Calculate
-9. Verify: bottleneck shown, lead time calculated, mix batches correct
-10. Save Plan → Release → verify 9 Work Orders created
-11. Complete Mixing WO — verify mix_batches record created
-12. Complete next WO — verify process_batches created
-13. Complete final WO — verify fg_batches + inventory updated
-
----
-
-## 13. Known Limitations
-
-| ID | Issue | Target |
+| Table | Count | Notes |
 |---|---|---|
-| RKI-1 | bom.html Routing Level still dropdown | v3.0.8 |
-| RKI-2 | work_orders.html Machine/Die dropdowns | v3.0.8 |
-| RKI-7 | mrp.html separate Supabase client | v3.0.8 |
-| RKI-15 | production_plan.html SKU data not loading (.single() bug) | v3.0.8 |
-| — | HP/HE demo data not yet inserted | Rebuild pending |
-| — | item_master.html f-category, f-warehouse still dropdowns | v3.0.8 |
-| — | Production Plan calculator reads preform_weight_g in code | v3.0.8 (update to weight_g) |
+| items SFG | 39 | 13 per series × 3 |
+| items FG | 3 | VO101S, HP101S, HE101S |
+| mix_families | 3 | VO, HP, HE |
+| routing_levels | 3 | VO-STD, HP-STD, HE-STD |
+| routing_steps | 42 | 14 per routing × 3 |
+| routing_steps NULL machine_id | 0 | All assigned |
+| bom_headers | 42 | 14 per series × 3 |
+| bom_lines | 87 | 29 per series × 3 |
+| sku_planning | 39 | GRD items excluded |
+| dies | DY101 | PAD 101, 8 cavity |
+
+### Die Assignment
+- DY101 / PAD 101 / 8 cavity
+- Linked to: VO-MLD101, HP-MLD101, HE-MLD101
+- cavity_count = 8 on all three MLD items
+
+### SKU Planning Key Values
+| Item | Field | Value |
+|---|---|---|
+| PF101 (all series) | weight_g | 185/170/165 |
+| SBP101 (all series) | weight_g | 120/110/105 |
+| ACBP101/PWC101/CUR101 | tray_capacity | 74 |
+| MLD101 | cavity_count | 8 |
+| MLD101 | die_id | DY101 |
+| STK101 | pcs_in_crate | 120 |
+| PRN101 | time_per_piece_sec | 3 |
+| RIV101 | time_per_piece_sec | 10 |
+| SW101 | pcs_per_set | 4 |
+| SW101 | time_per_piece_sec | 10 |
+| FG (101S) | pcs_per_set | 4 |
+| FG (101S) | box dims | 1.5kg, 300×200×100mm |
 
 ---
 
-## 14. Rollback Plan
+## 10. Rollback Procedure
 
-| Layer | Action |
-|---|---|
-| Code | Redeploy `cfc-erp-v3.0.6.zip` |
-| Schema — new columns | `ALTER TABLE sku_planning DROP COLUMN weight_g, DROP COLUMN length_mm, ...` (10 drops) |
-| Schema — rename | `ALTER TABLE sku_planning RENAME COLUMN weight_g TO preform_weight_g` |
-| Data | Restore from Supabase point-in-time backup labeled `pre-cleanup-2026-05-31` |
+### Code Rollback
+Redeploy `cfc-erp-v3.0.6.zip` via Cloudflare Pages.
+
+### Schema Rollback
+```sql
+-- Remove machine_id from routing_steps
+ALTER TABLE routing_steps DROP COLUMN machine_id;
+
+-- Remove new sku_planning columns
+ALTER TABLE sku_planning
+  DROP COLUMN IF EXISTS length_mm,
+  DROP COLUMN IF EXISTS width_mm,
+  DROP COLUMN IF EXISTS thickness_mm,
+  DROP COLUMN IF EXISTS pcs_in_crate,
+  DROP COLUMN IF EXISTS time_per_piece_sec,
+  DROP COLUMN IF EXISTS box_weight_kg,
+  DROP COLUMN IF EXISTS box_length_mm,
+  DROP COLUMN IF EXISTS box_width_mm,
+  DROP COLUMN IF EXISTS box_height_mm;
+
+-- Rename weight_g back to preform_weight_g
+ALTER TABLE sku_planning RENAME COLUMN weight_g TO preform_weight_g;
+```
+
+### Data Rollback
+Delete demo data:
+```sql
+DELETE FROM bom_lines;
+DELETE FROM bom_headers;
+DELETE FROM sku_planning WHERE item_id IN (SELECT id FROM items WHERE type IN ('SFG','FG'));
+DELETE FROM routing_steps WHERE routing_level_id IN (SELECT id FROM routing_levels WHERE code IN ('VO-STD','HP-STD','HE-STD'));
+DELETE FROM routing_levels WHERE code IN ('VO-STD','HP-STD','HE-STD');
+DELETE FROM mix_families WHERE code IN ('VO','HP','HE');
+DELETE FROM items WHERE type IN ('SFG','FG');
+DELETE FROM dies WHERE die_code = 'DY101';
+```
 
 ---
 
-*Document generated: 2026-05-31 | CFC ERP v3.0.7 | Ceradrive Brakes*
+## 11. Exact Files Changed in v3.0.7
+
+### `item_master.html`
+- SKU Planning tab completely rebuilt — 6 sections
+- Advanced Manufacturing section added (collapsible) — 7 fields
+- Die moved from Linkages → Moulding section
+- Formulation Family: dropdown → live search + Quick Create
+- Die: dropdown → live search + Quick Create
+- Grinder Machine: live search added
+- Preform/BP/Final Routing: live search added
+- `saveSkuPlanning()` — all 18 columns including Advanced Mfg
+- `loadSkuPlanning()` — restores all fields, auto-opens Advanced if populated
+- `clearSkuForm()` — clears all fields including Advanced Mfg
+- `toggleAdvMfg()` — collapsible section toggle
+- `skuGrinderSearch()` — grinder live search
+- `skuRoutingSearch()` — routing live search (pf/bp/final)
+- Templates dropdown button added to page header
+- `downloadTemplate()` — 3 CSV templates (Item Master, SKU Planning 23 cols, Opening Stock)
+
+### `production_plan.html`
+- `selectCalcItem()` — `.single()` → `.maybeSingle()` fixed
+- Reads `weight_g` (not `preform_weight_g`)
+- 3-query chain: sku_planning → mix_families → items
+- `calc-premix` hardcoded dropdown removed
+- `calc-preform-wt` manual field removed
+- Auto-resolved read-only panel added (`calc-sku-panel`)
+- `FACTORY_DEFAULTS` object — no hardcoded assumptions
+- `runCalculator()` — parallel model, bottleneck, lead time, finish date, warnings
+- Default cavity fallback = 8
+
+### `routing.html`
+- `saveStep()` — `machine_id` now included in payload
+- Stale comment `"column does not exist"` removed
+
+### `shared.js`
+- VERSION: `3.0.6` → `3.0.7`
+
+### `CFC_ERP_MANUFACTURING_BLUEPRINT_v3.0.7.md` *(new file)*
+- Full manufacturing blueprint documentation
+- 14 sections including all architecture decisions
+
+---
+
+## 12. Known Open Items Deferred to v3.0.8
+
+| ID | Issue | Module |
+|---|---|---|
+| RKI-1 | `bom.html` Routing Level still a dropdown — needs live search | BOM |
+| RKI-2 | `work_orders.html` Machine/Die still dropdowns | Work Orders |
+| RKI-7 | `mrp.html` separate Supabase client issue | MRP |
+| RKI-15 | Production Planner reads Machine Master cycle_time — currently using FACTORY_DEFAULTS | Production Planner |
+| RKI-16 | `item_master.html` f-category, f-warehouse still dropdowns | Item Master |
+| RKI-17 | SKU Planning `bp_weight_g` field — UI present but not in current 18-col INSERT schema (column may not exist) | Item Master |
+| RKI-18 | Production Planner does not yet read `routing_steps.machine_id` for capacity | Production Planner |
+| RKI-19 | MRP calculation not tested against new multi-level BOM structure | MRP |
+
+---
+
+*Document generated: 2026-06-01 | CFC ERP v3.0.7 | Ceradrive Brakes*
+*Demo data verified live: 39 SFG + 3 FG + 42 routing steps + 42 BOM headers + 87 BOM lines + 39 SKU Planning rows*
