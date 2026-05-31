@@ -22,7 +22,7 @@ window.CFC_CONFIG = {
   SUPABASE_KEY: 'sb_publishable_eWBMrAFa7Yyvtlb-7-8IGA_KxfE7v_8',
   APP_NAME:     'CFC ERP v2',
   COMPANY:      'CERADRIVE BRAKES',
-  VERSION:      '2.9.0',
+  VERSION:      '2.9.1',
   QUERY_LIMIT:  500,
   DEBOUNCE_MS:  300,
 };
@@ -1601,4 +1601,220 @@ document.addEventListener('DOMContentLoaded', function() {
   // settings.html calls CFC_SIDEBAR.init() explicitly from its own init.
   // Calling it here caused DOUBLE click handlers = accordion open then immediately close.
   CFC_NAV.init();
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CFC_PERM — Role-based permission helper                          added v2.9.1
+// ═══════════════════════════════════════════════════════════════════════════════
+window.CFC_PERM = {
+  _role: 'Operator', // safest default
+  _matrix: {
+    Admin:    { create_supplier:true,  create_item:true,  create_warehouse:true  },
+    Manager:  { create_supplier:true,  create_item:true,  create_warehouse:true  },
+    User:     { create_supplier:false, create_item:false, create_warehouse:true  },
+    Operator: { create_supplier:false, create_item:false, create_warehouse:false }
+  },
+  // Call once from each page's init() after sb is available
+  init: async function(sb) {
+    try {
+      const { data } = await sb.auth.getUser();
+      const role = data?.user?.user_metadata?.role || 'Operator';
+      this._role = Object.keys(this._matrix).includes(role) ? role : 'Operator';
+    } catch(e) {
+      this._role = 'Operator';
+    }
+  },
+  can: function(action) {
+    return !!(this._matrix[this._role] && this._matrix[this._role][action]);
+  },
+  role: function() { return this._role; }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CFC_QC — Quick Create popup helper                               added v2.9.1
+// ═══════════════════════════════════════════════════════════════════════════════
+window.CFC_QC = (function() {
+  var _cfg = null;   // current open config
+
+  // Inject overlay HTML once on DOMContentLoaded
+  function _inject() {
+    if (document.getElementById('cfc-qc-overlay')) return;
+    var div = document.createElement('div');
+    div.id = 'cfc-qc-overlay';
+    div.style.cssText = [
+      'display:none',
+      'position:fixed',
+      'inset:0',
+      'background:rgba(0,0,0,0.55)',
+      'z-index:600',
+      'align-items:center',
+      'justify-content:center'
+    ].join(';');
+    div.innerHTML = [
+      '<div id="cfc-qc-box" style="background:#fff;border-radius:12px;width:100%;max-width:440px;',
+        'box-shadow:0 24px 60px rgba(0,0,0,0.22);overflow:hidden;margin:16px;">',
+        '<div id="cfc-qc-hdr" style="background:#1c2d42;color:#fff;padding:16px 20px;',
+          'display:flex;align-items:center;justify-content:space-between;">',
+          '<span id="cfc-qc-title" style="font-size:15px;font-weight:700;"></span>',
+          '<button id="cfc-qc-cancel-x" type="button" ',
+            'style="background:none;border:none;color:rgba(255,255,255,0.7);font-size:20px;',
+            'cursor:pointer;line-height:1;">&#10005;</button>',
+        '</div>',
+        '<div id="cfc-qc-body" style="padding:20px 20px 8px;"></div>',
+        '<div style="padding:12px 20px 16px;display:flex;justify-content:flex-end;gap:10px;',
+          'border-top:1px solid #f0f4f8;">',
+          '<button id="cfc-qc-cancel-btn" type="button" ',
+            'style="padding:8px 16px;border-radius:6px;border:1px solid #dde3ea;',
+            'background:#fff;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>',
+          '<button id="cfc-qc-save-btn" type="button" ',
+            'style="padding:8px 16px;border-radius:6px;border:none;background:#cc2200;',
+            'color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save</button>',
+        '</div>',
+      '</div>'
+    ].join('');
+    document.body.appendChild(div);
+
+    // Cancel buttons — close without touching GRN form
+    document.getElementById('cfc-qc-cancel-x').addEventListener('click', function() { CFC_QC.close(); });
+    document.getElementById('cfc-qc-cancel-btn').addEventListener('click', function() { CFC_QC.close(); });
+    // Save button
+    document.getElementById('cfc-qc-save-btn').addEventListener('click', function() { CFC_QC._save(); });
+    // Click outside box to cancel
+    div.addEventListener('click', function(e) {
+      if (e.target === div) CFC_QC.close();
+    });
+  }
+
+  return {
+    // config = {
+    //   title        : string,
+    //   action       : 'create_supplier'|'create_item'|'create_warehouse',
+    //   fields       : [{id, label, type:'text'|'email'|'select', required, options:[{v,l}]}],
+    //   checkDup     : async function(vals) → {found: record|null, active: bool}
+    //   insertFn     : async function(vals) → {data, error}
+    //   onCreated    : function(record)  — called on success OR on active-dup auto-select
+    // }
+    open: function(config) {
+      // Re-check permission (server-side guard)
+      if (!CFC_PERM.can(config.action)) {
+        if (window.showToast) showToast('Aapko yeh action karne ki permission nahi hai.', 'error');
+        return;
+      }
+      _cfg = config;
+      _inject();
+
+      document.getElementById('cfc-qc-title').textContent = config.title;
+
+      // Build field HTML
+      var html = '';
+      (config.fields || []).forEach(function(f) {
+        html += '<div style="margin-bottom:13px;">';
+        html += '<label style="display:block;font-size:12px;font-weight:700;color:#4a5568;margin-bottom:4px;">';
+        html += f.label + (f.required ? ' <span style="color:#cc2200;">*</span>' : '');
+        html += '</label>';
+        if (f.type === 'select') {
+          html += '<select id="cfc-qc-f-' + f.id + '" style="width:100%;border:1.5px solid #e2e8f0;';
+          html += 'border-radius:6px;padding:8px 10px;font-size:13px;background:#f9fafb;outline:none;">';
+          html += '<option value="">-- Select --</option>';
+          (f.options || []).forEach(function(o) {
+            html += '<option value="' + o.v + '">' + o.l + '</option>';
+          });
+          html += '</select>';
+        } else {
+          html += '<input type="' + (f.type || 'text') + '" id="cfc-qc-f-' + f.id + '" ';
+          html += 'style="width:100%;border:1.5px solid #e2e8f0;border-radius:6px;';
+          html += 'padding:8px 10px;font-size:13px;background:#f9fafb;outline:none;" ';
+          html += 'placeholder="' + (f.placeholder || '') + '"/>';
+        }
+        html += '</div>';
+      });
+      document.getElementById('cfc-qc-body').innerHTML = html;
+
+      var overlay = document.getElementById('cfc-qc-overlay');
+      overlay.style.display = 'flex';
+      // Focus first field
+      var first = document.querySelector('#cfc-qc-body input, #cfc-qc-body select');
+      if (first) setTimeout(function() { first.focus(); }, 80);
+    },
+
+    close: function() {
+      var overlay = document.getElementById('cfc-qc-overlay');
+      if (overlay) {
+        overlay.style.display = 'none';
+        var body = document.getElementById('cfc-qc-body');
+        if (body) body.innerHTML = '';
+      }
+      _cfg = null;
+    },
+
+    _save: async function() {
+      if (!_cfg) return;
+
+      // Re-check permission
+      if (!CFC_PERM.can(_cfg.action)) {
+        showToast('Permission denied.', 'error');
+        return;
+      }
+
+      // Collect values
+      var vals = {};
+      var valid = true;
+      (_cfg.fields || []).forEach(function(f) {
+        var el = document.getElementById('cfc-qc-f-' + f.id);
+        var val = el ? el.value.trim() : '';
+        vals[f.id] = val;
+        if (f.required && !val) {
+          showToast(f.label + ' zaroori hai.', 'error');
+          if (el) el.focus();
+          valid = false;
+        }
+      });
+      if (!valid) return;
+
+      // Duplicate check
+      var saveBtn = document.getElementById('cfc-qc-save-btn');
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Checking...'; }
+
+      try {
+        var dupResult = await _cfg.checkDup(vals);
+
+        if (dupResult.found && dupResult.active) {
+          // Active duplicate — auto-select existing
+          showToast(_cfg.dupActiveMsg || 'Already exists. Existing record selected.', 'warning');
+          _cfg.onCreated(dupResult.found);
+          CFC_QC.close();
+          return;
+        }
+
+        if (dupResult.found && !dupResult.active) {
+          // Inactive duplicate — block creation
+          showToast(_cfg.dupInactiveMsg || 'Record exists but is inactive. Please reactivate it.', 'error');
+          if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+          return;
+        }
+
+        // No duplicate — insert
+        if (saveBtn) saveBtn.textContent = 'Saving...';
+        var result = await _cfg.insertFn(vals);
+        if (result.error) {
+          showToast('Error: ' + result.error.message, 'error');
+          if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+          return;
+        }
+        showToast(_cfg.successMsg || 'Saved successfully.', 'success');
+        _cfg.onCreated(result.data);
+        CFC_QC.close();
+
+      } catch(e) {
+        showToast('Unexpected error: ' + e.message, 'error');
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+      }
+    }
+  };
+})();
+
+// Inject QC overlay on DOMContentLoaded (runs on every page automatically)
+document.addEventListener('DOMContentLoaded', function() {
+  // Delay slightly so body is ready
+  setTimeout(function() { CFC_QC._inject && CFC_QC._inject(); }, 0);
 });
