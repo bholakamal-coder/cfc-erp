@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Stock Ledger — CFC ERP v2.9.3</title>
+<title>Stock Ledger — CFC ERP v2.9.5</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -134,7 +134,7 @@ tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.9.3</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.9.5</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html" >&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -238,6 +238,12 @@ tr:hover td{background:#fafbfc;}
         <option value="FG">FG</option>
         <option value="Consumable">Consumable</option>
         <option value="Packing">Packing</option>
+      </select>
+      <select id="stock-filter" onchange="filterStock()">
+        <option value="">All Stock</option>
+        <option value="instock">In Stock Only</option>
+        <option value="zero">Zero Stock</option>
+        <option value="low">Low Stock (&lt;=5)</option>
       </select>
       <div class="ls-wrap" style="position:relative;display:inline-block;">
         <input type="text" id="stock-item-search" autocomplete="off" 
@@ -393,9 +399,12 @@ async function loadStock(){
 }
 
 function filterStock(){
-  const s=document.getElementById("stock-search").value.toLowerCase();
-  const t=document.getElementById("stock-type").value;
-  const f=document.getElementById("stock-filter").value;
+  const _ss=document.getElementById("stock-search");
+  const _st=document.getElementById("stock-type");
+  const _sf=document.getElementById("stock-filter");
+  const s=_ss?_ss.value.toLowerCase():"";
+  const t=_st?_st.value:"";
+  const f=_sf?_sf.value:"";
   filteredStock=allStock.filter(r=>{
     const item=r.items||{};
     if(s&&!(item.code||"").toLowerCase().includes(s)&&!(item.name||"").toLowerCase().includes(s))return false;
@@ -587,9 +596,9 @@ function exportPage(){
 }
 function showToast(msg,type=""){const t=document.getElementById("toast");t.textContent=msg;t.className="toast show "+type;setTimeout(()=>t.className="toast",3500);}
 async function handleLogout(){await sb.auth.signOut();window.location.href="index.html";}
-document.getElementById("adj-modal").addEventListener("click",function(e){if(e.target===this)closeAdjModal();});
-document.addEventListener("click",e=>{if(!e.target.closest("#adj-item-search"))document.getElementById("adj-item-dd").style.display="none";});
-document.getElementById("global-search").addEventListener("input",function(){document.getElementById("stock-search").value=this.value;filterStock();});
+var _adjMod=document.getElementById("adj-modal");if(_adjMod)_adjMod.addEventListener("click",function(e){if(e.target===this)closeAdjModal();});
+document.addEventListener("click",e=>{var _dd=document.getElementById("adj-item-dd");if(_dd&&!e.target.closest("#adj-item-search"))_dd.style.display="none";});
+// #global-search removed — stock-search has oninput="filterStock()" directly
 </script>
 <script src="shared.js"></script>
 <script src="ui.js"></script>
