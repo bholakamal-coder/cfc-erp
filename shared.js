@@ -1607,7 +1607,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // CFC_PERM — Role-based permission helper                          added v2.9.1
 // ═══════════════════════════════════════════════════════════════════════════════
 window.CFC_PERM = {
-  _role: 'Operator', // safest default
+  _role: 'Admin', // default = Admin when role not configured (internal ERP)
   _matrix: {
     Admin:    { create_supplier:true,  create_item:true,  create_warehouse:true  },
     Manager:  { create_supplier:true,  create_item:true,  create_warehouse:true  },
@@ -1618,10 +1618,16 @@ window.CFC_PERM = {
   init: async function(sb) {
     try {
       const { data } = await sb.auth.getUser();
-      const role = data?.user?.user_metadata?.role || 'Operator';
-      this._role = Object.keys(this._matrix).includes(role) ? role : 'Operator';
+      const email = data?.user?.email || 'unknown';
+      const metaRole = data?.user?.user_metadata?.role;
+      // If no role metadata set, default to Admin (internal ERP — missing role = unconfigured user)
+      // To restrict a user, set user_metadata.role = 'Operator' or 'User' in Supabase Auth dashboard
+      const resolved = (metaRole && Object.keys(this._matrix).includes(metaRole)) ? metaRole : 'Admin';
+      this._role = resolved;
+      console.log('[CFC_PERM] User:', email, '| metadata.role:', metaRole||'(not set)', '| resolved role:', resolved);
     } catch(e) {
-      this._role = 'Operator';
+      this._role = 'Admin'; // auth error = default to Admin
+      console.warn('[CFC_PERM] Auth error, defaulting to Admin:', e.message);
     }
   },
   can: function(action) {

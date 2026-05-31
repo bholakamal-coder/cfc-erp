@@ -316,7 +316,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
                 <input type="hidden" id="f-sup-id"/>
                 <div class="mls-dd" id="f-sup-dd"></div>
               </div>
-              <button type="button" class="mls-new-btn" id="btn-new-sup" onclick="openQCSupplier()" style="display:none;">+ New</button>
+              <button type="button" class="mls-new-btn" id="btn-new-sup" onclick="openQCSupplier()">+ New Supplier</button>
             </div>
             <div class="item-name-sub" id="f-sup-name"></div>
           </div>
@@ -391,10 +391,12 @@ async function init(){
   // Load role permissions
   await CFC_PERM.init(sb);
   currentUserRole=CFC_PERM.role();
-  // Show + New Supplier button only if permitted
-  if(CFC_PERM.can('create_supplier')){
-    document.getElementById('btn-new-sup').style.display='';
+  // Show/hide + New Supplier button based on role permission
+  // Button is visible by default; hidden only for restricted roles
+  if(!CFC_PERM.can('create_supplier')){
+    document.getElementById('btn-new-sup').style.display='none';
   }
+  console.log('[GRN] Role detected:', CFC_PERM.role(), '| can create_supplier:', CFC_PERM.can('create_supplier'), '| can create_item:', CFC_PERM.can('create_item'), '| can create_warehouse:', CFC_PERM.can('create_warehouse'));
 
   document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
 
@@ -518,8 +520,9 @@ function _doSupSearch(q){
   if(!q||q.length<1){dd.classList.remove('open');return;}
   var ql=q.toLowerCase();
   var res=allSuppliers.filter(s=>(s.name||'').toLowerCase().includes(ql)||(s.code||'').toLowerCase().includes(ql)).slice(0,12);
-  if(!res.length){dd.innerHTML='<div class="mls-opt" style="color:#8a95a0;">Koi supplier nahi mila</div>';dd.classList.add('open');return;}
-  dd.innerHTML=res.map(s=>`<div class="mls-opt" onclick="selectSupplier(${s.id},'${esc(s.name)}','${esc(s.code||'')}')"><span class="oc">${s.code||'—'}</span><span class="on">${s.name}</span></div>`).join('');
+  var createBtn=CFC_PERM.can('create_supplier')?`<div class="mls-opt mls-create-opt" onclick="openQCSupplier()" style="color:#1e40af;font-weight:700;border-top:1px solid #e2e8f0;">&#10133; Create New Supplier</div>`:'';
+  if(!res.length){dd.innerHTML='<div class="mls-opt" style="color:#8a95a0;">Koi supplier nahi mila</div>'+createBtn;dd.classList.add('open');return;}
+  dd.innerHTML=res.map(s=>`<div class="mls-opt" onclick="selectSupplier(${s.id},'${esc(s.name)}','${esc(s.code||'')}')"><span class="oc">${s.code||'—'}</span><span class="on">${s.name}</span></div>`).join('')+createBtn;
   dd.classList.add('open');
 }
 function selectSupplier(id,name,code){
@@ -601,7 +604,7 @@ function addDirectRow(prefill){
           <input type="hidden" id="ditem-id-${rid}"/>
           <div class="rls-dd" id="ditem-dd-${rid}"></div>
         </div>
-        ${canCreateItem?`<button type="button" class="rls-new" onclick="openQCItem(${rid})">+New</button>`:''}
+        <button type="button" class="rls-new" id="ditem-new-${rid}" onclick="openQCItem(${rid})"${canCreateItem?'':' style="display:none;"'}>+New Item</button>
       </div>
       <div class="item-name-sub" id="ditem-name-${rid}"></div>
     </td>
@@ -616,7 +619,7 @@ function addDirectRow(prefill){
           <input type="hidden" id="dwh-id-${rid}"/>
           <div class="rls-dd" id="dwh-dd-${rid}"></div>
         </div>
-        ${canCreateWH?`<button type="button" class="rls-new" onclick="openQCWarehouse(${rid})">+New</button>`:''}
+        <button type="button" class="rls-new" id="dwh-new-${rid}" onclick="openQCWarehouse(${rid})"${canCreateWH?'':' style="display:none;"'}>+New WH</button>
       </div>
     </td>
     <td><input type="text" id="dlot-${rid}" placeholder="Lot No" style="width:80px;font-size:12px;"/></td>
@@ -675,8 +678,9 @@ function _doItemSearch(rid,q){
   if(!q||q.length<1){dd.classList.remove('open');return;}
   var ql=q.toLowerCase();
   var res=allItems.filter(it=>(it.code||'').toLowerCase().includes(ql)||(it.name||'').toLowerCase().includes(ql)).slice(0,12);
-  if(!res.length){dd.innerHTML='<div class="rls-opt" style="color:#8a95a0;">Koi item nahi mila</div>';dd.classList.add('open');return;}
-  dd.innerHTML=res.map(it=>`<div class="rls-opt" onclick="selectItem(${rid},${it.id},'${esc(it.code)}','${esc(it.name)}','${esc(it.uom||'')}')"><strong style="font-family:monospace;">${it.code}</strong> — ${it.name} <span style="color:#94a3b8;font-size:10px;">${it.item_type}</span></div>`).join('');
+  var iCreateBtn=CFC_PERM.can('create_item')?`<div class="rls-opt" onclick="openQCItem(${rid})" style="color:#1e40af;font-weight:700;border-top:1px solid #e2e8f0;">&#10133; Create New Item</div>`:'';
+  if(!res.length){dd.innerHTML='<div class="rls-opt" style="color:#8a95a0;">Koi item nahi mila</div>'+iCreateBtn;dd.classList.add('open');return;}
+  dd.innerHTML=res.map(it=>`<div class="rls-opt" onclick="selectItem(${rid},${it.id},'${esc(it.code)}','${esc(it.name)}','${esc(it.uom||'')}')"><strong style="font-family:monospace;">${it.code}</strong> — ${it.name} <span style="color:#94a3b8;font-size:10px;">${it.item_type}</span></div>`).join('')+iCreateBtn;
   dd.classList.add('open');
 }
 function selectItem(rid,id,code,name,uom){
@@ -744,8 +748,9 @@ function _doWhSearch(rid,q){
   if(!q||q.length<1){dd.classList.remove('open');return;}
   var ql=q.toLowerCase();
   var res=allWH.filter(w=>(w.code||'').toLowerCase().includes(ql)||(w.name||'').toLowerCase().includes(ql)).slice(0,10);
-  if(!res.length){dd.innerHTML='<div class="rls-opt" style="color:#8a95a0;">Koi warehouse nahi mila</div>';dd.classList.add('open');return;}
-  dd.innerHTML=res.map(w=>`<div class="rls-opt" onclick="selectWarehouse(${rid},${w.id},'${esc(w.code)}','${esc(w.name)}')"><strong style="font-family:monospace;">${w.code}</strong> — ${w.name}</div>`).join('');
+  var wCreateBtn=CFC_PERM.can('create_warehouse')?`<div class="rls-opt" onclick="openQCWarehouse(${rid})" style="color:#1e40af;font-weight:700;border-top:1px solid #e2e8f0;">&#10133; Create New Warehouse</div>`:'';
+  if(!res.length){dd.innerHTML='<div class="rls-opt" style="color:#8a95a0;">Koi warehouse nahi mila</div>'+wCreateBtn;dd.classList.add('open');return;}
+  dd.innerHTML=res.map(w=>`<div class="rls-opt" onclick="selectWarehouse(${rid},${w.id},'${esc(w.code)}','${esc(w.name)}')"><strong style="font-family:monospace;">${w.code}</strong> — ${w.name}</div>`).join('')+wCreateBtn;
   dd.classList.add('open');
 }
 function selectWarehouse(rid,id,code,name){
