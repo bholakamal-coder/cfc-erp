@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Stock Ledger — CFC ERP v2.9.5</title>
+<title>Stock Ledger — CFC ERP v2.9.6</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -134,7 +134,7 @@ tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.9.5</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.9.6</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html" >&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -288,9 +288,9 @@ tr:hover td{background:#fafbfc;}
       <table>
         <thead><tr>
           <th>#</th><th>Date</th><th>Item</th><th>Txn Type</th>
-          <th>Qty</th><th>Rate</th><th>Value</th><th>Reference</th><th>Notes</th>
+          <th>Qty</th><th>Rate</th><th>Value</th><th>Batch No</th><th>Reference</th><th>Notes</th>
         </tr></thead>
-        <tbody id="ledger-tbody"><tr><td colspan="9"><div class="loading">Loading...</div></td></tr></tbody>
+        <tbody id="ledger-tbody"><tr><td colspan="10"><div class="loading">Loading...</div></td></tr></tbody>
       </table>
     </div>
   </div>
@@ -448,11 +448,11 @@ function renderStock(){
 
 async function loadLedger(){
   const tbody=document.getElementById("ledger-tbody");
-  tbody.innerHTML='<tr><td colspan="9"><div class="loading">Loading...</div></td></tr>';
+  tbody.innerHTML='<tr><td colspan="10"><div class="loading">Loading...</div></td></tr>';
   const {data,error}=await sb.from("stock_ledger")
     .select("*, items(code,name,type)")
     .order("created_at",{ascending:false}).limit(200);
-  if(error){tbody.innerHTML=`<tr><td colspan="9"><div class="loading" style="color:#dc2626;">Error: ${error.message}</div></td></tr>`;return;}
+  if(error){tbody.innerHTML=`<tr><td colspan="10"><div class="loading" style="color:#dc2626;">Error: ${error.message}</div></td></tr>`;return;}
   allLedger=data||[];
   document.getElementById("stat-txns").textContent=allLedger.filter(l=>new Date(l.created_at).toDateString()===new Date().toDateString()).length;
   filterLedger();
@@ -478,7 +478,7 @@ function filterLedger(){
 function renderLedger(){
   const tbody=document.getElementById("ledger-tbody");
   if(!filteredLedger.length){
-    tbody.innerHTML='<tr><td colspan="9"><div class="empty-state"><div class="big">&#128196;</div><p>Koi transaction nahi mili.</p></div></td></tr>';
+    tbody.innerHTML='<tr><td colspan="10"><div class="empty-state"><div class="big">&#128196;</div><p>Koi transaction nahi mili.</p></div></td></tr>';
     return;
   }
   const TXN_COLOR={GRN:"#dcfce7",  "Opening Stock":"#dbeafe","Production Receipt":"#f0fdf4","Sales Dispatch":"#fee2e2","Scrap":"#fef9c3","Adjustment":"#f1f5f9","Transfer":"#fdf4ff","Production Issue":"#fff0ee"};
@@ -493,6 +493,7 @@ function renderLedger(){
       <td class="${isIn?"txn-in":"txn-out"}">${isIn?"+":""}${parseFloat(l.qty).toLocaleString()}</td>
       <td style="font-size:12px;">₹${parseFloat(l.rate||0).toFixed(2)}</td>
       <td style="font-size:12px;">₹${parseFloat(l.value||0).toFixed(2)}</td>
+      <td style="font-family:monospace;font-size:11px;color:#1e40af;">${l.batch_no||"—"}</td>
       <td style="font-size:11px;color:#5a6878;">${l.reference_no||"—"}</td>
       <td style="font-size:11px;color:#8a95a0;max-width:150px;">${l.notes||"—"}</td>
     </tr>`;
