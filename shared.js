@@ -22,7 +22,7 @@ window.CFC_CONFIG = {
   SUPABASE_KEY: 'sb_publishable_eWBMrAFa7Yyvtlb-7-8IGA_KxfE7v_8',
   APP_NAME:     'CFC ERP v2',
   COMPANY:      'CERADRIVE BRAKES',
-  VERSION:      '2.4.0',
+  VERSION:      '2.5.0',
   QUERY_LIMIT:  500,
   DEBOUNCE_MS:  300,
 };
@@ -1194,7 +1194,7 @@ window.CFC_LS = {
     machine:  { table:'machines',       select:'id,code,name,status',                     filter:'',               label: x=>`${x.code} — ${x.name}`, sub: x=>x.status||'', icon:'&#9881;', addHref:'machines.html',  addLabel:'+ New Machine'  },
     die:      { table:'dies',           select:'id,die_code,die_name,cavity_count',       filter:'is_active=true', label: x=>`${x.die_code} — ${x.die_name||''}`, sub: x=>`${x.cavity_count||0} cavity`, icon:'&#128295;', addHref:'dies.html', addLabel:'+ New Die' },
     wo:       { table:'work_orders',    select:'id,wo_no,process_name,status',            filter:'',               label: x=>`${x.wo_no}`,            sub: x=>x.process_name||x.status, icon:'&#127981;', addHref:'work_orders.html', addLabel:'+ New WO' },
-    po:       { table:'purchase_orders',select:'id,po_no,status',                         filter:'',               label: x=>`${x.po_no}`,            sub: x=>x.status, icon:'&#128715;', addHref:'purchase_order.html', addLabel:'+ New PO'   },
+    po:       { table:'purchase_orders',select:'id,po_no,status,supplier_id',                         filter:'',               label: x=>`${x.po_no}`,            sub: x=>x.status, icon:'&#128715;', addHref:'purchase_order.html', addLabel:'+ New PO'   },
     so:       { table:'sales_orders',   select:'id,so_no,status',                         filter:'',               label: x=>`${x.so_no}`,            sub: x=>x.status, icon:'&#128188;', addHref:'sales_order.html',    addLabel:'+ New SO'   },
     item_fg:  { table:'items',          select:'id,code,name,type,uom',                   filter:'is_active=true', label: x=>`${x.code} — ${x.name}`, sub: x=>x.type, icon:'&#128230;', addHref:'item_master.html',    addLabel:'+ New Item', extraFilter: x=>x.type==='FG'||x.type==='SFG' },
     item_rm:  { table:'items',          select:'id,code,name,type,uom',                   filter:'is_active=true', label: x=>`${x.code} — ${x.name}`, sub: x=>x.type, icon:'&#128230;', addHref:'item_master.html',    addLabel:'+ New Item', extraFilter: x=>x.type==='RM'||x.type==='Consumable'||x.type==='Packing' },

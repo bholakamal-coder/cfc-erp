@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>GRN — Goods Receipt Note — CFC ERP v2.4</title>
+<title>GRN — Goods Receipt Note — CFC ERP v2.5</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -119,7 +119,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.4</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.5</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html" >&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -319,7 +319,7 @@ async function loadPOLines(){
   const {data:lines}=await sb.from('purchase_order_lines').select('*,items(code,name,uom)').eq('po_id',poId);
   if(!lines||!lines.length){wrap.innerHTML='<div class="info-box">Is PO mein koi items nahi.</div>';return;}
   const whOpts=allWH.map(w=>`<option value="${w.id}">${w.code}</option>`).join('');
-  wrap.innerHTML=`<table class="lines-table"><thead><tr><th>Item</th><th>PO Qty</th><th>Rcvd</th><th>Receive Now</th><th>Accepted</th><th>Rejected</th><th>Rate</th><th>WH</th></tr></thead><tbody>
+  wrap.innerHTML=`<table class="lines-table"><thead><tr><th>Item</th><th>PO Qty</th><th>Rcvd</th><th>Receive Now</th><th>Accepted</th><th>Rejected</th><th>Rate</th><th>WH</th><th style="min-width:80px;">Lot No</th><th style="min-width:100px;">Mfg Date</th><th style="min-width:100px;">Exp Date</th></tr></thead><tbody>
     ${lines.map(l=>`<tr>
       <td><strong style="font-size:12px;font-family:monospace;">${l.items?.code||''}</strong><br><span style="font-size:11px;color:#5a6878;">${l.items?.name||''}</span>
         <input type="hidden" id="pol-${l.id}" value="${l.id}"/><input type="hidden" id="itm-${l.id}" value="${l.item_id}"/><input type="hidden" id="uom-${l.id}" value="${l.uom}"/></td>
@@ -330,6 +330,9 @@ async function loadPOLines(){
       <td><input type="number" id="rej-${l.id}" value="0" min="0" step="0.001" style="width:70px;"/></td>
       <td><input type="number" id="rte-${l.id}" value="${l.rate||0}" step="0.01" style="width:80px;"/></td>
       <td><select id="wh-${l.id}" style="width:80px;"><option value="">—</option>${whOpts}</select></td>
+      <td><input type="text" id="lot-${l.id}" placeholder="Lot No" style="width:90px;font-size:12px;"/></td>
+      <td><input type="date" id="mfg-${l.id}" style="width:110px;font-size:12px;"/></td>
+      <td><input type="date" id="exp-${l.id}" style="width:110px;font-size:12px;"/></td>
     </tr>`).join('')}
   </tbody></table>`;
 }
@@ -340,49 +343,61 @@ function syncAcc(lid){
 }
 async function saveGRN(status){
   var _saveBtn=document.activeElement;if(_saveBtn&&_saveBtn.tagName==='BUTTON'){_saveBtn.disabled=true;}
+  const _unlock=()=>{var b=document.querySelector('button[disabled]');if(b){b.disabled=false;b.style.opacity='';}}
   const poId=document.getElementById('f-po-id').value;
-  if(!poId){var _ab=document.querySelector('button[disabled]');if(_ab){_ab.disabled=false;_ab.style.opacity='';}showToast('PO select karein.','error');return;}
+  if(!poId){_unlock();showToast('PO select karein.','error');return;}
+  let supplierId=null;
+  try{const {data:poRec}=await sb.from('purchase_orders').select('supplier_id').eq('id',parseInt(poId)).maybeSingle();if(poRec)supplierId=poRec.supplier_id||null;}catch(e){console.warn('supplier_id fetch:',e);}
   const grn_no=genNo('GRN');
-  const {data:grn,error:ge}=await sb.from('grn').insert([{
-    grn_no,po_id:parseInt(poId),
-    receipt_date:document.getElementById('f-date').value||new Date().toISOString().split('T')[0],
-    supplier_invoice_no:document.getElementById('f-inv-no').value.trim()||null,
-    supplier_dc_no:document.getElementById('f-dc-no').value.trim()||null,
-    notes:document.getElementById('f-notes').value.trim()||null,status
-  }]).select().single();
-  if(ge){if(document.activeElement&&document.activeElement.tagName==='BUTTON'){document.activeElement.disabled=false;}var _ab=document.querySelector('button[disabled]');if(_ab){_ab.disabled=false;_ab.style.opacity='';}showToast('Error: '+ge.message,'error');return;}
+  const {data:grn,error:ge}=await sb.from('grn').insert([{grn_no,po_id:parseInt(poId),supplier_id:supplierId,receipt_date:document.getElementById('f-date').value||new Date().toISOString().split('T')[0],supplier_invoice_no:document.getElementById('f-inv-no').value.trim()||null,supplier_dc_no:document.getElementById('f-dc-no').value.trim()||null,notes:document.getElementById('f-notes').value.trim()||null,status}]).select().single();
+  if(ge){_unlock();showToast('Error: '+ge.message,'error');return;}
   const gLines=[];
   document.querySelectorAll('[id^="rcv-"]').forEach(el=>{
     const lid=el.id.replace('rcv-','');
     const rcv=parseFloat(el.value)||0;if(rcv<=0)return;
-    gLines.push({grn_id:grn.id,
-      po_line_id:parseInt(document.getElementById('pol-'+lid)?.value)||null,
-      item_id:parseInt(document.getElementById('itm-'+lid)?.value)||null,
-      received_qty:rcv,
-      accepted_qty:parseFloat(document.getElementById('acc-'+lid)?.value)||rcv,
-      rejected_qty:parseFloat(document.getElementById('rej-'+lid)?.value)||0,
-      uom:document.getElementById('uom-'+lid)?.value||'PCS',
-      rate:parseFloat(document.getElementById('rte-'+lid)?.value)||0,
-      warehouse_id:document.getElementById('wh-'+lid)?.value?parseInt(document.getElementById('wh-'+lid).value):null
-    });
+    const batch_no=genNo('RM');
+    const lot=(document.getElementById('lot-'+lid)?.value||'').trim();
+    const mfg=document.getElementById('mfg-'+lid)?.value||'';
+    const exp=document.getElementById('exp-'+lid)?.value||'';
+    gLines.push({grn_id:grn.id,po_line_id:parseInt(document.getElementById('pol-'+lid)?.value)||null,item_id:parseInt(document.getElementById('itm-'+lid)?.value)||null,received_qty:rcv,accepted_qty:parseFloat(document.getElementById('acc-'+lid)?.value)||rcv,rejected_qty:parseFloat(document.getElementById('rej-'+lid)?.value)||0,uom:document.getElementById('uom-'+lid)?.value||'PCS',rate:parseFloat(document.getElementById('rte-'+lid)?.value)||0,warehouse_id:document.getElementById('wh-'+lid)?.value?parseInt(document.getElementById('wh-'+lid).value):null,batch_no,notes:JSON.stringify({lot,mfg,exp})});
   });
-  if(gLines.length) await sb.from('grn_lines').insert(gLines);
-  showToast(status==='QC Pending'?'GRN saved! "Update Stock" karo.':'Draft saved: '+grn_no,'success');
+  if(gLines.length)await sb.from('grn_lines').insert(gLines);
+  _unlock();
+  showToast(status==='QC Pending'?'GRN saved â '+grn_no+'. Update Stock karo when ready.':'Draft saved: '+grn_no,'success');
   closeModal();loadData();
 }
 async function updateStock(grnId){
-  if(!confirm('Stock update hoga — undo nahi hoga. Continue?'))return; /* TODO: upgrade to await CFC_CONFIRM.show() */
-  const {data:lines}=await sb.from('grn_lines').select('*').eq('grn_id',grnId);
-  if(!lines||!lines.length){var _ab=document.querySelector('button[disabled]');if(_ab){_ab.disabled=false;_ab.style.opacity='';}showToast('Koi lines nahi.','error');return;}
+  if(!confirm('Stock update hoga â undo nahi hoga. Continue?'))return;
+  const {data:lines,error:le}=await sb.from('grn_lines').select('*').eq('grn_id',grnId);
+  if(le||!lines||!lines.length){showToast('Koi lines nahi.','error');return;}
+  const {data:grnRec}=await sb.from('grn').select('supplier_id,po_id,receipt_date,supplier_invoice_no,grn_no').eq('id',grnId).maybeSingle();
+  let batchesCreated=0;
   for(const l of lines){
     if(!l.item_id||!l.accepted_qty||l.accepted_qty<=0)continue;
-    const {data:inv}=await sb.from('inventory').select('id,current_stock').eq('item_id',l.item_id).maybeSingle();
-    if(inv){await sb.from('inventory').update({current_stock:parseFloat(inv.current_stock||0)+l.accepted_qty,last_updated:new Date().toISOString()}).eq('id',inv.id);}
-    else{await sb.from('inventory').insert([{item_id:l.item_id,warehouse_id:l.warehouse_id,current_stock:l.accepted_qty,uom:l.uom||'PCS'}]);}
-    await sb.from('stock_ledger').insert([{item_id:l.item_id,warehouse_id:l.warehouse_id,txn_type:'GRN',qty:l.accepted_qty,rate:l.rate||0,value:l.accepted_qty*(l.rate||0),reference_no:'GRN-'+grnId}]);
+    const {data:inv}=await sb.from('inventory').select('id,current_stock,avg_cost').eq('item_id',l.item_id).maybeSingle();
+    const newRate=parseFloat(l.rate||0);
+    if(inv){
+      const oldStock=parseFloat(inv.current_stock||0);
+      const oldAvg=parseFloat(inv.avg_cost||0);
+      const newAvg=oldStock<=0?newRate:Math.round(((oldStock*oldAvg)+(l.accepted_qty*newRate))/(oldStock+l.accepted_qty)*100)/100;
+      await sb.from('inventory').update({current_stock:oldStock+l.accepted_qty,last_purchase_price:newRate,avg_cost:newAvg,last_updated:new Date().toISOString()}).eq('id',inv.id);
+    }else{
+      await sb.from('inventory').insert([{item_id:l.item_id,warehouse_id:l.warehouse_id,current_stock:l.accepted_qty,uom:l.uom||'PCS',last_purchase_price:newRate,avg_cost:newRate}]);
+    }
+    await sb.from('stock_ledger').insert([{item_id:l.item_id,warehouse_id:l.warehouse_id,txn_type:'GRN',qty:l.accepted_qty,rate:newRate,value:l.accepted_qty*newRate,batch_no:l.batch_no||null,reference_no:grnRec?.grn_no||('GRN-'+grnId)}]);
+    if(l.batch_no){
+      const {data:ex}=await sb.from('rm_batches').select('id').eq('grn_id',grnId).eq('item_id',l.item_id).maybeSingle();
+      if(!ex){
+        let bm={lot:'',mfg:'',exp:''};try{if(l.notes)bm=JSON.parse(l.notes);}catch(e){}
+        const {error:re}=await sb.from('rm_batches').insert([{batch_no:l.batch_no,item_id:l.item_id,supplier_id:grnRec?.supplier_id||null,po_id:grnRec?.po_id||null,grn_id:grnId,received_qty:l.received_qty,available_qty:l.accepted_qty,consumed_qty:0,uom:l.uom||'PCS',supplier_lot_no:bm.lot||null,supplier_invoice_no:grnRec?.supplier_invoice_no||null,mfg_date:bm.mfg||null,expiry_date:bm.exp||null,received_date:grnRec?.receipt_date||new Date().toISOString().split('T')[0],warehouse_id:l.warehouse_id||null,rack_id:null,purchase_rate:newRate,qc_status:'Pending',is_active:true}]);
+        if(re){console.warn('rm_batches warn item',l.item_id,':',re.message);}else{batchesCreated++;}
+      }
+    }
   }
   await sb.from('grn').update({status:'Stock Updated'}).eq('id',grnId);
-  var _ab=document.querySelector('button[disabled]');if(_ab){_ab.disabled=false;_ab.style.opacity='';}showToast('Stock updated!','success');loadData();
+  var _ab=document.querySelector('button[disabled]');if(_ab){_ab.disabled=false;_ab.style.opacity='';}
+  showToast('Stock updated! '+batchesCreated+' RM batch'+(batchesCreated===1?'':' es')+' created.','success');
+  loadData();
 }
 function openModal(){
   document.getElementById('f-po-id').value='';document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
