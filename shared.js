@@ -22,7 +22,7 @@ window.CFC_CONFIG = {
   SUPABASE_KEY: 'sb_publishable_eWBMrAFa7Yyvtlb-7-8IGA_KxfE7v_8',
   APP_NAME:     'CFC ERP v2',
   COMPANY:      'CERADRIVE BRAKES',
-  VERSION:      '2.7.0',
+  VERSION:      '2.8.0',
   QUERY_LIMIT:  500,
   DEBOUNCE_MS:  300,
 };
@@ -1596,6 +1596,9 @@ window.CFC_SIDEBAR = {
 
 // ── BOOT ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
-  CFC_SIDEBAR.init();
+  // CFC_SIDEBAR.init() intentionally NOT called here.
+  // Each page's inline accordion IIFE handles sidebar init for 23 pages.
+  // settings.html calls CFC_SIDEBAR.init() explicitly from its own init.
+  // Calling it here caused DOUBLE click handlers = accordion open then immediately close.
   CFC_NAV.init();
 });
