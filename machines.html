@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Machines — CFC ERP v2.5</title>
+<title>Machines — CFC ERP v2.6</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -147,7 +147,7 @@ tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.5</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.6</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -434,7 +434,7 @@ function renderTable(){
     <td><span class="pill ${sc[r.status]||"pill-inactive"}">${r.status}</span></td>
     <td style="white-space:nowrap;">
       <button type="button" class="btn btn-secondary btn-xs" onclick="editRow(${r.id})">&#9998; Edit</button>
-      <button type="button" aria-label="Delete" title="Delete"&#128465;</button>
+      <button type="button" class="btn btn-danger btn-xs" onclick="confirmDelete(${r.id})">&#128465;</button>
     </td>
   </tr>`).join("");
 }

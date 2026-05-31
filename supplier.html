@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Supplier Master — CFC ERP v2.5</title>
+<title>Supplier Master — CFC ERP v2.6</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -131,7 +131,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.5</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.6</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html" >&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -305,8 +305,8 @@ function applyFilter(){
     <td style="font-size:12px;">${r.city||'—'}</td>
     <td style="text-align:center;">${r.credit_days||30}d</td>
     <td><span class="pill" style="background:${r.is_active?'#dcfce7':'#f1f5f9'};color:${r.is_active?'#166534':'#64748b'};">${r.is_active?'Active':'Inactive'}</span></td>
-    <td style="white-space:nowrap;"><button type="button" aria-label="Edit" title="Edit"&#9998;</button>
-    <button type="button" aria-label="Delete" title="Delete"&#128465;</button></td>
+    <td style="white-space:nowrap;"><button type="button" class="btn btn-secondary btn-xs" onclick="editRow(${r.id})">&#9998; Edit</button>
+    <button type="button" class="btn btn-danger btn-xs" onclick="confirmDel(${r.id})">&#128465;</button></td>
   </tr>`).join('');
 }
 function openModal(){editingId=null;document.getElementById('modal-title').textContent='Add Supplier';

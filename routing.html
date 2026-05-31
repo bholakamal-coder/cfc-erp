@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Routing Master — CFC ERP v2.5</title>
+<title>Routing Master — CFC ERP v2.6</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -155,7 +155,7 @@ tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.5</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v2.6</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -467,8 +467,8 @@ function renderLevelCard(level,steps){
       </div>
       <div class="level-actions" onclick="event.stopPropagation()">
         <button type="button" class="btn btn-success btn-sm" onclick="openStepModal(${level.id})">+ Add Step</button>
-        <button type="button" aria-label="Edit" title="Edit"&#9998;</button>
-        <button type="button" aria-label="Delete" title="Delete"&#128465;</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openLevelModal(${level.id})">&#9998; Edit</button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="deleteLevel(${level.id})">&#128465;</button>
       </div>
     </div>
     <div id="level-body-${level.id}">
@@ -504,7 +504,7 @@ function renderLevelCard(level,steps){
               <td><span style="background:#f0f4f8;color:#5a6878;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;">${planLabels[s.planning_type]||s.planning_type||'—'}</span></td>
               <td>${s.is_qc_required?`<span class="qc-badge">&#9989; ${s.qc_type||''}</span>`:'<span style="color:#b0bec5;font-size:11px;">—</span>'}</td>
               <td style="white-space:nowrap;">
-                <button type="button" aria-label="Edit" title="Edit"&#9998;</button>
+                <button type="button" class="btn btn-secondary btn-xs" onclick="editStep(${s.id},${level.id})">&#9998; Edit</button>
                 <button type="button" class="btn btn-danger btn-xs" onclick="deleteStep(${s.id})">&#10005;</button>
               </td>
             </tr>`;
