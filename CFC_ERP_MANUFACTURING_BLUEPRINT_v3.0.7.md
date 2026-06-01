@@ -3,32 +3,52 @@
 
 ---
 
+> **Schema Verification Status — 2026-06-01**
+> All sku_planning columns verified directly from Supabase information_schema.
+> Advanced Manufacturing fields confirmed present: bp_weight_g, cycle_time_min,
+> grinder_machine_id, preform_routing_id, bp_routing_id, final_routing_id, weight_g.
+> preform_weight_g confirmed absent (renamed to weight_g).
+> Database counts confirmed: Items=42, Mix Families=3, Routing Levels=3,
+> Routing Steps=42, NULL machine_id=0, BOM Headers=42, BOM Lines=87, SKU Planning=39.
+
+---
+
 ## 1. Final Database Structure
 
 ### Tables Modified in v3.0.7
 
-**`sku_planning`** — 18 columns in INSERT (confirmed schema):
+**`sku_planning`** — confirmed columns verified directly from Supabase:
 
-| Column | Type | Purpose |
-|---|---|---|
-| item_id | integer FK | → items |
-| mix_family_id | integer FK | → mix_families (PMX items only) |
-| die_id | integer FK | → dies (MLD items only) |
-| weight_g | numeric | Item weight — single source of truth |
-| cavity_count | integer | Die cavity count (MLD items only) |
-| tray_capacity | integer | Pieces per tray (ACBP, PWC, CUR) |
-| pcs_in_crate | integer | Pieces per crate (STK items) |
-| pcs_per_set | integer | Pieces per sales set (SW, FG) |
-| time_per_piece_sec | numeric | Generic per-piece time (PRN, RIV, SW) |
-| box_weight_kg | numeric | Box weight (FG items) |
-| box_length_mm | numeric | Box length (FG items) |
-| box_width_mm | numeric | Box width (FG items) |
-| box_height_mm | numeric | Box height (FG items) |
-| grinder_category | text | Small/Medium/Large (FG items) |
-| grinder_machine_id | integer FK | → machines |
-| preform_routing_id | integer FK | → routing_levels |
-| bp_routing_id | integer FK | → routing_levels |
-| final_routing_id | integer FK | → routing_levels |
+| Column | Type | Purpose | Status |
+|---|---|---|---|
+| item_id | integer FK | → items | Confirmed |
+| mix_family_id | integer FK | → mix_families (PMX items only) | Confirmed |
+| die_id | integer FK | → dies (MLD items only) | Confirmed |
+| weight_g | numeric | Item weight — single source of truth | Confirmed |
+| cavity_count | integer | Die cavity count (MLD items only) | Confirmed |
+| tray_capacity | integer | Pieces per tray (ACBP, PWC, CUR) | Confirmed |
+| pcs_in_crate | integer | Pieces per crate (STK items) | Confirmed |
+| pcs_per_set | integer | Pieces per sales set (SW, FG) | Confirmed |
+| time_per_piece_sec | numeric | Generic per-piece time (PRN, RIV, SW) | Confirmed |
+| box_weight_kg | numeric | Box weight (FG items) | Confirmed |
+| box_length_mm | numeric | Box length (FG items) | Confirmed |
+| box_width_mm | numeric | Box width (FG items) | Confirmed |
+| box_height_mm | numeric | Box height (FG items) | Confirmed |
+| grinder_category | text | Small/Medium/Large (FG items) | Confirmed |
+| grinder_machine_id | integer FK | → machines | Confirmed |
+| preform_routing_id | integer FK | → routing_levels | Confirmed |
+| bp_routing_id | integer FK | → routing_levels | Confirmed |
+| final_routing_id | integer FK | → routing_levels | Confirmed |
+| bp_weight_g | numeric | Back plate weight (shot blast calc) | Confirmed |
+| cycle_time_min | numeric | Moulding cycle time (Machine Master) | Confirmed |
+
+**Schema correction confirmed 2026-06-01:**
+Advanced Manufacturing fields (`bp_weight_g`, `cycle_time_min`, `grinder_machine_id`,
+`preform_routing_id`, `bp_routing_id`, `final_routing_id`) exist in the database schema
+and are available for planning logic. They are present in the UI (Advanced Manufacturing
+collapsible section) and included in the save/load payload.
+
+Only `preform_weight_g` was removed — renamed to `weight_g` as the single weight field.
 
 **`routing_steps`** — `machine_id` column added:
 ```sql
@@ -85,7 +105,7 @@ ALTER TABLE routing_steps ADD COLUMN machine_id integer REFERENCES machines(id);
 
 ### Architecture Rules
 - `weight_g` = single weight field. `preform_weight_g` permanently removed.
-- `cycle_time_min` = Machine Master only. Never in `sku_planning` VALUES.
+- `cycle_time_min` = EXISTS in `sku_planning` schema. Saved from Advanced Manufacturing UI. Conceptually represents moulding cycle time per SKU — distinct from Machine Master capacity/rate fields.
 - Blank field = NULL = ignored. No calculation error on blank.
 - `mix_family_id` on PMX items only (not MBM, not FG).
 - `die_id` on MLD items only.
@@ -196,7 +216,7 @@ Routing Step (routing_steps)
   step_type         → drives WO completion logic
 
 Machine Master (machines)
-  cycle_time        → from Machine Master (not SKU Planning)
+  cycle_time_min    → from sku_planning.cycle_time_min (per-SKU moulding cycle)
   capacity          → from Machine Master
 ```
 
@@ -380,4 +400,8 @@ DELETE FROM dies WHERE die_code = 'DY101';
 ---
 
 *Document generated: 2026-06-01 | CFC ERP v3.0.7 | Ceradrive Brakes*
-*Demo data verified live: 39 SFG + 3 FG + 42 routing steps + 42 BOM headers + 87 BOM lines + 39 SKU Planning rows*
+*Demo data verified live — final counts confirmed in Supabase 2026-06-01:*
+*Items=42 (39 SFG + 3 FG) | Mix Families=3 | Routing Levels=3 | Routing Steps=42 | NULL machine_id=0 | BOM Headers=42 | BOM Lines=87 | SKU Planning=39*
+
+*Schema verified: weight_g, bp_weight_g, cycle_time_min, grinder_machine_id, preform_routing_id, bp_routing_id, final_routing_id — all confirmed present in sku_planning.*
+*preform_weight_g — confirmed removed (renamed to weight_g).*

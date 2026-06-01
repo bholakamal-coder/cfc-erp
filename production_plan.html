@@ -576,7 +576,7 @@ function renderResults(r){
     +warnHtml
     +'<div class="steps-list">'
     +'<div class="step-row"><div class="step-num">1</div><div class="step-info">'
-    +'<div class="step-name">&#129516; Mixing '+(r.mfCode?'('+r.mfCode+')'):'')+'</div>'
+    +'<div class="step-name">&#129516; Mixing '+(r.mfCode?' ('+r.mfCode+')':'')+'</div>'
     +'<div class="step-detail">'+r.premixKgNet.toFixed(1)+' KG net \u2192 '+r.premixKgGross.toFixed(1)+' KG gross (+'+r.scrapPct+'% scrap) | '+r.batchKg+' KG/batch | M1:'+r.m1+' M2:'+r.m2+' batches (parallel)</div>'
     +'</div><div class="step-result">'+r.mixBatches+' Batches<br><span style="font-size:11px;color:#5a6878;">'+r.mixHrs.toFixed(1)+' hrs</span></div></div>'
     +'<div class="step-row"><div class="step-num">2</div><div class="step-info">'
@@ -602,8 +602,6 @@ function renderResults(r){
     +'<div style="margin-top:12px;display:flex;gap:10px;">'
     +'<button type="button" class="btn btn-primary" onclick="openPlanModal()">&#128190; Save Plan</button>'
     +'</div>';
-}
-
 }
 
 // ── TABS ──
