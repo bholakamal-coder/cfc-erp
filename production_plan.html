@@ -571,7 +571,14 @@ function runCalculator(){
     leadHrs,leadDays,compStr,
     shiftHrs,shiftsDay,warnings,
     mfCode:S.mf_code,pmxCode:S.pmx_code,
+    // savePlan compatibility fields
+    qty:sets,
+    uom:'Set',
+    mouldingMins:mouldNetHrs*60,
+    curingTotalMins:ovenHrs*60,
   };
+  calcResult=result;  // v3.0.7.1: assign to global so savePlan can read it
+  console.log('calc saved state', calcResult);
   renderResults(result);
 }
 
