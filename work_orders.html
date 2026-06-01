@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Work Orders — CFC ERP v3.0.7.2</title>
+<title>Work Orders — CFC ERP v3.0.7.3</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -136,7 +136,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7.2</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7.3</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128230;</span><span class="gh-label">Masters</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a><a class="nav-item" href="warehouse.html"><span class="icon">&#127978;</span> Warehouse</a></div></div>
@@ -422,7 +422,7 @@ async function loadWOs(){
   wrap.innerHTML='<div class="loading">Loading...</div>';
 
   var {data,error}=await sb.from('work_orders')
-    .select('id,wo_no,production_order_id,process_name,planned_qty,completed_qty,uom,status,machine_id,die_id,routing_step_id,priority,planned_start,planned_end,actual_start,actual_end,notes,created_at, machines(code,name), die:die_id(die_code)')
+    .select('id,wo_no,production_order_id,process_name,planned_qty,completed_qty,uom,status,machine_id,die_id,routing_step_id,priority,can_start,blocked_reason,depends_on_wo_ids,planned_start,planned_end,actual_start,actual_end,notes,created_at, machines(code,name), die:die_id(die_code)')
     .order('priority',{ascending:true});
 
   if(error){
@@ -488,30 +488,62 @@ function _poInfo(w){
 function renderWOs(){
   var wrap=document.getElementById('wo-wrap');
   if(!filtered.length){wrap.innerHTML='<div class="empty-state"><div class="big">&#127981;</div><p>Koi Work Order nahi. + Create WO karo.</p></div>';return;}
+
+  // v3.0.7.3: dependency-aware button logic
+  function getActionBtns(w){
+    // Completed / Done
+    if(w.status==='Done'||w.status==='Completed'){
+      return '<span style="font-size:11px;color:#166534;font-weight:600;">&#10003; Done</span>';
+    }
+    // In Progress — show Complete button
+    if(w.status==='In Progress'){
+      return `<button type="button" class="btn btn-complete btn-xs" onclick="openCompleteModal(${w.id})">&#10003; Complete</button>`;
+    }
+    // Pending or Assigned — check can_start
+    if(w.status==='Pending'){
+      if(w.can_start){
+        return `<button type="button" class="btn btn-info btn-xs" onclick="updateStatus(${w.id},'Assigned')">&#9654; Assign</button>`;
+      } else {
+        return `<span class="pill pill-pending" style="font-size:11px;background:#fef9c3;color:#854d0e;border:1px solid #fde047;">&#9201; Waiting</span>`;
+      }
+    }
+    if(w.status==='Assigned'){
+      return `<button type="button" class="btn btn-warning btn-xs" onclick="updateStatus(${w.id},'In Progress')">&#9658; Start</button>`;
+    }
+    return '';
+  }
+
+  function getBlockedNote(w){
+    if(w.blocked_reason&&w.can_start===false&&w.status==='Pending'){
+      return `<div style="font-size:11px;color:#92400e;margin-top:3px;">&#128274; ${w.blocked_reason}</div>`;
+    }
+    return '';
+  }
+
   if(viewMode==='card'){
     wrap.innerHTML=filtered.map(w=>{
       var pct=w.planned_qty>0?Math.min(100,Math.round((w.completed_qty||0)/w.planned_qty*100)):0;
-      var completeBtn=w.status==='In Progress'?`<button type="button" class="btn btn-complete btn-xs" onclick="openCompleteModal(${w.id})">&#10003; Complete</button>`:'';
-      var statusBtns=w.status==='Pending'?`<button type="button" class="btn btn-info btn-xs" onclick="updateStatus(${w.id},'Assigned')">&#9654; Assign</button>`:
-        w.status==='Assigned'?`<button type="button" class="btn btn-warning btn-xs" onclick="updateStatus(${w.id},'In Progress')">&#9658; Start</button>`:'';
+      var actionBtns=getActionBtns(w);
+      var blockedNote=getBlockedNote(w);
       return`<div class="wo-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div><span style="font-family:monospace;font-weight:700;color:var(--navy);">${w.wo_no||'WO-?'}</span>
           <span style="margin-left:10px;" class="pill ${SPILL[w.status]||'pill-pending'}">${w.status}</span></div>
-          <div style="display:flex;gap:6px;">${statusBtns}${completeBtn}
+          <div style="display:flex;gap:6px;">${actionBtns}
             <button type="button" class="btn btn-secondary btn-xs" onclick="editWO(${w.id})">&#9998; Edit</button>
             <button type="button" class="btn btn-danger btn-xs" onclick="confirmDelete(${w.id},'${esc(w.wo_no||'')}')">&#128465;</button>
           </div>
         </div>
         <div style="margin-bottom:6px;">${_poInfo(w)}</div>
-        <div style="display:flex;gap:16px;font-size:12px;color:#5a6878;margin-bottom:10px;flex-wrap:wrap;">
+        <div style="display:flex;gap:16px;font-size:12px;color:#5a6878;margin-bottom:6px;flex-wrap:wrap;">
           <span>&#9881; ${w.process_name||'—'}</span>
           ${w.machines?`<span>&#127981; ${w.machines.code}</span>`:''}
           ${w.die?`<span>&#128299; ${w.die.die_code}</span>`:''}
           <span>Planned: ${w.planned_qty||0} ${w.uom||'PCS'}</span>
           <span style="color:#166534;">Done: ${w.completed_qty||0}</span>
         </div>
-        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        ${blockedNote}
+        <div class="progress-bar" style="margin-top:6px;"><div class="progress-fill" style="width:${pct}%"></div></div>
         <div style="font-size:11px;color:#8a95a0;margin-top:4px;">${pct}% complete</div>
       </div>`;
     }).join('');
@@ -521,13 +553,23 @@ function renderWOs(){
       <th>Planned</th><th>Done</th><th>Progress</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody>${filtered.map(w=>{
         var pct=w.planned_qty>0?Math.min(100,Math.round((w.completed_qty||0)/w.planned_qty*100)):0;
-        var completeBtn=w.status==='In Progress'?`<button type="button" class="btn btn-complete btn-xs" onclick="openCompleteModal(${w.id})">&#10003; Complete</button> `:'';
-        var statusBtns=w.status==='Pending'?`<button type="button" class="btn btn-info btn-xs" onclick="updateStatus(${w.id},'Assigned')">Assign</button> `:
-          w.status==='Assigned'?`<button type="button" class="btn btn-warning btn-xs" onclick="updateStatus(${w.id},'In Progress')">Start</button> `:'';
+        var actionBtns=getActionBtns(w);
+        var blockedNote=getBlockedNote(w);
         return`<tr>
           <td><strong style="font-family:monospace;">${w.wo_no||'—'}</strong></td>
           <td style="font-size:12px;">${_poInfo(w)}</td>
-          <td>${w.process_name||'—'}</td>
+          <td>${w.process_name||'—'}${blockedNote}</td>
+          <td style="font-size:12px;">${w.machines?w.machines.code:'—'}</td>
+          <td style="text-align:center;">${w.planned_qty||0} ${w.uom||'PCS'}</td>
+          <td style="text-align:center;color:#166534;">${w.completed_qty||0}</td>
+          <td style="min-width:80px;"><div class="progress-bar" style="margin-bottom:2px;"><div class="progress-fill" style="width:${pct}%"></div></div><span style="font-size:10px;color:#8a95a0;">${pct}%</span></td>
+          <td><span class="pill ${SPILL[w.status]||'pill-pending'}">${w.status}</span></td>
+          <td style="white-space:nowrap;">${actionBtns} <button type="button" class="btn btn-secondary btn-xs" onclick="editWO(${w.id})">&#9998; Edit</button>
+            <button type="button" class="btn btn-danger btn-xs" onclick="confirmDelete(${w.id},'${esc(w.wo_no||'')}')">&#128465;</button></td>
+        </tr>`;
+      }).join('')}</tbody></table></div>`;
+  }
+}
           <td style="font-size:12px;">${w.machines?w.machines.code:'—'}</td>
           <td style="text-align:center;">${w.planned_qty||0} ${w.uom||'PCS'}</td>
           <td style="text-align:center;color:#166534;">${w.completed_qty||0}</td>
@@ -636,6 +678,24 @@ async function saveWO(){
 }
 
 // ── STATUS UPDATES ──
+// v3.0.7.3: unlock next WO in linear dependency chain on completion
+async function unlockNextWO(completedWO){
+  if(!completedWO.production_order_id) return;
+  // Find next WO by priority in same production order
+  var {data:nextWOs}=await sb.from('work_orders')
+    .select('id,priority,process_name,can_start,status')
+    .eq('production_order_id', completedWO.production_order_id)
+    .eq('priority', (completedWO.priority||0)+1)
+    .limit(1);
+  if(!nextWOs||!nextWOs.length) return;  // no next step
+  var next=nextWOs[0];
+  if(next.status==='Done'||next.status==='Completed') return;  // already done
+  await sb.from('work_orders').update({
+    can_start: true,
+    blocked_reason: null
+  }).eq('id', next.id);
+}
+
 async function updateStatus(id,status){
   var extra={};
   if(status==='In Progress')extra.actual_start=new Date().toISOString();
@@ -1018,6 +1078,7 @@ async function _completeMixing(actualQty,outWhId,notes){
   var woUp={completed_qty:newComp,status:newSt};
   if(newSt==='Done')woUp.actual_end=new Date().toISOString();
   await sb.from('work_orders').update(woUp).eq('id',wo.id);
+  if(newSt==='Done') await unlockNextWO(wo);  // v3.0.7.3: unlock next step
 }
 
 // ── INTERMEDIATE STAGE COMPLETION ──
@@ -1061,6 +1122,7 @@ async function _completeIntermediate(actualQty,outWhId,notes){
   var woUp={completed_qty:newComp,status:newSt};
   if(newSt==='Done')woUp.actual_end=new Date().toISOString();
   await sb.from('work_orders').update(woUp).eq('id',wo.id);
+  if(newSt==='Done') await unlockNextWO(wo);  // v3.0.7.3: unlock next step
 }
 
 // ── FINAL STAGE COMPLETION ──
@@ -1154,6 +1216,7 @@ async function _completeFinal(actualQty,outWhId,notes){
   var woUp={completed_qty:newComp,status:newSt};
   if(newSt==='Done')woUp.actual_end=new Date().toISOString();
   await sb.from('work_orders').update(woUp).eq('id',wo.id);
+  if(newSt==='Done') await unlockNextWO(wo);  // v3.0.7.3: unlock next step (if any)
 
   // Update production_orders
   var newPOComp=Math.round(((po.completed_qty||0)+actualQty)*1000)/1000;

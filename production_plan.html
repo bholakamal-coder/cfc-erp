@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Production Plan — CFC ERP v3.0.7.2</title>
+<title>Production Plan — CFC ERP v3.0.7.3</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -144,7 +144,7 @@ tr:last-child td{border-bottom:none;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7.2</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7.3</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -827,6 +827,31 @@ async function releasePlan(planId){
     // Rollback: delete the production order we just created
     await sb.from("production_orders").delete().eq("id",po.id);
     showToast("Work Orders create failed: "+woErr.message,"error");return;
+  }
+
+  // v3.0.7.3: Linear dependency — fetch created WOs, set can_start + blocked_reason
+  var {data:createdWOs}=await sb.from("work_orders")
+    .select("id,priority,process_name")
+    .eq("production_order_id",po.id)
+    .order("priority",{ascending:true});
+
+  if(createdWOs&&createdWOs.length){
+    // WO-01: can_start = true (first step, no blocker)
+    await sb.from("work_orders").update({
+      can_start:true,
+      blocked_reason:null
+    }).eq("id",createdWOs[0].id);
+
+    // WO-02..14: can_start = false, blocked by previous step
+    for(var di=1;di<createdWOs.length;di++){
+      var prev=createdWOs[di-1];
+      var curr=createdWOs[di];
+      await sb.from("work_orders").update({
+        can_start:false,
+        depends_on_wo_ids:[prev.id],
+        blocked_reason:"Waiting for previous step: "+prev.process_name
+      }).eq("id",curr.id);
+    }
   }
 
   // Update plan status to Released + link production_order_id
