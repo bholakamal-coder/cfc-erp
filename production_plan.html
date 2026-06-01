@@ -144,7 +144,7 @@ tr:last-child td{border-bottom:none;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7.1</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -789,7 +789,7 @@ async function releasePlan(planId){
   // Create production_orders
   var {data:po,error:poErr}=await sb.from("production_orders").insert([{
     order_no:"PO-"+yymm+"-"+String(Math.floor(Math.random()*9000)+1000),
-    order_type:"Production",
+    order_type:"MTS",             // constraint: MTS | MTO only
     item_id:plan.item_id,
     planned_qty:plan.planned_qty,
     completed_qty:0,
