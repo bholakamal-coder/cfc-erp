@@ -201,43 +201,70 @@ HP and HE series: identical structure with own item codes.
 
 ## 7. Production Planner Logic
 
-### Data Sources (no hardcoding)
-```
-SKU Planning (sku_planning)
-  weight_g          → premix KG calculation
-  cavity_count      → moulding cycles per press
-  tray_capacity     → oven/powder/adhesive batch size
-  pcs_in_crate      → storage planning
-  pcs_per_set       → sets → pads conversion
-  time_per_piece_sec→ printing/riveting/packing time
+### ⚠ STATUS: INTERIM / PARTIAL — v3.0.7
 
-Routing Step (routing_steps)
-  machine_id        → which machine runs this step
-  step_type         → drives WO completion logic
+**The v3.0.7 Production Planner is an interim calculator only.**
+It is NOT architecturally complete. Do not mark as final.
 
-Machine Master (machines)
-  cycle_time_min    → from sku_planning.cycle_time_min (per-SKU moulding cycle)
-  capacity          → from Machine Master
-```
+### What v3.0.7 Calculator Does
 
-### Calculator Fixes (v3.0.7)
+- Entry point: FG item (VO101S)
+- Reads: `pcs_per_set`, `mix_family_id` from FG SKU Planning
+- Calculates MTS stages 1–5 only: Mixing, Preforming, Moulding, Grinding, Oven Curing
+- Uses `FACTORY_DEFAULTS` for all stage-specific values because it does NOT traverse BOM/routing to find SFG stage items
+
+### What v3.0.7 Calculator Does NOT Do
+
+- Does NOT traverse BOM chain to find SFG stage items
+- Does NOT read `weight_g` from `VO-PF101` SKU Planning
+- Does NOT read `cavity_count` from `VO-MLD101` SKU Planning
+- Does NOT read `tray_capacity` from `VO-ACBP101`, `VO-PWC101`, `VO-CUR101`
+- Does NOT read `pcs_in_crate` from `VO-STK101`
+- Does NOT calculate Shot Blasting, Adhesive Coating, Powder Coating, Stacking
+- Does NOT calculate MTO stages (PRN, RIV, SW, Packing)
+- Does NOT read `time_per_piece_sec` from PRN/RIV/SW stage items
+- Does NOT use `routing_steps.machine_id` for capacity
+- Does NOT use Machine Master cycle times
+
+### Calculator Fixes Applied in v3.0.7 (vs v3.0.6)
 - `.single()` → `.maybeSingle()` — no crash on missing SKU
 - Reads `weight_g` (not `preform_weight_g`)
 - 3-query chain: `sku_planning` → `mix_families` → `items`
 - Formulation Family auto-resolved — user never selects manually
 - `calc-premix` hardcoded dropdown REMOVED
 - `calc-preform-wt` manual field REMOVED
-- Auto-resolved read-only panel shows: Formulation, Premix, Batch, Weight, Cavity, Tray, Pcs/Set
+- Auto-resolved read-only panel added
 - Default cavity fallback = 8 (DY101)
 - FACTORY_DEFAULTS object — all assumptions named and visible
 
-### Bottleneck Logic
-- Critical path: Moulding (bottleneck) → last tray post-processing
-- Lead time = moulding effective hours + last tray downstream
-- Parallel machines handled in FACTORY_DEFAULTS (MIX-02, MLD-02, GRD-02)
-- Warnings shown when SKU Planning fields are missing
+### Required Final Architecture — Option B (v3.0.8)
 
----
+**MTS Planner:**
+- Entry: FG demand → resolve STK demand via pcs_per_set
+- BOM/routing traversal to find each stage item
+- Read SKU Planning from each stage:
+  - `VO-PF101` → `weight_g` (preform weight)
+  - `VO-SBP101` → `weight_g` (BP weight)
+  - `VO-ACBP101` → `tray_capacity`
+  - `VO-MLD101` → `cavity_count`
+  - `VO-PWC101` → `tray_capacity`
+  - `VO-CUR101` → `tray_capacity`
+  - `VO-STK101` → `pcs_in_crate`
+- Read cycle times from Machine Master via `routing_steps.machine_id`
+- Output: separate MTS Plan panel (RM → STK)
+
+**MTO Planner:**
+- Entry: available STK inventory + sales order demand
+- Read SKU Planning from MTO stage items:
+  - `VO-PRN101` → `time_per_piece_sec`
+  - `VO-RIV101` → `time_per_piece_sec`
+  - `VO-SW101` → `pcs_per_set`, `time_per_piece_sec`
+  - `VO101S` → box dimensions, packaging data
+- Output: separate MTO Plan panel (STK → FG)
+
+**No FACTORY_DEFAULTS except as temporary fallback with warning.**
+**No hardcoded process assumptions.**
+**Machine capacity from Machine Master — not hardcoded.**
 
 ## 8. Import Templates
 
@@ -394,7 +421,12 @@ DELETE FROM dies WHERE die_code = 'DY101';
 | RKI-15 | Production Planner reads Machine Master cycle_time — currently using FACTORY_DEFAULTS | Production Planner |
 | RKI-16 | `item_master.html` f-category, f-warehouse still dropdowns | Item Master |
 | RKI-17 | SKU Planning `bp_weight_g` field — UI present but not in current 18-col INSERT schema (column may not exist) | Item Master |
-| RKI-18 | Production Planner does not yet read `routing_steps.machine_id` for capacity | Production Planner |
+| RKI-18 | Production Planner does not read `routing_steps.machine_id` for capacity | Production Planner |
+| RKI-19 | Production Planner does not traverse BOM/routing to find SFG stage items | Production Planner |
+| RKI-20 | Production Planner uses FACTORY_DEFAULTS instead of stage-wise SKU Planning | Production Planner |
+| RKI-21 | No separate MTS Plan and MTO Plan output panels | Production Planner |
+| RKI-22 | MTO stages (PRN/RIV/SW/Packing) not calculated | Production Planner |
+| RKI-23 | Machine Master cycle times not used — hardcoded assumptions | Production Planner |
 | RKI-19 | MRP calculation not tested against new multi-level BOM structure | MRP |
 
 ---
@@ -405,3 +437,23 @@ DELETE FROM dies WHERE die_code = 'DY101';
 
 *Schema verified: weight_g, bp_weight_g, cycle_time_min, grinder_machine_id, preform_routing_id, bp_routing_id, final_routing_id — all confirmed present in sku_planning.*
 *preform_weight_g — confirmed removed (renamed to weight_g).*
+
+---
+
+## v3.0.8 Scope — Production Planner Option B
+
+Priority items for next release:
+
+1. BOM traversal / routing output_item_id traversal to find SFG stage items
+2. Stage-wise SKU Planning reads (weight, cavity, tray, crate, tpp per stage item)
+3. Separate MTS Plan output panel (RM → STK)
+4. Separate MTO Plan output panel (STK → FG)
+5. Machine assignment from `routing_steps.machine_id`
+6. Machine capacity / cycle time from Machine Master
+7. Remove all FACTORY_DEFAULTS — replace with DB reads + warning if missing
+8. bom.html Routing Level → live search
+9. work_orders.html Machine/Die → live search
+10. mrp.html fix (separate Supabase client)
+11. item_master.html f-category, f-warehouse → live search
+
+*v3.0.7 Production Planner marked: INTERIM — partial MTS calculation only.*
