@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Work Orders — CFC ERP v3.0.7.4</title>
+<title>Work Orders — CFC ERP v3.0.7.5</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -136,7 +136,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7.4</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7.5</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128230;</span><span class="gh-label">Masters</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a><a class="nav-item" href="warehouse.html"><span class="icon">&#127978;</span> Warehouse</a></div></div>
@@ -818,6 +818,20 @@ async function openCompleteModal(woId){
   var stageType=detectStageType(w,allSteps);
   if(stageType==='unknown') return block('Routing step is WO se match nahi karta. Routing Master check karein.');
 
+  // ── Resolve thisStep — needed for output_item_id and output item info
+  var thisStep=allSteps.find(s=>s.id===w.routing_step_id);
+  if(!thisStep){
+    // Fallback: fetch directly by routing_step_id
+    if(w.routing_step_id){
+      var {data:fetchedStep}=await sb.from('routing_steps')
+        .select('id,sequence,process_name,step_type,output_item_id')
+        .eq('id',w.routing_step_id).maybeSingle();
+      thisStep=fetchedStep;
+    }
+    if(!thisStep) return block('Routing step is WO ke liye nahi mila. Routing Master check karein.');
+  }
+  if(!thisStep.output_item_id) return block('Routing step "'+thisStep.process_name+'" mein output_item_id set nahi. Routing Master update karein.');
+
   // ── Fetch BOM lines for RM calculation (used by Mixing stage)
   // v3.0.7.4: For stage-specific completion, load BOM from the routing step's
   // output item (e.g. VO-MBM for mixing step 1), NOT from FG item (VO101S).
@@ -876,7 +890,7 @@ async function openCompleteModal(woId){
     outputItemInfo=`Output: <strong>${premixItem.code}</strong> ${premixItem.name} | Formula: ${mf.name} | Batch size: ${mf.batch_size_kg||'?'} KG`;
   } else if(stageType==='intermediate'){
     stageLabel='🟡 INTERMEDIATE STAGE';stageColor='#92400e';
-    var thisStep=allSteps.find(s=>s.id===w.routing_step_id);
+    // thisStep already declared above — output_item_id already checked
     if(!thisStep.output_item_id){
       return block('Routing step "'+thisStep.process_name+'" mein output_item_id set nahi hai. Routing Master update karein.');
     }
