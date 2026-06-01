@@ -226,6 +226,23 @@ It is NOT architecturally complete. Do not mark as final.
 - Does NOT use `routing_steps.machine_id` for capacity
 - Does NOT use Machine Master cycle times
 
+
+### FACTORY_DEFAULTS — Known Incorrect Values (v3.0.7)
+
+Confirmed by dry run 2026-06-01. All values below must be replaced in v3.0.8:
+
+| Process | Current Default | Actual Ceradrive Value | Source |
+|---|---|---|---|
+| Mixing batch size | 50 KG | **270 KG** | Machine Master / confirmed |
+| Preforming presses | 2 (parallel) | **1 per SKU plan** | Process — 1 machine selected per plan |
+| Moulding presses | 2 × 4 cavity | **1 press × cavity_count from SKU Planning** | DY101 = 8 cavity |
+| Grinding | G1+G2 combined (750/hr) | **Selected machine only** | routing_steps.machine_id |
+| Powder coating tray | 74 pcs | **37 pcs per tray** | Actual process confirmed |
+| Oven tray | 74 pcs | **Derived from powder coating tray count** | Not fixed |
+
+These are the specific items that make v3.0.7 calculator output incorrect for factory planning.
+Calculator is functional (runs without errors) but NOT factory-accurate.
+
 ### Calculator Fixes Applied in v3.0.7 (vs v3.0.6)
 - `.single()` → `.maybeSingle()` — no crash on missing SKU
 - Reads `weight_g` (not `preform_weight_g`)
@@ -440,11 +457,35 @@ DELETE FROM dies WHERE die_code = 'DY101';
 
 ---
 
+
+### Test 5.1 Dry Run Result — 2026-06-01
+
+**Status: PASS (functional) — NOT PASS (factory-accurate)**
+
+Calculator runs without errors. Output produced. Formulation auto-resolves correctly.
+
+Known incorrect assumptions in v3.0.7 output:
+- Mixing batch = 50 KG used (actual = 270 KG)
+- Preforming = 2 presses assumed (actual = 1 per plan)
+- Moulding = 2 presses × 4 cavity assumed (actual = 1 press × 8 cavity from DY101)
+- Grinding = G1+G2 combined (actual = selected machine only)
+- Powder tray = 74 pcs (actual = 37 pcs)
+- Oven = derived from wrong tray count
+
+These are deferred to v3.0.8 Option B. v3.0.7 calculator acceptable as interim only.
+
 ## v3.0.8 Scope — Production Planner Option B
 
 Priority items for next release:
 
 1. BOM traversal / routing output_item_id traversal to find SFG stage items
+2. Read mixing batch size from Machine Master (actual = 270 KG, not 50 KG)
+3. Read preforming machine count from plan selection (1 machine, not 2 assumed)
+4. Read moulding cavity_count from VO-MLD101 SKU Planning (DY101 = 8, not 4)
+5. Read powder coating tray_capacity from VO-PWC101 SKU Planning (actual = 37, not 74)
+6. Derive oven batches from actual powder tray count (not fixed 74)
+7. Read grinding machine from routing_steps.machine_id (selected machine only, not G1+G2 combined)
+8. Allow machine selection per production plan
 2. Stage-wise SKU Planning reads (weight, cavity, tray, crate, tpp per stage item)
 3. Separate MTS Plan output panel (RM → STK)
 4. Separate MTO Plan output panel (STK → FG)

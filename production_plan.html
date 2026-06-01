@@ -349,7 +349,7 @@ let allItems=[], calcResult=null;
   document.getElementById("user-avatar").textContent=email.substring(0,2).toUpperCase();
   document.getElementById("user-name").textContent=email.split("@")[0];
   await loadItems();
-  await loadMachines();
+  await _loadMachinesForPlanner();  // local stub — no UI dropdown needed
   loadPlans();
   runCalculator();
 })();
@@ -357,6 +357,13 @@ let allItems=[], calcResult=null;
 async function loadItems(){
   const {data}=await sb.from("items").select("id,code,name,type,uom").eq("is_active",true).order("code");
   allItems=data||[];
+}
+
+// Local machine loader — no UI dropdown in planner (machine selection is via routing)
+var allMachines=[];
+async function _loadMachinesForPlanner(){
+  var {data}=await sb.from("machines").select("id,code,name,process_name").eq("is_active",true).order("code");
+  allMachines=data||[];
 }
 
 // ── ITEM SEARCH ──
@@ -461,19 +468,29 @@ async function selectCalcItem(id,code,name){
 
 // ── FACTORY DEFAULTS (TEMP — will move to Machine Master in v3.1.x) ─
 var FACTORY_DEFAULTS = {
-  mixer_1_kg:          270,    // CONFIRMED
-  mixer_2_kg:          150,    // CONFIRMED
-  mixer_cycle_min:     45,     // TEMP
-  preform_presses:     2,      // CONFIRMED
+  // ── MIXING ──────────────────────────────────────────────
+  mixer_1_kg:          270,    // CONFIRMED actual batch size
+  mixer_2_kg:          150,    // CONFIRMED (secondary mixer)
+  mixer_cycle_min:     45,     // TEMP — replace with Machine Master in v3.0.8
+  // ── PREFORMING ──────────────────────────────────────────
+  preform_presses:     1,      // CORRECTED: 1 machine per plan (was 2 — WRONG)
   preform_cycle_sec:   20,     // CONFIRMED
+  // ── SHOT BLASTING ───────────────────────────────────────
   shot_blast_kg:       60,     // CONFIRMED
-  shot_blast_min:      30,     // TEMP
-  mould_presses:       2,      // CONFIRMED
-  mould_efficiency:    0.85,   // TEMP
-  grinder_1_hr:        500,    // CONFIRMED
-  grinder_2_hr:        250,    // CONFIRMED
-  powder_min_tray:     15,     // TEMP
+  shot_blast_min:      30,     // TEMP — replace with Machine Master in v3.0.8
+  // ── MOULDING ────────────────────────────────────────────
+  mould_presses:       1,      // CORRECTED: 1 press per plan (was 2 — WRONG)
+  mould_efficiency:    0.85,   // TEMP — replace with Machine Master in v3.0.8
+  // ── GRINDING ────────────────────────────────────────────
+  grinder_1_hr:        500,    // CONFIRMED GRD-01 rate
+  grinder_2_hr:        250,    // CONFIRMED GRD-02 rate (v3.0.8: use selected machine only)
+  // ── POWDER COATING ──────────────────────────────────────
+  powder_tray_cap:     37,     // CORRECTED: actual = 37 pcs/tray (was 74 — WRONG)
+  powder_min_tray:     15,     // TEMP — replace with Machine Master in v3.0.8
+  // ── OVEN ────────────────────────────────────────────────
   oven_cycle_hrs:      8,      // CONFIRMED
+  // NOTE: All TEMP values must be replaced in v3.0.8 with Machine Master reads
+  // NOTE: preform_presses and mould_presses must be 1 (plan selects one machine)
 };
 
 function runCalculator(){
@@ -492,7 +509,7 @@ function runCalculator(){
   var weightG=S.weight_g||185;
   var cavity=S.cavity_count||8;  // DY101: 8 cavity default
   var cycMin=S.cycle_time_min||8.5;
-  var tray=S.tray_capacity||74;
+  var tray=S.tray_capacity||F.powder_tray_cap||37;  // 37 actual (not 74)
   var batchKg=S.batch_size_kg||50;
 
   var totalPcs=sets*pcsPerSet;
@@ -506,12 +523,12 @@ function runCalculator(){
   var mixHrs=Math.max(m1,m2)*(F.mixer_cycle_min/60);
 
   // PREFORMING — 2 presses parallel (after mixing)
-  var pfCyclesEach=Math.ceil(totalPcs/F.preform_presses);
+  var pfCyclesEach=Math.ceil(totalPcs/F.preform_presses);  // 1 press (corrected)
   var pfHrs=(pfCyclesEach*F.preform_cycle_sec)/3600;
   var frictionHrs=mixHrs+pfHrs;
 
   // MOULDING — 2 presses, N shifts — BOTTLENECK
-  var mouldCycEach=Math.ceil(totalPcs/(F.mould_presses*cavity));
+  var mouldCycEach=Math.ceil(totalPcs/(F.mould_presses*cavity));  // 1 press × cavity (corrected)
   var mouldCycTotal=mouldCycEach*F.mould_presses;
   var mouldNetHrs=(mouldCycEach*cycMin)/60;
   var mouldEffHrs=mouldNetHrs/F.mould_efficiency;
@@ -825,7 +842,7 @@ function showToast(msg,type=""){
 }
 async function handleLogout(){await sb.auth.signOut();window.location.href="index.html";}
 document.getElementById("plan-modal").addEventListener("click",function(e){if(e.target===this)closePlanModal();});
-document.getElementById("global-search").addEventListener("input",function(){});
+var _gs=document.getElementById("global-search");if(_gs)_gs.addEventListener("input",function(){});
 </script>
 <script src="shared.js"></script>
 <script src="ui.js"></script>
