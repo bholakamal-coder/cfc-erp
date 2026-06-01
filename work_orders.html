@@ -819,10 +819,35 @@ async function openCompleteModal(woId){
   if(stageType==='unknown') return block('Routing step is WO se match nahi karta. Routing Master check karein.');
 
   // ── Fetch BOM lines for RM calculation (used by Mixing stage)
-  var {data:lines}=await sb.from('bom_lines')
-    .select('id,item_id,qty,uom,scrap_percent,is_optional,items(code,name,type)')
-    .eq('bom_id',bh.id).order('line_no');
-  var bomLines=(lines||[]).filter(l=>!l.is_optional);
+  // v3.0.7.4: For stage-specific completion, load BOM from the routing step's
+  // output item (e.g. VO-MBM for mixing step 1), NOT from FG item (VO101S).
+  // FG BOM (bh) is still used for routing_level_id only.
+  var stageBomLines = [];
+  if(stageType==='mixing'||stageType==='preforming'||stageType==='shot_blasting'||
+     stageType==='adhesive_coating'||stageType==='moulding'||stageType==='grinding'||
+     stageType==='powder_coating'||stageType==='curing'||stageType==='stacking'||
+     stageType==='printing'||stageType==='riveting'||stageType==='set_assembly'){
+    // Load BOM from routing step output item
+    var {data:stageBh}=await sb.from('bom_headers')
+      .select('id,item_id,output_qty,output_uom,version,routing_level_id,status,is_default')
+      .eq('item_id',thisStep.output_item_id).eq('status','Active')
+      .maybeSingle();
+    if(stageBh){
+      var {data:stageLines}=await sb.from('bom_lines')
+        .select('id,item_id,qty,uom,scrap_percent,is_optional,items(code,name,type)')
+        .eq('bom_id',stageBh.id).order('line_no');
+      stageBomLines=(stageLines||[]).filter(l=>!l.is_optional);
+      // Override bh for stage-specific output_qty
+      bh=Object.assign({},bh,{output_qty:stageBh.output_qty,output_uom:stageBh.output_uom,_stageBh:stageBh});
+    }
+  } else {
+    // FG packing stage — use FG BOM lines
+    var {data:fgLines}=await sb.from('bom_lines')
+      .select('id,item_id,qty,uom,scrap_percent,is_optional,items(code,name,type)')
+      .eq('bom_id',bh.id).order('line_no');
+    stageBomLines=(fgLines||[]).filter(l=>!l.is_optional);
+  }
+  var bomLines=stageBomLines;
 
   // ── Stage-specific setup
   var stageLabel='';
