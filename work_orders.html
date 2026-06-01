@@ -570,17 +570,6 @@ function renderWOs(){
       }).join('')}</tbody></table></div>`;
   }
 }
-          <td style="font-size:12px;">${w.machines?w.machines.code:'—'}</td>
-          <td style="text-align:center;">${w.planned_qty||0} ${w.uom||'PCS'}</td>
-          <td style="text-align:center;color:#166534;">${w.completed_qty||0}</td>
-          <td style="min-width:80px;"><div class="progress-bar" style="margin-bottom:2px;"><div class="progress-fill" style="width:${pct}%"></div></div><span style="font-size:10px;color:#8a95a0;">${pct}%</span></td>
-          <td><span class="pill ${SPILL[w.status]||'pill-pending'}">${w.status}</span></td>
-          <td style="white-space:nowrap;">${statusBtns}${completeBtn}<button type="button" class="btn btn-secondary btn-xs" onclick="editWO(${w.id})">&#9998; Edit</button>
-            <button type="button" class="btn btn-danger btn-xs" onclick="confirmDelete(${w.id},'${esc(w.wo_no||'')}')">&#128465;</button></td>
-        </tr>`;
-      }).join('')}</tbody></table></div>`;
-  }
-}
 
 function setView(v){
   viewMode=v;
