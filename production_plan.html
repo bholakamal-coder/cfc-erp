@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Production Plan — CFC ERP v3.0.7.1</title>
+<title>Production Plan — CFC ERP v3.0.7.2</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -144,7 +144,7 @@ tr:last-child td{border-bottom:none;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7.1</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7.2</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -774,7 +774,7 @@ async function releasePlan(planId){
 
   // Fetch active routing steps ordered by sequence
   var {data:steps}=await sb.from("routing_steps")
-    .select("id,sequence,process_name,output_item_id,is_active")
+    .select("id,sequence,process_name,step_type,output_item_id,machine_id,is_active")
     .eq("routing_level_id",bom.routing_level_id)
     .eq("is_active",true)
     .order("sequence",{ascending:true});
@@ -806,7 +806,7 @@ async function releasePlan(planId){
   // Create one work_order per routing step
   // work_orders confirmed columns: production_order_id, plan_id, routing_step_id,
   //   process_name, planned_qty, completed_qty, uom, status, priority
-  // NO machine_id on routing_steps — wo.machine_id set manually by user later
+  // v3.0.7.2: machine_id now copied from routing_steps.machine_id during release
   var wos=steps.map((s,i)=>({
     wo_no:"WO-"+yymm+"-"+String(Math.floor(Math.random()*90000)+10000)+"-"+String(i+1).padStart(2,"0"),
     production_order_id:po.id,   // no FK constraint but column confirmed
@@ -818,6 +818,7 @@ async function releasePlan(planId){
     uom:plan.uom||fgItem.uom||"Set",
     status:"Pending",
     priority:s.sequence,
+    machine_id:s.machine_id||null,  // v3.0.7.2: from routing_steps.machine_id
     notes:"Auto: "+po.order_no+" | Step "+s.sequence
   }));
 
