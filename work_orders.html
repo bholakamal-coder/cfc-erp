@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Work Orders — CFC ERP v3.0.7.7</title>
+<title>Work Orders — CFC ERP v3.0.7.8</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -136,7 +136,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7.7</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7.8</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128230;</span><span class="gh-label">Masters</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a><a class="nav-item" href="warehouse.html"><span class="icon">&#127978;</span> Warehouse</a></div></div>
@@ -744,12 +744,24 @@ function detectStageType(wo, allStepsForLevel){
   if(!wo.routing_step_id) return 'unknown';
   var thisStep=allStepsForLevel.find(s=>s.id===wo.routing_step_id);
   if(!thisStep) return 'unknown';
-  // Primary: use step_type from DB — set in Routing Master, independent of name
-  if(thisStep.step_type==='mixing') return 'mixing';
-  if(thisStep.step_type==='final') return 'final';
-  if(thisStep.step_type==='intermediate') return 'intermediate';
-  // Fallback: null step_type — use sequence position (safe default)
-  // This handles steps created before v3.0.7 migration
+  // v3.0.7.8: explicit mapping of all step_type values — no sequence fallback
+  var st=thisStep.step_type||'';
+  if(st==='mixing')          return 'mixing';
+  if(st==='final')           return 'final';
+  if(st==='intermediate')    return 'intermediate';
+  // All known SFG step types → intermediate
+  if(st==='preforming')      return 'intermediate';
+  if(st==='shot_blasting')   return 'intermediate';
+  if(st==='adhesive_coating')return 'intermediate';
+  if(st==='moulding')        return 'intermediate';
+  if(st==='grinding')        return 'intermediate';
+  if(st==='powder_coating')  return 'intermediate';
+  if(st==='curing')          return 'intermediate';
+  if(st==='stacking')        return 'intermediate';
+  if(st==='printing')        return 'intermediate';
+  if(st==='riveting')        return 'intermediate';
+  if(st==='set_assembly')    return 'intermediate';
+  // Fallback: null/unknown step_type — use sequence position
   var maxSeq=Math.max(...allStepsForLevel.map(s=>s.sequence||0));
   if((thisStep.sequence||0)===maxSeq) return 'final';
   return 'intermediate';
@@ -1148,47 +1160,147 @@ async function _completeMixing(actualQty,outWhId,notes){
 }
 
 // ── INTERMEDIATE STAGE COMPLETION ──
-// Writes: process_batches + stock_ledger(summary) + work_orders
+// v3.0.7.8: Full inventory flow with warehouse-specific queries (Option B)
+// Input warehouse  = WIP-FLOOR (where previous WO wrote its output)
+// Output warehouse = user-selected outWhId
+// Writes: inventory(in deduct, WIP-FLOOR) + stock_ledger(issue, WIP-FLOOR)
+//       + inventory(out add, outWhId) + stock_ledger(receipt, outWhId)
+//       + process_batches + work_orders
 async function _completeIntermediate(actualQty,outWhId,notes){
   var wo=completingWO,po=wo._po;
   var outItem=wo._outputItem,thisStep=wo._thisStep;
+  var bomLines=wo._bomLines,stageBh=wo._bomHeader?._stageBh||wo._bomHeader;
   var session=(await sb.auth.getSession()).data?.session;
   var userId=session?.user?.id||null;
   var completionNote=thisStep.process_name+' Complete: '+wo.wo_no+(notes?' | '+notes:'');
 
-  // CREATE process_batches row — item_id FK confirmed, work_order_id/production_order_id no FK (safe)
+  // Resolve WIP-FLOOR warehouse_id from allWarehouses (input source for all SFG stages)
+  var wipWh=allWarehouses.find(w=>w.code==='WIP-FLOOR');
+  var inputWhId=wipWh?wipWh.id:parseInt(outWhId);  // fallback to outWhId if WIP-FLOOR not found
+  var outputWhId=parseInt(outWhId);
+
+  // ── STEP 1: Calculate input requirements from BOM lines
+  var ratio=stageBh&&stageBh.output_qty ? actualQty/stageBh.output_qty : 1;
+  var requirements=(bomLines||[]).filter(l=>!l.is_optional).map(l=>({
+    item_id:l.item_id,
+    item_code:l.items?.code||'?',
+    item_name:l.items?.name||'',
+    uom:l.uom||'PCS',
+    required:Math.round(l.qty*ratio*(1+(l.scrap_percent||0)/100)*1000)/1000
+  }));
+
+  // ── STEP 2: Stock check — warehouse-specific (WIP-FLOOR)
+  if(requirements.length>0){
+    var shortages=[];
+    for(var req of requirements){
+      if(req.required<=0) continue;
+      var {data:inv}=await sb.from('inventory')
+        .select('current_stock')
+        .eq('item_id',req.item_id)
+        .eq('warehouse_id',inputWhId)   // ← warehouse-specific
+        .maybeSingle();
+      var avail=parseFloat(inv?.current_stock||0);
+      if(avail<req.required) shortages.push({...req,available:avail,shortage:req.required-avail});
+    }
+    if(shortages.length>0){
+      var tbl='<table class="shortage-table"><thead><tr><th>Item</th><th>Required</th><th>Available</th><th>Shortage</th></tr></thead><tbody>'+
+        shortages.map(s=>`<tr><td><strong>${s.item_code}</strong> ${s.item_name}</td>`+
+          `<td>${s.required.toFixed(3)} ${s.uom}</td>`+
+          `<td style="color:#991b1b;">${s.available.toFixed(3)}</td>`+
+          `<td style="color:#991b1b;font-weight:700;">${s.shortage.toFixed(3)}</td></tr>`).join('')+
+        '</tbody></table>';
+      document.getElementById('stock-check-result').innerHTML=
+        `<div class="block-box"><div class="block-box-title">&#10060; Insufficient Stock (WIP-FLOOR)</div>${tbl}</div>`;
+      var sb2=document.getElementById('cmp-save-btn');
+      if(sb2){sb2.disabled=true;sb2.innerHTML='&#10060; Stock Insufficient';}
+      throw new Error('STOCK_BLOCK');
+    }
+
+    // ── STEP 3: Deduct input inventory (WIP-FLOOR) + stock_ledger Production Issue
+    for(var req of requirements){
+      if(req.required<=0) continue;
+      var {data:invR}=await sb.from('inventory')
+        .select('id,current_stock')
+        .eq('item_id',req.item_id)
+        .eq('warehouse_id',inputWhId)   // ← warehouse-specific
+        .maybeSingle();
+      if(invR){
+        await sb.from('inventory').update({
+          current_stock:Math.max(0,Math.round((parseFloat(invR.current_stock||0)-req.required)*1000)/1000),
+          last_updated:new Date().toISOString()
+        }).eq('id',invR.id);
+      }
+      // Stock ledger Production Issue — input warehouse
+      await sb.from('stock_ledger').insert([{
+        item_id:req.item_id,
+        warehouse_id:inputWhId,         // ← input warehouse (WIP-FLOOR)
+        txn_type:'Production Issue',
+        qty:-req.required,
+        rate:0,value:0,
+        reference_no:wo.wo_no,
+        reference_type:'Work Order',
+        notes:completionNote,
+        created_by:userId
+      }]);
+    }
+  }
+
+  // ── STEP 4: Write output to inventory (output warehouse) + stock_ledger Production Receipt
+  var {data:outInv}=await sb.from('inventory')
+    .select('id,current_stock')
+    .eq('item_id',outItem.id)
+    .eq('warehouse_id',outputWhId)      // ← output warehouse (user-selected)
+    .maybeSingle();
+  if(outInv){
+    await sb.from('inventory').update({
+      current_stock:Math.round((parseFloat(outInv.current_stock||0)+actualQty)*1000)/1000,
+      last_updated:new Date().toISOString()
+    }).eq('id',outInv.id);
+  } else {
+    await sb.from('inventory').insert([{
+      item_id:outItem.id,
+      warehouse_id:outputWhId,          // ← output warehouse
+      current_stock:actualQty,
+      uom:outItem.uom||'PCS'
+    }]);
+  }
+  // Stock ledger Production Receipt — output warehouse
+  await sb.from('stock_ledger').insert([{
+    item_id:outItem.id,
+    warehouse_id:outputWhId,            // ← output warehouse
+    txn_type:'Production Receipt',
+    qty:actualQty,rate:0,value:0,
+    reference_no:wo.wo_no,
+    reference_type:'Work Order',
+    notes:completionNote,
+    created_by:userId
+  }]);
+
+  // ── STEP 5: CREATE process_batches row
   var {data:pb,error:pbErr}=await sb.from('process_batches').insert([{
     batch_no:genBatchNo(thisStep.process_name.substring(0,3).toUpperCase()),
     process_name:thisStep.process_name,
-    item_id:outItem.id,         // FK → items.id  ✅
-    production_order_id:po.id,  // no FK, safe
-    work_order_id:wo.id,        // no FK, safe
-    machine_id:wo.machine_id||null,  // FK → machines.id  ✅
+    item_id:outItem.id,
+    production_order_id:po.id,
+    work_order_id:wo.id,
+    machine_id:wo.machine_id||null,
     input_qty:actualQty,
     output_qty:actualQty,
     rejected_qty:0,
     uom:wo.uom||outItem.uom||'PCS',
-    status:'Complete',            // process_batches constraint: In Progress|Complete|Rejected
+    status:'Complete',
     qc_status:'Pending',
     notes:completionNote
   }]).select('id').single();
   if(pbErr) throw new Error('process_batches insert failed: '+pbErr.message);
 
-  // Stock ledger summary — Production Receipt for stage output
-  await sb.from('stock_ledger').insert([{
-    item_id:outItem.id,warehouse_id:parseInt(outWhId),
-    txn_type:'Production Receipt',qty:actualQty,rate:0,value:0,
-    reference_no:wo.wo_no,reference_type:'Work Order',
-    notes:completionNote,created_by:userId
-  }]);
-
-  // Update work_orders
+  // ── STEP 6: Update work_orders + unlock next WO
   var newComp=Math.round(((wo.completed_qty||0)+actualQty)*1000)/1000;
   var newSt=newComp>=(wo.planned_qty||0)?'Done':'In Progress';
   var woUp={completed_qty:newComp,status:newSt};
   if(newSt==='Done')woUp.actual_end=new Date().toISOString();
   await sb.from('work_orders').update(woUp).eq('id',wo.id);
-  if(newSt==='Done') await unlockNextWO(wo);  // v3.0.7.3: unlock next step
+  if(newSt==='Done') await unlockNextWO(wo);
 }
 
 // ── FINAL STAGE COMPLETION ──
