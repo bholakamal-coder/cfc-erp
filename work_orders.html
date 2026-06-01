@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Work Orders — CFC ERP v3.0.7.6</title>
+<title>Work Orders — CFC ERP v3.0.7.7</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -136,7 +136,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7.6</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7.7</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128230;</span><span class="gh-label">Masters</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a><a class="nav-item" href="warehouse.html"><span class="icon">&#127978;</span> Warehouse</a></div></div>
@@ -886,7 +886,7 @@ async function openCompleteModal(woId){
     if(!mf.mix_item_id) return block('Mix Family '+mf.name+' mein Premix item set nahi hai.');
     var {data:premixItem}=await sb.from('items').select('id,code,name,uom').eq('id',mf.mix_item_id).maybeSingle();
     if(!premixItem) return block('Premix item not found in items table.');
-    completingWO._sku=sku;completingWO._mf=mf;completingWO._premixItem=premixItem;
+    completingWO._sku=sku;completingWO._mf=mf;completingWO._premixItem=premixItem;completingWO._thisStep=thisStep;  // v3.0.7.7
     outputItemInfo=`Output: <strong>${premixItem.code}</strong> ${premixItem.name} | Formula: ${mf.name} | Batch size: ${mf.batch_size_kg||'?'} KG`;
   } else if(stageType==='intermediate'){
     stageLabel='🟡 INTERMEDIATE STAGE';stageColor='#92400e';
@@ -1000,10 +1000,10 @@ async function submitCompletion(){
 }
 
 // ── MIXING STAGE COMPLETION ──
-// Writes: mix_batches + mix_batch_rm_usage + stock_ledger(RM) + inventory(RM) + work_orders
+// Writes: mix_batches + mix_batch_rm_usage + stock_ledger(RM) + inventory(RM) + inventory(WIP out) + stock_ledger(WIP receipt) + work_orders
 async function _completeMixing(actualQty,outWhId,notes){
   var wo=completingWO,po=wo._po,bh=wo._bomHeader,bomLines=wo._bomLines;
-  var mf=wo._mf,premixItem=wo._premixItem;
+  var mf=wo._mf,premixItem=wo._premixItem,thisStep=wo._thisStep;  // v3.0.7.7: thisStep for output_item_id
   var ratio=actualQty/bh.output_qty;
   var session=(await sb.auth.getSession()).data?.session;
   var userId=session?.user?.id||null;
@@ -1069,6 +1069,44 @@ async function _completeMixing(actualQty,outWhId,notes){
       current_stock:Math.max(0,Math.round((parseFloat(invR.current_stock||0)-req.total_consume)*1000)/1000),
       last_updated:new Date().toISOString()
     }).eq('id',invR.id);
+  }
+
+  // v3.0.7.7: Write routing step output item (VO-MBM) to inventory + stock_ledger
+  // thisStep.output_item_id = VO-MBM (the WIP output of this routing step)
+  // This allows WO-02 stock check to find VO-MBM in inventory
+  var mixOutItemId = thisStep.output_item_id;
+  if(mixOutItemId){
+    // inventory INSERT or UPDATE for VO-MBM in WIP-FLOOR
+    var {data:wipInv}=await sb.from('inventory')
+      .select('id,current_stock')
+      .eq('item_id',mixOutItemId)
+      .eq('warehouse_id',parseInt(outWhId))
+      .maybeSingle();
+    if(wipInv){
+      await sb.from('inventory').update({
+        current_stock:Math.round((parseFloat(wipInv.current_stock||0)+actualQty)*1000)/1000,
+        last_updated:new Date().toISOString()
+      }).eq('id',wipInv.id);
+    } else {
+      await sb.from('inventory').insert([{
+        item_id:mixOutItemId,
+        warehouse_id:parseInt(outWhId),
+        current_stock:actualQty,
+        uom:'KG'
+      }]);
+    }
+    // stock_ledger Production Receipt for VO-MBM
+    await sb.from('stock_ledger').insert([{
+      item_id:mixOutItemId,
+      warehouse_id:parseInt(outWhId),
+      txn_type:'Production Receipt',
+      qty:actualQty,
+      rate:0,value:0,
+      reference_no:wo.wo_no,
+      reference_type:'Work Order',
+      notes:completionNote,
+      created_by:userId
+    }]);
   }
 
   // CREATE mix_batches row — confirmed columns + confirmed FKs
