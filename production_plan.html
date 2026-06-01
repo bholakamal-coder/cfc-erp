@@ -794,7 +794,7 @@ async function releasePlan(planId){
     planned_qty:plan.planned_qty,
     completed_qty:0,
     uom:plan.uom||fgItem.uom||"Set",
-    status:"Active",
+    status:"Released",            // constraint: Draft|Planned|Released|In Progress|Stacked|Packed|Completed|Cancelled
     bom_id:bom.id,       // confirmed column (ALTER done)
     plan_id:plan.id,     // confirmed column (ALTER done)
     planned_start:plan.estimated_start||null,
