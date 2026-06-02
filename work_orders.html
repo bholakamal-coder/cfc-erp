@@ -1412,12 +1412,17 @@ async function _completeFinal(actualQty,outWhId,notes){
   await sb.from('work_orders').update(woUp).eq('id',wo.id);
   if(newSt==='Done') await unlockNextWO(wo);  // v3.0.7.3: unlock next step (if any)
 
-  // Update production_orders
+  // Update production_orders — v3.0.7.12: status='Completed' (not 'Done' — wrong constraint)
   var newPOComp=Math.round(((po.completed_qty||0)+actualQty)*1000)/1000;
-  await sb.from('production_orders').update({
+  var {error:poErr2}=await sb.from('production_orders').update({
     completed_qty:newPOComp,
-    status:newPOComp>=(po.planned_qty||0)?'Done':'In Progress'
+    status:newPOComp>=(po.planned_qty||0)?'Completed':'In Progress'
   }).eq('id',po.id);
+  if(poErr2){
+    console.error('PO update failed:',poErr2.message);
+    showToast('Production Order update failed: '+poErr2.message,'error');
+    return;
+  }
 }
 
 // ── DELETE ──
