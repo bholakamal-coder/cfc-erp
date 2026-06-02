@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Work Orders — CFC ERP v3.0.8.3.2.1</title>
+<title>Work Orders — CFC ERP v3.0.8.3.3.1</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -166,7 +166,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.8.3.2</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.8.3.3</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128230;</span><span class="gh-label">Masters</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a><a class="nav-item" href="warehouse.html"><span class="icon">&#127978;</span> Warehouse</a></div></div>
@@ -993,15 +993,88 @@ async function evaluateDependencies(completedWO){
         showToast('Unlock failed for WO '+depWoId+': '+ulErr.message,'error');
       }
     } else {
-      var waiting=notDone.map(w=>w.process_name).join(', ');
-      var {error:brErr}=await sb.from('work_orders').update({
-        blocked_reason:'Waiting for: '+waiting
-      }).eq('id',depWoId);
-      if(brErr){
-        console.error('evaluateDependencies: blocked_reason update failed for WO',depWoId,brErr.message);
+      // v3.0.8.3.3: inventory-based unlock for moulding; status-based for all others
+      var depStep=await _getStepForWO(depWoId);
+      if(depStep&&depStep.step_type==='moulding'){
+        await _checkMouldingFeed(depWoId,allDeps,predWOs);
+      } else {
+        var waiting=notDone.map(w=>w.process_name).join(', ');
+        var {error:brErr}=await sb.from('work_orders').update({
+          blocked_reason:'Waiting for: '+waiting
+        }).eq('id',depWoId);
+        if(brErr){
+          console.error('evaluateDependencies: blocked_reason update failed for WO',depWoId,brErr.message);
+        }
       }
     }
   }
+}
+
+// v3.0.8.3.3: Helper — get routing step for a WO
+async function _getStepForWO(woId){
+  var {data:woRow}=await sb.from('work_orders')
+    .select('routing_step_id').eq('id',woId).maybeSingle();
+  if(!woRow?.routing_step_id) return null;
+  var {data:step}=await sb.from('routing_steps')
+    .select('id,step_type,output_item_id')
+    .eq('id',woRow.routing_step_id).maybeSingle();
+  return step||null;
+}
+
+// v3.0.8.3.3: Inventory-based unlock for moulding step
+// maybeSingle() safe: inventory has UNIQUE(item_id) constraint
+async function _checkMouldingFeed(depWoId,allDeps,predWOs){
+  var wipWh=allWarehouses.find(w=>w.code==='WIP-FLOOR');
+  if(!wipWh){
+    console.error('_checkMouldingFeed: WIP-FLOOR not found');
+    return;
+  }
+  var inputItems=[];
+  for(var dep of allDeps){
+    var predWO=(predWOs||[]).find(w=>w.id===dep.depends_on_wo_id);
+    if(!predWO) continue;
+    var {data:step}=await sb.from('routing_steps')
+      .select('output_item_id,items:output_item_id(code,name)')
+      .eq('id',predWO.routing_step_id).maybeSingle();
+    if(!step?.output_item_id){
+      console.warn('_checkMouldingFeed: no output_item_id for step',predWO.routing_step_id,'— fallback to status');
+      return _fallbackStatusBlock(depWoId,predWOs);
+    }
+    inputItems.push({
+      item_id:step.output_item_id,
+      item_code:step.items?.code||'?',
+      item_name:step.items?.name||''
+    });
+  }
+  if(!inputItems.length) return;
+  var stocks=[];
+  for(var item of inputItems){
+    var {data:inv}=await sb.from('inventory')
+      .select('current_stock')
+      .eq('item_id',item.item_id)
+      .eq('warehouse_id',wipWh.id)
+      .maybeSingle();
+    stocks.push({...item,stock:parseFloat(inv?.current_stock||0)});
+  }
+  var minStock=Math.min(...stocks.map(s=>s.stock));
+  var missing=stocks.filter(s=>s.stock<=0).map(s=>s.item_code);
+  if(minStock>0){
+    await sb.from('work_orders').update({
+      can_start:true,blocked_reason:null
+    }).eq('id',depWoId);
+  } else {
+    await sb.from('work_orders').update({
+      blocked_reason:'Waiting for moulding feed: '+missing.join(', ')
+    }).eq('id',depWoId);
+  }
+}
+
+// v3.0.8.3.3: Fallback to status-based block when output_item_id missing
+async function _fallbackStatusBlock(depWoId,predWOs){
+  var waiting=(predWOs||[]).filter(w=>w.status!=='Done').map(w=>w.process_name).join(', ');
+  await sb.from('work_orders').update({
+    blocked_reason:'Waiting for: '+waiting
+  }).eq('id',depWoId);
 }
 
 async function updateStatus(id,status){
@@ -1390,6 +1463,13 @@ async function submitCompletion(action){
       closeCompleteModal();
     } else {
       showToast('Production recorded. WO remains open.','success');
+      // T8-A v3.0.8.3.3: evaluate downstream deps after every Record Production
+      // Safe — inventory already written above; evaluateDependencies only reads, never writes inventory
+      var woForFeedCheck={...wo,
+        completed_qty:(wo.completed_qty||0)+passQty,
+        rejected_qty:(wo.rejected_qty||0)+rejQty
+      };
+      await evaluateDependencies(woForFeedCheck);
       // Refresh WO data and re-open modal to show updated remaining
       await loadWOs();
       var updated=allWOs.find(x=>x.id===wo.id);
