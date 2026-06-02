@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Work Orders — CFC ERP v3.0.8.1</title>
+<title>Work Orders — CFC ERP v3.0.8.3.1</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -64,6 +64,36 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a263
 .filter-bar input,.filter-bar select{border:1px solid #dde3ea;border-radius:6px;padding:7px 11px;font-size:13px;color:#1a2635;background:#f9fafb;outline:none;}
 .filter-bar input{width:200px;}
 .filter-count{margin-left:auto;font-size:13px;color:#8a95a0;font-weight:500;}
+/* v3.0.8.2 Phase 2B-A */
+.run-pill{padding:5px 14px;border-radius:20px;border:0.5px solid #dde3ea;background:#fff;font-size:12px;color:#5a6878;cursor:pointer;}
+.run-pill.active{background:#185FA5;border-color:#185FA5;color:#fff;font-weight:500;}
+.mach-pill{padding:4px 11px;border-radius:16px;border:0.5px solid #dde3ea;background:#fff;font-size:11px;color:#5a6878;cursor:pointer;}
+.mach-pill.active{background:#185FA5;border-color:#185FA5;color:#fff;}
+.wo-tab{padding:8px 20px;border:none;background:none;font-size:13px;color:#5a6878;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-0.5px;}
+.wo-tab.active{color:#185FA5;border-bottom:2px solid #185FA5;font-weight:500;}
+.op-section-lbl{font-size:10px;font-weight:600;color:#8a95a0;text-transform:uppercase;letter-spacing:.6px;padding:6px 4px 3px;margin-bottom:3px;}
+.op-card-2{background:#fff;border:0.5px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:12px;}
+.op-card-2.sl-ip{border-left:3px solid #185FA5;}
+.op-card-2.sl-assigned{border-left:3px solid #BA7517;}
+.op-card-2.sl-ready{border-left:3px solid #3B6D11;}
+.op-card-2.sl-wait{border-left:3px solid #e2e8f0;}
+.op-card-2.sl-done{border-left:3px solid #534AB7;opacity:.65;}
+.badge2{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:500;}
+.b2-ip{background:#E6F1FB;color:#0C447C;} .b2-ready{background:#EAF3DE;color:#27500A;}
+.b2-assigned{background:#FAEEDA;color:#633806;} .b2-wait{background:#F1EFE8;color:#5F5E5A;}
+.b2-done{background:#EEEDFE;color:#3C3489;} .b2-a{background:#E6F1FB;color:#0C447C;}
+.b2-b{background:#E1F5EE;color:#085041;} .b2-m{background:#F1EFE8;color:#444441;}
+.po-group-2{background:#fff;border:0.5px solid #e2e8f0;border-radius:10px;margin-bottom:12px;overflow:hidden;}
+.po-group-hdr{padding:11px 16px;background:#f8fafc;border-bottom:0.5px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.track-hdr-2{display:flex;align-items:center;gap:6px;padding:7px 4px 3px;margin-top:4px;}
+.track-hdr-2 .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.track-hdr-2 .lbl{font-size:10px;font-weight:600;color:#8a95a0;text-transform:uppercase;letter-spacing:.5px;}
+.track-hdr-2 .line{flex:1;height:0.5px;background:#e2e8f0;}
+.mgr-card-2{border:0.5px solid #e2e8f0;border-radius:7px;padding:8px 12px;margin-bottom:5px;display:flex;align-items:flex-start;gap:8px;}
+.mgr-card-2.sl-ip{border-left:3px solid #185FA5;}
+.mgr-card-2.sl-ready{border-left:3px solid #3B6D11;}
+.mgr-card-2.sl-wait{border-left:3px solid #e2e8f0;}
+.mgr-card-2.sl-done{border-left:3px solid #534AB7;opacity:.6;}
 .table-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;}
 table{width:100%;border-collapse:collapse;}
 thead{background:#f8fafc;}
@@ -136,7 +166,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.8.1</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.8.3</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128230;</span><span class="gh-label">Masters</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a><a class="nav-item" href="warehouse.html"><span class="icon">&#127978;</span> Warehouse</a></div></div>
@@ -172,34 +202,43 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
   <div class="page-header">
     <div><h1>&#127981; Work Orders</h1><p>Production work orders — assign, start, complete</p></div>
     <div style="display:flex;gap:8px;align-items:center;">
-      <div class="view-toggle">
-        <button type="button" class="view-btn active" id="btn-table" onclick="setView('table')">&#9783; Table</button>
-        <button type="button" class="view-btn" id="btn-card" onclick="setView('card')">&#9706; Cards</button>
-      </div>
       <button type="button" class="btn btn-primary" onclick="openModal()">+ Create WO</button>
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;">
-    <div class="stat-card"><div class="stat-val" id="stat-total">—</div><div class="stat-lbl">Total WOs</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:#854d0e;" id="stat-ip">—</div><div class="stat-lbl">In Progress</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:#1e40af;" id="stat-pend">—</div><div class="stat-lbl">Pending</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:#166534;" id="stat-done">—</div><div class="stat-lbl">Done Today</div></div>
+  <!-- v3.0.8.2: Summary bar -->
+  <div id="summary-bar" style="display:grid;grid-template-columns:2fr repeat(4,1fr);gap:8px;margin-bottom:12px;">
+    <div class="stat-card" style="padding:10px 14px;">
+      <div class="stat-val" style="font-size:13px;font-weight:500;" id="stat-po-info">—</div>
+      <div class="stat-lbl" id="stat-batch-info" style="font-family:monospace;font-size:11px;color:#5a6878;">—</div>
+    </div>
+    <div class="stat-card"><div class="stat-val" style="color:#185FA5;" id="stat-ip">—</div><div class="stat-lbl">In Progress</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:#3B6D11;" id="stat-ready">—</div><div class="stat-lbl">Ready</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:#888780;" id="stat-wait">—</div><div class="stat-lbl">Waiting</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:#534AB7;" id="stat-done">—</div><div class="stat-lbl">Done</div></div>
   </div>
 
-  <div class="filter-bar">
-    <input type="text" id="search-input" placeholder="WO No ya process ya order..." oninput="applyFilter()"/>
-    <select id="filter-status" onchange="applyFilter()">
-      <option value="">All Status</option>
-      <option value="Pending">Pending</option>
-      <option value="Assigned">Assigned</option>
-      <option value="In Progress">In Progress</option>
-      <option value="Paused">Paused</option>
-      <option value="Done">Done</option>
-      <option value="Cancelled">Cancelled</option>
-    </select>
-    <span class="filter-count" id="filter-count">Loading...</span>
+  <!-- v3.0.8.2: Run filter pills -->
+  <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;">
+    <button class="run-pill active" id="pill-current" onclick="setRunFilter('current')">Current Run</button>
+    <button class="run-pill" id="pill-active"  onclick="setRunFilter('active')">Active</button>
+    <button class="run-pill" id="pill-completed" onclick="setRunFilter('completed')">Completed</button>
+    <button class="run-pill" id="pill-all"    onclick="setRunFilter('all')">All</button>
+    <span style="flex:1"></span>
+    <span style="font-size:11px;color:#8a95a0;" id="filter-count">Loading...</span>
   </div>
+
+  <!-- v3.0.8.2: Tab bar -->
+  <div style="display:flex;gap:0;border-bottom:0.5px solid #e2e8f0;margin-bottom:12px;">
+    <button class="wo-tab active" id="tab-operator" onclick="switchWOTab('operator')">&#128119; Operator View</button>
+    <button class="wo-tab" id="tab-manager"  onclick="switchWOTab('manager')">&#128203; Manager View</button>
+  </div>
+
+  <!-- Machine filter — Operator View only -->
+  <div id="machine-filter-bar" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+    <button class="mach-pill active" id="mf-all" onclick="setMachineFilter('')">All Machines</button>
+  </div>
+
   <div id="wo-wrap"><div class="loading">Loading...</div></div>
 </div></div>
 
@@ -293,7 +332,8 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
     <div class="modal-body" id="cmp-body"></div>
     <div class="modal-footer" id="cmp-footer">
       <button type="button" class="btn btn-secondary" onclick="closeCompleteModal()">Cancel</button>
-      <button type="button" class="btn btn-complete" id="cmp-save-btn" onclick="submitCompletion()">&#10003; Complete &amp; Update Stock</button>
+      <button type="button" class="btn btn-secondary" id="cmp-record-btn" onclick="submitCompletion('record')" style="display:none;">&#128190; Record Production</button>
+      <button type="button" class="btn btn-complete"  id="cmp-close-btn"  onclick="submitCompletion('close')"  style="display:none;">&#10003; Close WO</button>
     </div>
   </div>
 </div>
@@ -333,6 +373,10 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 let allWOs=[],filtered=[],allMachines=[],allDies=[],allSteps=[],allWarehouses=[];
 let allProdOrders=[]; // cache of production_orders for live search
 let editingId=null,deletingId=null,viewMode='table';
+// v3.0.8.2: Phase 2B-A state
+let activeTab='operator';           // 'operator' | 'manager'
+let activeRunFilter='current';      // 'current' | 'active' | 'completed' | 'all'
+let activeMachineFilter='';         // '' = All Machines, else machine_id
 let completingWO=null;
 
 document.addEventListener('DOMContentLoaded',()=>CFC_AUTH.init(init));
@@ -422,7 +466,7 @@ async function loadWOs(){
   wrap.innerHTML='<div class="loading">Loading...</div>';
 
   var {data,error}=await sb.from('work_orders')
-    .select('id,wo_no,production_order_id,process_name,planned_qty,completed_qty,uom,status,machine_id,die_id,routing_step_id,priority,can_start,blocked_reason,depends_on_wo_ids,planned_start,planned_end,actual_start,actual_end,notes,created_at, machines(code,name), die:die_id(die_code)')
+    .select('id,wo_no,production_order_id,process_name,planned_qty,completed_qty,uom,status,machine_id,die_id,routing_step_id,priority,can_start,blocked_reason,depends_on_wo_ids,planned_start,planned_end,actual_start,actual_end,notes,created_at,track,batch_no,good_qty, machines(id,code,name), die:die_id(die_code)')
     .order('priority',{ascending:true});
 
   if(error){
@@ -437,7 +481,7 @@ async function loadWOs(){
   var _pomap={};
   if(poIds.length){
     var {data:poData}=await sb.from('production_orders')
-      .select('id,order_no,item_id,planned_qty,completed_qty,uom,status').in('id',poIds);
+      .select('id,order_no,item_id,planned_qty,completed_qty,uom,status,batch_no,order_mode').in('id',poIds);
     // Fetch items for those production orders — separate safe query
     var piIds=[...new Set((poData||[]).map(p=>p.item_id).filter(Boolean))];
     var _pimap={};
@@ -458,21 +502,85 @@ async function loadWOs(){
 // ── FILTER ──
 const SPILL={Pending:'pill-pending',Assigned:'pill-assigned','In Progress':'pill-inprogress',Paused:'pill-paused',Done:'pill-done',Cancelled:'pill-cancelled'};
 
+// v3.0.8.2: Run filter
+function setRunFilter(f){
+  activeRunFilter=f;
+  ['current','active','completed','all'].forEach(k=>{
+    var el=document.getElementById('pill-'+k);
+    if(el) el.classList.toggle('active',k===f);
+  });
+  applyFilter();
+}
+
+// v3.0.8.2: Tab switch
+function switchWOTab(t){
+  activeTab=t;
+  document.getElementById('tab-operator').classList.toggle('active',t==='operator');
+  document.getElementById('tab-manager').classList.toggle('active',t==='manager');
+  var mfb=document.getElementById('machine-filter-bar');
+  if(mfb) mfb.style.display=t==='operator'?'flex':'none';
+  renderWOs();
+}
+
+// v3.0.8.2: Machine filter
+function setMachineFilter(mid){
+  activeMachineFilter=mid;
+  document.querySelectorAll('.mach-pill').forEach(el=>{
+    el.classList.toggle('active',(mid===''&&el.id==='mf-all')||(el.dataset.mid===String(mid)));
+  });
+  renderWOs();
+}
+
+// v3.0.8.2: Build machine filter bar from loaded WOs
+function buildMachineFilterBar(){
+  var bar=document.getElementById('machine-filter-bar');
+  if(!bar) return;
+  var seen={}; var pills=['<button class="mach-pill active" id="mf-all" onclick="setMachineFilter(\'\')">All Machines</button>'];
+  allWOs.forEach(w=>{
+    if(w.machines&&w.machines.id&&!seen[w.machines.id]){
+      seen[w.machines.id]=true;
+      pills.push(`<button class="mach-pill" data-mid="${w.machines.id}" onclick="setMachineFilter(${w.machines.id})">${w.machines.code}</button>`);
+    }
+  });
+  bar.innerHTML=pills.join('');
+}
+
 function applyFilter(){
-  var s=document.getElementById('search-input').value.toLowerCase();
-  var st=document.getElementById('filter-status').value;
-  filtered=allWOs.filter(w=>
-    (!s||(w.wo_no||'').toLowerCase().includes(s)||(w.process_name||'').toLowerCase().includes(s)||
-         (w._po?.order_no||'').toLowerCase().includes(s)||
-         (w._po?.item?.code||'').toLowerCase().includes(s)||(w._po?.item?.name||'').toLowerCase().includes(s))
-    &&(!st||w.status===st)
-  );
-  document.getElementById('filter-count').textContent=filtered.length+' WOs';
-  var today=new Date().toDateString();
-  document.getElementById('stat-total').textContent=allWOs.length;
-  document.getElementById('stat-ip').textContent=allWOs.filter(w=>w.status==='In Progress').length;
-  document.getElementById('stat-pend').textContent=allWOs.filter(w=>w.status==='Pending').length;
-  document.getElementById('stat-done').textContent=allWOs.filter(w=>w.status==='Done'&&w.actual_end&&new Date(w.actual_end).toDateString()===today).length;
+  // Determine latest PO id for Current Run
+  var poIdsSorted=[...new Set(allWOs.map(w=>w.production_order_id).filter(Boolean))].sort((a,b)=>b-a);
+  var latestPoId=poIdsSorted[0]||null;
+
+  filtered=allWOs.filter(w=>{
+    // Run filter
+    if(activeRunFilter==='current') return w.production_order_id===latestPoId;
+    if(activeRunFilter==='active'){
+      var po=w._po; return po&&['Released','In Progress'].includes(po.status);
+    }
+    if(activeRunFilter==='completed'){
+      var po=w._po; return po&&po.status==='Completed';
+    }
+    return true; // 'all'
+  });
+
+  // Summary bar
+  var latestPo=allWOs.find(w=>w.production_order_id===latestPoId)?._po||null;
+  var poEl=document.getElementById('stat-po-info');
+  var btEl=document.getElementById('stat-batch-info');
+  if(poEl) poEl.textContent=latestPo?latestPo.order_no+' — '+(latestPo.item?.code||''):'No active PO';
+  if(btEl) btEl.textContent=latestPo?.batch_no||'—';
+
+  var cur=activeRunFilter==='current'?filtered:allWOs.filter(w=>w.production_order_id===latestPoId);
+  var ipCount=cur.filter(w=>w.status==='In Progress').length;
+  var rdCount=cur.filter(w=>w.status==='Pending'&&w.can_start).length;
+  var wtCount=cur.filter(w=>w.status==='Pending'&&!w.can_start).length;
+  var dnCount=cur.filter(w=>w.status==='Done').length;
+  var ip=document.getElementById('stat-ip'); if(ip) ip.textContent=ipCount;
+  var rd=document.getElementById('stat-ready'); if(rd) rd.textContent=rdCount;
+  var wt=document.getElementById('stat-wait'); if(wt) wt.textContent=wtCount;
+  var dn=document.getElementById('stat-done'); if(dn) dn.textContent=dnCount;
+  var fc=document.getElementById('filter-count'); if(fc) fc.textContent=filtered.length+' WOs';
+
+  buildMachineFilterBar();
   renderWOs();
 }
 
@@ -485,94 +593,244 @@ function _poInfo(w){
     :`<span style="font-size:11px;color:#5a6878;">${w._po.order_no}</span>`;
 }
 
+// v3.0.8.2: Status sort weight
+function _statusWeight(w){
+  // v3.0.8.2.1: Ready first — workers see actionable work immediately
+  if(w.status==='Pending'&&w.can_start)  return 0;
+  if(w.status==='In Progress')           return 1;
+  if(w.status==='Assigned')              return 2;
+  if(w.status==='Pending'&&!w.can_start) return 3;
+  if(w.status==='Paused')                return 4;
+  if(w.status==='Done')                  return 5;
+  return 6;
+}
+
+// v3.0.8.2: Track badge
+function _trackBadge(w){
+  if(!w.track) return '';
+  var cls=w.track==='A'?'b2-a':w.track==='B'?'b2-b':'b2-m';
+  var lbl=w.track==='A'?'Track A':w.track==='B'?'Track B':'Merge';
+  return `<span class="badge2 ${cls}">${lbl}</span>`;
+}
+
+// v3.0.8.2: Status badge
+function _statusBadge(w){
+  if(w.status==='In Progress') return '<span class="badge2 b2-ip">In Progress</span>';
+  if(w.status==='Assigned')    return '<span class="badge2 b2-assigned">Assigned</span>';
+  if(w.status==='Pending'&&w.can_start) return '<span class="badge2 b2-ready">Ready</span>';
+  if(w.status==='Pending'&&!w.can_start) return '<span class="badge2 b2-wait">Waiting</span>';
+  if(w.status==='Done')        return '<span class="badge2 b2-done">Done</span>';
+  return `<span class="badge2 b2-wait">${w.status}</span>`;
+}
+
+// v3.0.8.2: Side-strip CSS class
+function _slClass(w){
+  if(w.status==='In Progress') return 'sl-ip';
+  if(w.status==='Assigned')    return 'sl-assigned';
+  if(w.status==='Pending'&&w.can_start) return 'sl-ready';
+  if(w.status==='Done')        return 'sl-done';
+  return 'sl-wait';
+}
+
+// v3.0.8.2: Action buttons
+function _actionBtns(w){
+  if(w.status==='Done'||w.status==='Completed') return '<span style="font-size:11px;color:#534AB7;">&#10003;</span>';
+  if(w.status==='In Progress') return `<button type="button" class="btn btn-complete btn-xs" onclick="openCompleteModal(${w.id})">&#10003; Complete</button>`;
+  if(w.status==='Pending'&&w.can_start) return `<button type="button" class="btn btn-info btn-xs" onclick="updateStatus(${w.id},'Assigned')">&#9654; Assign</button>`;
+  if(w.status==='Pending'&&!w.can_start) return '<span class="badge2 b2-wait" style="font-size:11px;">&#9201; Waiting</span>';
+  if(w.status==='Assigned') return `<button type="button" class="btn btn-warning btn-xs" onclick="updateStatus(${w.id},'In Progress')">&#9658; Start</button>`;
+  return '';
+}
+
+// v3.0.8.2: Operator View render
+function renderOperatorView(wos){
+  var wrap=document.getElementById('wo-wrap');
+  // Apply machine filter
+  var mwos=activeMachineFilter?wos.filter(w=>String(w.machines?.id||w.machine_id||'')===String(activeMachineFilter)):wos;
+  if(!mwos.length){wrap.innerHTML='<div class="empty-state"><div class="big">&#127981;</div><p>No Work Orders for selected filter.</p></div>';return;}
+
+  // Sort: IP → Assigned → Ready → Waiting → Done, then by priority ASC
+  var sorted=[...mwos].sort((a,b)=>{
+    var wa=_statusWeight(a),wb=_statusWeight(b);
+    if(wa!==wb) return wa-wb;
+    return (a.priority||0)-(b.priority||0);
+  });
+
+  // v3.0.8.2.1: Groups reordered — Ready first, Done collapsed by default
+  var groups=[
+    {label:'Ready to Start',  key:'rdy', items:sorted.filter(w=>w.status==='Pending'&&w.can_start)},
+    {label:'In Progress',     key:'ip',  items:sorted.filter(w=>w.status==='In Progress')},
+    {label:'Assigned',        key:'asgn',items:sorted.filter(w=>w.status==='Assigned')},
+    {label:'Waiting / Blocked',key:'wait',items:sorted.filter(w=>w.status==='Pending'&&!w.can_start)},
+    {label:'Done',            key:'done',items:sorted.filter(w=>w.status==='Done'||w.status==='Completed')},
+  ];
+
+  var html='';
+  groups.forEach(g=>{
+    if(!g.items.length) return;
+    var isDone=g.key==='done';
+    // CHANGE 3: Done section collapsed by default — toggle on click
+    if(isDone){
+      html+=`<div class="op-section-lbl op-done-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'">`;
+      html+=`${g.label} (${g.items.length}) <span style="font-size:10px;">&#9660;</span></div>`;
+      html+=`<div style="display:none;">`;
+    } else {
+      html+=`<div class="op-section-lbl">${g.label} (${g.items.length})</div>`;
+    }
+    // CHANGE 1: Compact cards — process name, WO no, batch, progress, action only
+    html+=g.items.map(w=>`<div class="op-card-2 ${_slClass(w)}">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:500;color:#1c2d42;margin-bottom:2px;">${w.process_name||'—'}</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:10px;color:#8a95a0;font-family:monospace;">${w.wo_no||''}</span>
+          ${w.batch_no?`<span style="font-size:10px;color:#8a95a0;font-family:monospace;">${w.batch_no}</span>`:''}
+          <span style="font-size:11px;color:#5a6878;">${w.completed_qty||0} / ${w.planned_qty||0} ${w.uom||''}</span>
+        </div>
+        ${w.blocked_reason&&w.status==='Pending'&&!w.can_start?`<div style="font-size:10px;color:#BA7517;margin-top:2px;">&#9200; ${w.blocked_reason}</div>`:''}
+      </div>
+      <div style="flex-shrink:0;display:flex;gap:6px;align-items:center;">
+        ${_actionBtns(w)}
+      </div>
+    </div>`).join('');
+    if(isDone) html+='</div>';
+    html+='<div style="height:6px;"></div>';
+  });
+  wrap.innerHTML=html;
+}
+
+// v3.0.8.2: Manager View render
+function renderManagerView(wos){
+  var wrap=document.getElementById('wo-wrap');
+  if(!wos.length){wrap.innerHTML='<div class="empty-state"><div class="big">&#127981;</div><p>No Work Orders for selected filter.</p></div>';return;}
+
+  // Group by production_order_id
+  var poMap={};
+  var poOrder=[];
+  wos.forEach(w=>{
+    var pid=w.production_order_id||0;
+    if(!poMap[pid]){poMap[pid]=[];poOrder.push(pid);}
+    poMap[pid].push(w);
+  });
+
+  // Sort POs: Running → Released → Completed → rest
+  function _poWeight(pid){
+    var po=poMap[pid][0]?._po;
+    if(!po) return 3;
+    if(po.status==='In Progress') return 0;
+    if(po.status==='Released')    return 1;
+    if(po.status==='Completed')   return 2;
+    return 3;
+  }
+  poOrder.sort((a,b)=>{
+    var wa=_poWeight(a),wb=_poWeight(b);
+    if(wa!==wb) return wa-wb;
+    return b-a; // newer PO first within same group
+  });
+
+  var html='';
+  poOrder.forEach(pid=>{
+    var wlist=poMap[pid];
+    var po=wlist[0]?._po||null;
+    var item=po?.item||null;
+    var total=wlist.length;
+    var done=wlist.filter(w=>w.status==='Done').length;
+    var ipW=wlist.filter(w=>w.status==='In Progress').length;
+    var rdW=wlist.filter(w=>w.status==='Pending'&&w.can_start).length;
+    var wtW=wlist.filter(w=>w.status==='Pending'&&!w.can_start).length;
+    var pct=total>0?Math.round(done/total*100):0;
+
+    // Current stage = latest active WO
+    var activeWO=wlist.find(w=>w.status==='In Progress')||wlist.find(w=>w.status==='Assigned')||null;
+    var currentStage='—';
+    if(activeWO){
+      var pct=activeWO.planned_qty>0?Math.round((activeWO.completed_qty||0)/activeWO.planned_qty*100):0;
+      currentStage=activeWO.process_name+' ('+pct+'%)';
+    }
+
+    html+=`<div class="po-group-2">
+      <div class="po-group-hdr">
+        <div>
+          <div style="font-size:13px;font-weight:500;color:#1c2d42;">
+            ${po?po.order_no:'No PO'}
+            ${po?.batch_no?`<span style="font-family:monospace;font-size:11px;color:#5a6878;margin-left:8px;">${po.batch_no}</span>`:''}
+          </div>
+          <div style="font-size:11px;color:#5a6878;margin-top:2px;">
+            ${item?item.code+' — '+item.name:''}
+            ${po?' &nbsp;·&nbsp; '+po.planned_qty+' '+(po.uom||'Sets'):''}
+            ${po?.order_mode?' &nbsp;·&nbsp; '+po.order_mode:''}
+            &nbsp;·&nbsp; <strong style="color:#185FA5;">Stage: ${currentStage}</strong>
+          </div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:center;">
+          <div style="text-align:center;">
+            <div style="font-size:13px;font-weight:500;">${done}/${total}</div>
+            <div style="font-size:10px;color:#8a95a0;">Done</div>
+            <div style="width:60px;height:3px;background:#e2e8f0;border-radius:2px;margin:3px auto 0;"><div style="height:3px;border-radius:2px;background:#185FA5;width:${pct}%"></div></div>
+          </div>
+          ${ipW?`<div style="text-align:center;"><div style="font-size:13px;font-weight:500;color:#185FA5;">${ipW}</div><div style="font-size:10px;color:#8a95a0;">Running</div></div>`:''}
+          ${rdW?`<div style="text-align:center;"><div style="font-size:13px;font-weight:500;color:#3B6D11;">${rdW}</div><div style="font-size:10px;color:#8a95a0;">Ready</div></div>`:''}
+          ${wtW?`<div style="text-align:center;"><div style="font-size:13px;font-weight:500;color:#888780;">${wtW}</div><div style="font-size:10px;color:#8a95a0;">Waiting</div></div>`:''}
+        </div>
+      </div>
+      <div style="padding:8px 12px 10px;">
+        ${_renderTrackSection(wlist,'A','Track A','#185FA5',false)}
+        ${_renderTrackSection(wlist,'B','Track B','#0F6E56',false)}
+        ${_renderTrackSection(wlist,'merge','Merge / Moulding','#BA7517',true)}
+        ${_renderTrackSection(wlist,null,'Untracked','#B4B2A9',false)}
+      </div>
+    </div>`;
+  });
+  wrap.innerHTML=html;
+}
+
+function _renderTrackSection(wlist,track,label,dotColor,isMerge){
+  var items=wlist.filter(w=>(track===null?(w.track===null||w.track===undefined||w.track===''):w.track===track));
+  if(!items.length) return '';
+  var sorted=[...items].sort((a,b)=>(a.priority||0)-(b.priority||0));
+  var cards=sorted.map(w=>{
+    var slCls=_slClass(w);
+    var tBadge=_trackBadge(w);
+    var sBadge=_statusBadge(w);
+    var blocked=w.blocked_reason&&w.status==='Pending'&&!w.can_start
+      ?`<div style="font-size:10px;color:#BA7517;margin-top:2px;">&#9200; ${w.blocked_reason}</div>`:'';
+    return `<div class="mgr-card-2 ${slCls}">
+      <div style="font-size:11px;color:#8a95a0;min-width:18px;padding-top:1px;">${w.priority||''}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">
+          <span style="font-size:10px;color:#8a95a0;font-family:monospace;">${w.wo_no||''}</span>
+          ${tBadge}
+        </div>
+        <div style="font-size:12px;font-weight:500;color:#1c2d42;">${w.process_name||'—'}</div>
+        <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-top:2px;">
+          ${sBadge}
+          <span style="font-size:10px;color:#8a95a0;">${w.completed_qty||0}/${w.planned_qty||0} ${w.uom||''}</span>
+          ${w.machines?`<span style="font-size:10px;color:#5a6878;">&#127981; ${w.machines.code}</span>`:''}
+        </div>
+        ${blocked}
+      </div>
+      <div style="flex-shrink:0;">
+        <button type="button" class="btn btn-secondary btn-xs" onclick="editWO(${w.id})" title="Edit">&#9998;</button>
+      </div>
+    </div>`;
+  }).join('');
+  var mergeStyle=isMerge?`border:1.5px solid #BA7517;border-radius:6px;padding:6px 8px;margin-bottom:4px;background:#FAEEDA22;`:'';
+  var mergeHdr=isMerge?`<span style="font-size:10px;color:#633806;font-weight:500;margin-left:4px;">BOTTLENECK</span>`:'';
+  return `<div style="${mergeStyle}"><div class="track-hdr-2">
+    <span class="dot" style="background:${dotColor};"></span>
+    <span class="lbl" style="${isMerge?'color:#633806;font-weight:600;':''}">${label}</span>
+    ${mergeHdr}
+    <span class="line"></span>
+  </div>${cards}</div>`;
+}
+
 function renderWOs(){
   var wrap=document.getElementById('wo-wrap');
   if(!filtered.length){wrap.innerHTML='<div class="empty-state"><div class="big">&#127981;</div><p>Koi Work Order nahi. + Create WO karo.</p></div>';return;}
-
-  // v3.0.7.3: dependency-aware button logic
-  function getActionBtns(w){
-    // Completed / Done
-    if(w.status==='Done'||w.status==='Completed'){
-      return '<span style="font-size:11px;color:#166534;font-weight:600;">&#10003; Done</span>';
-    }
-    // In Progress — show Complete button
-    if(w.status==='In Progress'){
-      return `<button type="button" class="btn btn-complete btn-xs" onclick="openCompleteModal(${w.id})">&#10003; Complete</button>`;
-    }
-    // Pending or Assigned — check can_start
-    if(w.status==='Pending'){
-      if(w.can_start){
-        return `<button type="button" class="btn btn-info btn-xs" onclick="updateStatus(${w.id},'Assigned')">&#9654; Assign</button>`;
-      } else {
-        return `<span class="pill pill-pending" style="font-size:11px;background:#fef9c3;color:#854d0e;border:1px solid #fde047;">&#9201; Waiting</span>`;
-      }
-    }
-    if(w.status==='Assigned'){
-      return `<button type="button" class="btn btn-warning btn-xs" onclick="updateStatus(${w.id},'In Progress')">&#9658; Start</button>`;
-    }
-    return '';
-  }
-
-  function getBlockedNote(w){
-    if(w.blocked_reason&&w.can_start===false&&w.status==='Pending'){
-      return `<div style="font-size:11px;color:#92400e;margin-top:3px;">&#128274; ${w.blocked_reason}</div>`;
-    }
-    return '';
-  }
-
-  if(viewMode==='card'){
-    wrap.innerHTML=filtered.map(w=>{
-      var pct=w.planned_qty>0?Math.min(100,Math.round((w.completed_qty||0)/w.planned_qty*100)):0;
-      var actionBtns=getActionBtns(w);
-      var blockedNote=getBlockedNote(w);
-      return`<div class="wo-card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <div><span style="font-family:monospace;font-weight:700;color:var(--navy);">${w.wo_no||'WO-?'}</span>
-          <span style="margin-left:10px;" class="pill ${SPILL[w.status]||'pill-pending'}">${w.status}</span></div>
-          <div style="display:flex;gap:6px;">${actionBtns}
-            <button type="button" class="btn btn-secondary btn-xs" onclick="editWO(${w.id})">&#9998; Edit</button>
-            <button type="button" class="btn btn-danger btn-xs" onclick="confirmDelete(${w.id},'${esc(w.wo_no||'')}')">&#128465;</button>
-          </div>
-        </div>
-        <div style="margin-bottom:6px;">${_poInfo(w)}</div>
-        <div style="display:flex;gap:16px;font-size:12px;color:#5a6878;margin-bottom:6px;flex-wrap:wrap;">
-          <span>&#9881; ${w.process_name||'—'}</span>
-          ${w.machines?`<span>&#127981; ${w.machines.code}</span>`:''}
-          ${w.die?`<span>&#128299; ${w.die.die_code}</span>`:''}
-          <span>Planned: ${w.planned_qty||0} ${w.uom||'PCS'}</span>
-          <span style="color:#166534;">Done: ${w.completed_qty||0}</span>
-        </div>
-        ${blockedNote}
-        <div class="progress-bar" style="margin-top:6px;"><div class="progress-fill" style="width:${pct}%"></div></div>
-        <div style="font-size:11px;color:#8a95a0;margin-top:4px;">${pct}% complete</div>
-      </div>`;
-    }).join('');
-  } else {
-    wrap.innerHTML=`<div class="table-wrap"><table>
-      <thead><tr><th>WO No</th><th>Prod Order / Item</th><th>Process</th><th>Machine</th>
-      <th>Planned</th><th>Done</th><th>Progress</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody>${filtered.map(w=>{
-        var pct=w.planned_qty>0?Math.min(100,Math.round((w.completed_qty||0)/w.planned_qty*100)):0;
-        var actionBtns=getActionBtns(w);
-        var blockedNote=getBlockedNote(w);
-        return`<tr>
-          <td><strong style="font-family:monospace;">${w.wo_no||'—'}</strong></td>
-          <td style="font-size:12px;">${_poInfo(w)}</td>
-          <td>${w.process_name||'—'}${blockedNote}</td>
-          <td style="font-size:12px;">${w.machines?w.machines.code:'—'}</td>
-          <td style="text-align:center;">${w.planned_qty||0} ${w.uom||'PCS'}</td>
-          <td style="text-align:center;color:#166534;">${w.completed_qty||0}</td>
-          <td style="min-width:80px;"><div class="progress-bar" style="margin-bottom:2px;"><div class="progress-fill" style="width:${pct}%"></div></div><span style="font-size:10px;color:#8a95a0;">${pct}%</span></td>
-          <td><span class="pill ${SPILL[w.status]||'pill-pending'}">${w.status}</span></td>
-          <td style="white-space:nowrap;">${actionBtns} <button type="button" class="btn btn-secondary btn-xs" onclick="editWO(${w.id})">&#9998; Edit</button>
-            <button type="button" class="btn btn-danger btn-xs" onclick="confirmDelete(${w.id},'${esc(w.wo_no||'')}')">&#128465;</button></td>
-        </tr>`;
-      }).join('')}</tbody></table></div>`;
-  }
+  if(activeTab==='operator') renderOperatorView(filtered);
+  else renderManagerView(filtered);
 }
 
-function setView(v){
-  viewMode=v;
+function setView(v){viewMode=v;}
   document.getElementById('btn-table').className='view-btn'+(v==='table'?' active':'');
   document.getElementById('btn-card').className='view-btn'+(v==='card'?' active':'');
   renderWOs();
@@ -833,14 +1091,16 @@ async function openCompleteModal(woId){
   if(!w){showToast('WO nahi mila.','error');return;}
   completingWO=w;
   var body=document.getElementById('cmp-body');
-  var saveBtn=document.getElementById('cmp-save-btn');
-  document.getElementById('cmp-title').textContent='Complete — '+(w.wo_no||'WO');
-  saveBtn.disabled=false;saveBtn.style.display='';
-  saveBtn.innerHTML='&#10003; Complete &amp; Update Stock';
+  var recordBtn=document.getElementById('cmp-record-btn');
+  var closeBtn=document.getElementById('cmp-close-btn');
+  document.getElementById('cmp-title').textContent='Production Entry — '+(w.wo_no||'WO');
+  if(recordBtn){recordBtn.style.display='';recordBtn.disabled=false;recordBtn.innerHTML='&#128190; Record Production';}
+  if(closeBtn){closeBtn.style.display='';}
 
   function block(msg){
     body.innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; ${msg}</div></div>`;
-    saveBtn.style.display='none';
+    var rb=document.getElementById('cmp-record-btn');if(rb)rb.style.display='none';
+    var cb=document.getElementById('cmp-close-btn');if(cb)cb.style.display='none';
     document.getElementById('complete-modal').classList.add('open');
   }
 
@@ -989,26 +1249,34 @@ async function openCompleteModal(woId){
       ${outputItemInfo}<br>
       Planned: ${w.planned_qty} ${w.uom||'KG/PCS'} | Done: ${w.completed_qty||0} | Remaining: ${remaining}
     </div>
-    ${stageType==='mixing'?`
-    <div class="bom-summary">
-      <div class="bom-summary-title">&#128295; RM to Consume (BOM ratio)</div>
-      <div id="bom-preview-rows"></div>
-    </div>`:''}
-    <div class="form-row" style="margin-bottom:14px;">
+    <div class="form-row" style="margin-bottom:10px;">
       <div class="form-field">
-        <label>Actual Qty ${stageType==='mixing'?'(KG)':stageType==='final'?'(Sets)':'(Units)'} <span class="req">*</span></label>
-        <input type="number" id="cmp-qty" value="${remaining||1}" min="0.001" step="0.001"
-          oninput="${stageType==='mixing'?'updateBOMPreview()':''}" style="font-size:16px;font-weight:700;"/>
+        <label>Pass Qty <span style="font-size:10px;color:#5a6878;">${stageType==='mixing'?'(KG)':stageType==='final'?'(Sets)':'(Units)'}</span> <span class="req">*</span></label>
+        <input type="number" id="cmp-pass" value="${remaining||1}" min="0" step="1"
+          oninput="updateEntryCalc()${stageType==='mixing'?';updateBOMPreview()':''}" style="font-size:16px;font-weight:700;"/>
       </div>
+      <div class="form-field">
+        <label>Rejected Qty</label>
+        <input type="number" id="cmp-rejected" value="0" min="0" step="1"
+          oninput="updateEntryCalc()" style="font-size:16px;font-weight:700;color:#cc2200;"/>
+      </div>
+    </div>
+    <div id="cmp-calc-bar" style="background:#f0f4f8;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;display:flex;gap:16px;flex-wrap:wrap;">
+      <span>Processed: <strong id="cmp-processed">0</strong></span>
+      <span>Remaining: <strong id="cmp-remaining">${remaining}</strong></span>
+      <span>Yield: <strong id="cmp-yield">—</strong></span>
+    </div>
+    <div class="form-row" style="margin-bottom:10px;">
       <div class="form-field">
         <label>Output Warehouse <span class="req">*</span></label>
         <select id="cmp-wh"><option value="">-- Select --</option>${whOpts}</select>
       </div>
+      <div class="form-field">
+        <label>Notes</label>
+        <input type="text" id="cmp-notes" placeholder="e.g. Shift A, Operator: Raju"/>
+      </div>
     </div>
-    <div class="form-field" style="margin-bottom:14px;">
-      <label>Notes</label>
-      <input type="text" id="cmp-notes" placeholder="e.g. Shift A, Operator: Raju"/>
-    </div>
+    ${stageType==='mixing'?`<div class="bom-summary"><div class="bom-summary-title">&#128295; RM to Consume</div><div id="bom-preview-rows"></div></div>`:''}
     <div id="stock-check-result"></div>`;
 
   completingWO._po=po;completingWO._fgItem=fgItem;
@@ -1018,7 +1286,7 @@ async function openCompleteModal(woId){
 }
 
 function updateBOMPreview(){
-  var qtyEl=document.getElementById('cmp-qty');
+  var qtyEl=document.getElementById('cmp-pass');
   var rowsEl=document.getElementById('bom-preview-rows');
   if(!qtyEl||!rowsEl||!completingWO?._bomLines)return;
   var actualQty=parseFloat(qtyEl.value)||0;
@@ -1034,8 +1302,7 @@ function updateBOMPreview(){
   }).join('')||'<div style="color:#8a95a0;font-size:12px;padding:8px 0;">No components.</div>';
   var scr=document.getElementById('stock-check-result');
   if(scr)scr.innerHTML='';
-  var sb2=document.getElementById('cmp-save-btn');
-  if(sb2){sb2.disabled=false;sb2.innerHTML='&#10003; Complete &amp; Update Stock';}
+  updateEntryCalc();
 }
 
 function closeCompleteModal(){
@@ -1045,31 +1312,94 @@ function closeCompleteModal(){
 document.getElementById('complete-modal').addEventListener('click',function(e){if(e.target===this)closeCompleteModal();});
 
 // ── SUBMIT COMPLETION — routes to correct stage handler ──
-async function submitCompletion(){
+// v3.0.8.3: live calc for Pass/Rejected entry
+function updateEntryCalc(){
+  var wo=completingWO; if(!wo) return;
+  var passQty=parseFloat(document.getElementById('cmp-pass')?.value)||0;
+  var rejQty =parseFloat(document.getElementById('cmp-rejected')?.value)||0;
+  var priorPass=wo.completed_qty||0;
+  var priorRej =wo.rejected_qty||0;
+  var planned  =wo.planned_qty||0;
+  var priorProc=priorPass+priorRej;
+  var remaining=planned-priorProc;
+  var thisProc =passQty+rejQty;
+  var remainAfter=Math.max(0,remaining-thisProc);
+  var yieldPct=thisProc>0?Math.round(passQty/thisProc*1000)/10:0;
+  var cumProc=priorProc+thisProc;
+
+  var procEl=document.getElementById('cmp-processed');
+  var remEl =document.getElementById('cmp-remaining');
+  var yldEl =document.getElementById('cmp-yield');
+  if(procEl) procEl.textContent=thisProc;
+  if(remEl)  remEl.textContent=remainAfter;
+  if(yldEl)  yldEl.textContent=thisProc>0?(yieldPct+'%'):'—';
+
+  // Enable/disable Close WO button
+  var closeBtn=document.getElementById('cmp-close-btn');
+  if(closeBtn){
+    var canClose=cumProc>=planned&&passQty>=0&&thisProc>0;
+    closeBtn.disabled=!canClose;
+    closeBtn.title=canClose?'':'Remaining qty must be zero to close WO';
+    closeBtn.style.opacity=canClose?'1':'0.45';
+  }
+}
+
+// v3.0.8.3: Two-action completion: action='record' or action='close'
+async function submitCompletion(action){
   if(!completingWO)return;
-  var saveBtn=document.getElementById('cmp-save-btn');
-  saveBtn.disabled=true;saveBtn.innerHTML='&#9203; Processing...';
-  var unlock=()=>{saveBtn.disabled=false;saveBtn.innerHTML='&#10003; Complete &amp; Update Stock';};
+  var recordBtn=document.getElementById('cmp-record-btn');
+  var closeBtn =document.getElementById('cmp-close-btn');
+  var disableAll=()=>{if(recordBtn)recordBtn.disabled=true;if(closeBtn)closeBtn.disabled=true;};
+  var enableAll =()=>{if(recordBtn)recordBtn.disabled=false;updateEntryCalc();};
 
-  var actualQty=parseFloat(document.getElementById('cmp-qty')?.value)||0;
-  var outWhId=document.getElementById('cmp-wh')?.value;
-  var notes=document.getElementById('cmp-notes')?.value||'';
-  if(actualQty<=0){unlock();showToast('Qty > 0 chahiye.','error');return;}
-  if(!outWhId){unlock();showToast('Output warehouse select karein.','error');return;}
+  var passQty =parseFloat(document.getElementById('cmp-pass')?.value)||0;
+  var rejQty  =parseFloat(document.getElementById('cmp-rejected')?.value)||0;
+  var outWhId =document.getElementById('cmp-wh')?.value;
+  var notes   =document.getElementById('cmp-notes')?.value||'';
 
+  // ── Validate
+  if(passQty<=0){showToast('Pass Qty must be greater than 0.','error');return;}
+  if(rejQty<0){showToast('Rejected Qty cannot be negative.','error');return;}
+  if(!outWhId){showToast('Output warehouse select karein.','error');return;}
+  var wo=completingWO;
+  var priorProc=(wo.completed_qty||0)+(wo.rejected_qty||0);
+  var remaining=(wo.planned_qty||0)-priorProc;
+  if(passQty+rejQty>remaining+0.001){
+    showToast('Pass + Rejected ('+( passQty+rejQty)+') cannot exceed remaining qty ('+remaining+').','error');
+    return;
+  }
+  if(action==='close'){
+    var cumProc=priorProc+passQty+rejQty;
+    if(cumProc<(wo.planned_qty||0)-0.001){
+      showToast('Cannot close WO — remaining qty is '+Math.round((wo.planned_qty||0)-cumProc)+'. Use Record Production first.','error');
+      return;
+    }
+  }
+
+  disableAll();
   var st=completingWO._stageType;
   try{
-    if(st==='mixing')      await _completeMixing(actualQty,outWhId,notes);
-    else if(st==='intermediate') await _completeIntermediate(actualQty,outWhId,notes);
-    else                   await _completeFinal(actualQty,outWhId,notes);
-    showToast('WO Complete! Stage recorded.','success');
-    closeCompleteModal();loadWOs();
+    if(st==='mixing')           await _completeMixing(passQty,rejQty,action,outWhId,notes);
+    else if(st==='intermediate') await _completeIntermediate(passQty,rejQty,action,outWhId,notes);
+    else                         await _completeFinal(passQty,rejQty,action,outWhId,notes);
+
+    if(action==='close'){
+      showToast('WO closed. Stage recorded.','success');
+      closeCompleteModal();
+    } else {
+      showToast('Production recorded. WO remains open.','success');
+      // Refresh WO data and re-open modal to show updated remaining
+      await loadWOs();
+      var updated=allWOs.find(x=>x.id===wo.id);
+      if(updated) openCompleteModal(updated.id);
+      else closeCompleteModal();
+      return;
+    }
+    loadWOs();
   }catch(err){
-    unlock();
+    enableAll();
     if(err.message==='STOCK_BLOCK'){
-      // Shortage table already rendered by _completeIntermediate — do NOT overwrite
-      // Just ensure button stays disabled
-      var sb3=document.getElementById('cmp-save-btn');
+      var sb3=document.getElementById('cmp-record-btn');
       if(sb3){sb3.disabled=true;sb3.innerHTML='&#10060; Stock Insufficient';}
     } else {
       document.getElementById('stock-check-result').innerHTML=
@@ -1080,10 +1410,11 @@ async function submitCompletion(){
 
 // ── MIXING STAGE COMPLETION ──
 // Writes: mix_batches + mix_batch_rm_usage + stock_ledger(RM) + inventory(RM) + inventory(WIP out) + stock_ledger(WIP receipt) + work_orders
-async function _completeMixing(actualQty,outWhId,notes){
+// v3.0.8.3: passQty=inventory output, rejQty=reporting only, action='record'|'close'
+async function _completeMixing(passQty,rejQty,action,outWhId,notes){
   var wo=completingWO,po=wo._po,bh=wo._bomHeader,bomLines=wo._bomLines;
   var mf=wo._mf,premixItem=wo._premixItem,thisStep=wo._thisStep;  // v3.0.7.7: thisStep for output_item_id
-  var ratio=actualQty/bh.output_qty;
+  var ratio=passQty/bh.output_qty;
   var session=(await sb.auth.getSession()).data?.session;
   var userId=session?.user?.id||null;
   var completionNote='Mixing Complete: '+wo.wo_no+(notes?' | '+notes:'');
@@ -1163,14 +1494,14 @@ async function _completeMixing(actualQty,outWhId,notes){
       .maybeSingle();
     if(wipInv){
       await sb.from('inventory').update({
-        current_stock:Math.round((parseFloat(wipInv.current_stock||0)+actualQty)*1000)/1000,
+        current_stock:Math.round((parseFloat(wipInv.current_stock||0)+passQty)*1000)/1000,
         last_updated:new Date().toISOString()
       }).eq('id',wipInv.id);
     } else {
       await sb.from('inventory').insert([{
         item_id:mixOutItemId,
         warehouse_id:parseInt(outWhId),
-        current_stock:actualQty,
+        current_stock:passQty,
         uom:'KG'
       }]);
     }
@@ -1179,7 +1510,7 @@ async function _completeMixing(actualQty,outWhId,notes){
       item_id:mixOutItemId,
       warehouse_id:parseInt(outWhId),
       txn_type:'Production Receipt',
-      qty:actualQty,
+      qty:passQty,
       rate:0,value:0,
       reference_no:wo.wo_no,
       reference_type:'Work Order',
@@ -1194,8 +1525,8 @@ async function _completeMixing(actualQty,outWhId,notes){
     mix_family_id:mf.id,       // FK → mix_families.id  ✅
     mix_item_id:premixItem.id,  // FK → items.id  ✅
     production_order_id:po.id,  // no FK constraint, safe to write
-    batch_qty_kg:actualQty,
-    available_qty_kg:actualQty,
+    batch_qty_kg:passQty,
+    available_qty_kg:passQty,
     consumed_qty_kg:0,
     machine_id:wo.machine_id||null,  // FK → machines.id  ✅
     status:'Available',          // mix_batches constraint: Mixing|Available|Consumed|Rejected
@@ -1217,23 +1548,18 @@ async function _completeMixing(actualQty,outWhId,notes){
     if(uErr) console.warn('mix_batch_rm_usage warn:',uErr.message);
   }
 
-  // Update work_orders (confirmed columns)
-  var newComp=Math.round(((wo.completed_qty||0)+actualQty)*1000)/1000;
-  var newSt=newComp>=(wo.planned_qty||0)?'Done':'In Progress';
-  var woUp={completed_qty:newComp,status:newSt};
-  if(newSt==='Done')woUp.actual_end=new Date().toISOString();
+  // v3.0.8.3: Update WO — completed_qty/good_qty += passQty, rejected_qty += rejQty
+  var newComp=Math.round(((wo.completed_qty||0)+passQty)*1000)/1000;
+  var newRej =Math.round(((wo.rejected_qty||0)+rejQty)*1000)/1000;
+  var woUp={completed_qty:newComp,good_qty:newComp,rejected_qty:newRej};
+  if(action==='close'){woUp.status='Done';woUp.actual_end=new Date().toISOString();}
   await sb.from('work_orders').update(woUp).eq('id',wo.id);
-  if(newSt==='Done') await evaluateDependencies(wo);  // v3.0.8: multi-dep unlock
+  if(action==='close'){ var woForDep={...wo,...woUp}; await evaluateDependencies(woForDep); }
 }
 
 // ── INTERMEDIATE STAGE COMPLETION ──
-// v3.0.7.8: Full inventory flow with warehouse-specific queries (Option B)
-// Input warehouse  = WIP-FLOOR (where previous WO wrote its output)
-// Output warehouse = user-selected outWhId
-// Writes: inventory(in deduct, WIP-FLOOR) + stock_ledger(issue, WIP-FLOOR)
-//       + inventory(out add, outWhId) + stock_ledger(receipt, outWhId)
-//       + process_batches + work_orders
-async function _completeIntermediate(actualQty,outWhId,notes){
+// v3.0.8.3: passQty=inventory write, rejQty=reporting only, action='record'|'close'
+async function _completeIntermediate(passQty,rejQty,action,outWhId,notes){
   var wo=completingWO,po=wo._po;
   var outItem=wo._outputItem,thisStep=wo._thisStep;
   var bomLines=wo._bomLines,stageBh=wo._bomHeader?._stageBh||wo._bomHeader;
@@ -1247,7 +1573,7 @@ async function _completeIntermediate(actualQty,outWhId,notes){
   var outputWhId=parseInt(outWhId);
 
   // ── STEP 1: Calculate input requirements from BOM lines
-  var ratio=stageBh&&stageBh.output_qty ? actualQty/stageBh.output_qty : 1;
+  var ratio=stageBh&&stageBh.output_qty ? passQty/stageBh.output_qty : 1;
   var requirements=(bomLines||[]).filter(l=>!l.is_optional).map(l=>({
     item_id:l.item_id,
     item_code:l.items?.code||'?',
@@ -1329,14 +1655,14 @@ async function _completeIntermediate(actualQty,outWhId,notes){
     .maybeSingle();
   if(outInv){
     await sb.from('inventory').update({
-      current_stock:Math.round((parseFloat(outInv.current_stock||0)+actualQty)*1000)/1000,
+      current_stock:Math.round((parseFloat(outInv.current_stock||0)+passQty)*1000)/1000,
       last_updated:new Date().toISOString()
     }).eq('id',outInv.id);
   } else {
     await sb.from('inventory').insert([{
       item_id:outItem.id,
       warehouse_id:outputWhId,          // ← output warehouse
-      current_stock:actualQty,
+      current_stock:passQty,
       uom:outItem.uom||'PCS'
     }]);
   }
@@ -1345,7 +1671,7 @@ async function _completeIntermediate(actualQty,outWhId,notes){
     item_id:outItem.id,
     warehouse_id:outputWhId,            // ← output warehouse
     txn_type:'Production Receipt',
-    qty:actualQty,rate:0,value:0,
+    qty:passQty,rate:0,value:0,
     reference_no:wo.wo_no,
     reference_type:'Work Order',
     notes:completionNote,
@@ -1360,8 +1686,8 @@ async function _completeIntermediate(actualQty,outWhId,notes){
     production_order_id:po.id,
     work_order_id:wo.id,
     machine_id:wo.machine_id||null,
-    input_qty:actualQty,
-    output_qty:actualQty,
+    input_qty:passQty,
+    output_qty:passQty,
     rejected_qty:0,
     uom:wo.uom||outItem.uom||'PCS',
     status:'Complete',
@@ -1371,17 +1697,18 @@ async function _completeIntermediate(actualQty,outWhId,notes){
   if(pbErr) throw new Error('process_batches insert failed: '+pbErr.message);
 
   // ── STEP 6: Update work_orders + unlock next WO
-  var newComp=Math.round(((wo.completed_qty||0)+actualQty)*1000)/1000;
-  var newSt=newComp>=(wo.planned_qty||0)?'Done':'In Progress';
-  var woUp={completed_qty:newComp,status:newSt};
-  if(newSt==='Done')woUp.actual_end=new Date().toISOString();
+  var newComp=Math.round(((wo.completed_qty||0)+passQty)*1000)/1000;
+  var newRej =Math.round(((wo.rejected_qty||0)+rejQty)*1000)/1000;
+  var woUp={completed_qty:newComp,good_qty:newComp,rejected_qty:newRej};
+  if(action==='close'){woUp.status='Done';woUp.actual_end=new Date().toISOString();}
   await sb.from('work_orders').update(woUp).eq('id',wo.id);
-  if(newSt==='Done') await evaluateDependencies(wo);  // v3.0.8
+  if(action==='close'){ var woForDep={...wo,...woUp}; await evaluateDependencies(woForDep); }
 }
 
 // ── FINAL STAGE COMPLETION ──
 // Writes: process_batches + fg_batches + batch_trace + inventory(FG) + stock_ledger + work_orders + production_orders
-async function _completeFinal(actualQty,outWhId,notes){
+// v3.0.8.3: passQty=inventory/FG output, rejQty=reporting only, action='record'|'close'
+async function _completeFinal(passQty,rejQty,action,outWhId,notes){
   var wo=completingWO,po=wo._po,fgItem=wo._fgItem;
   var allSteps=wo._allSteps,skuF=wo._skuF;
   var session=(await sb.auth.getSession()).data?.session;
@@ -1397,7 +1724,7 @@ async function _completeFinal(actualQty,outWhId,notes){
     production_order_id:po.id,
     work_order_id:wo.id,
     machine_id:wo.machine_id||null,
-    input_qty:actualQty,output_qty:actualQty,rejected_qty:0,
+    input_qty:passQty,output_qty:passQty,rejected_qty:rejQty,
     uom:wo.uom||fgItem.uom||'PCS',
     status:'Complete',qc_status:'Pending',notes:completionNote  // process_batches: In Progress|Complete|Rejected
   }]).select('id').single();
@@ -1409,8 +1736,8 @@ async function _completeFinal(actualQty,outWhId,notes){
     batch_no:genBatchNo(fgItem.code),
     item_id:fgItem.id,          // FK → items.id  ✅
     production_order_id:po.id,  // no FK, safe
-    qty_pcs:actualQty*pcsPerSet,
-    qty_sets:actualQty,
+    qty_pcs:passQty*pcsPerSet,
+    qty_sets:passQty,
     warehouse_id:parseInt(outWhId),  // FK → warehouses.id  ✅
     status:'In Stock'           // fg_batches constraint: In Stock|Reserved|Dispatched|Returned
   }]).select('id').single();
@@ -1445,35 +1772,35 @@ async function _completeFinal(actualQty,outWhId,notes){
   var {data:fgInv}=await sb.from('inventory').select('id,current_stock').eq('item_id',fgItem.id).maybeSingle();
   if(fgInv){
     await sb.from('inventory').update({
-      current_stock:Math.round((parseFloat(fgInv.current_stock||0)+actualQty)*1000)/1000,
+      current_stock:Math.round((parseFloat(fgInv.current_stock||0)+passQty)*1000)/1000,
       last_updated:new Date().toISOString()
     }).eq('id',fgInv.id);
   } else {
     await sb.from('inventory').insert([{
       item_id:fgItem.id,warehouse_id:parseInt(outWhId),
-      current_stock:actualQty,uom:fgItem.uom||'PCS',avg_cost:0
+      current_stock:passQty,uom:fgItem.uom||'PCS',avg_cost:0
     }]);
   }
 
   // Stock ledger Production Receipt
   await sb.from('stock_ledger').insert([{
     item_id:fgItem.id,warehouse_id:parseInt(outWhId),
-    txn_type:'Production Receipt',qty:actualQty,rate:0,value:0,
+    txn_type:'Production Receipt',qty:passQty,rate:0,value:0,
     batch_no:fg.batch_no||null,
     reference_no:wo.wo_no,reference_type:'Work Order',
     notes:completionNote,created_by:userId
   }]);
 
   // Update work_orders
-  var newComp=Math.round(((wo.completed_qty||0)+actualQty)*1000)/1000;
-  var newSt=newComp>=(wo.planned_qty||0)?'Done':'In Progress';
-  var woUp={completed_qty:newComp,status:newSt};
-  if(newSt==='Done')woUp.actual_end=new Date().toISOString();
+  var newComp=Math.round(((wo.completed_qty||0)+passQty)*1000)/1000;
+  var newRej =Math.round(((wo.rejected_qty||0)+rejQty)*1000)/1000;
+  var woUp={completed_qty:newComp,good_qty:newComp,rejected_qty:newRej};
+  if(action==='close'){woUp.status='Done';woUp.actual_end=new Date().toISOString();}
   await sb.from('work_orders').update(woUp).eq('id',wo.id);
-  if(newSt==='Done') await evaluateDependencies(wo);  // v3.0.8: multi-dep unlock (if any)
+  if(action==='close'){ var woForDep={...wo,...woUp}; await evaluateDependencies(woForDep); }
 
   // Update production_orders — v3.0.7.12: status='Completed' (not 'Done' — wrong constraint)
-  var newPOComp=Math.round(((po.completed_qty||0)+actualQty)*1000)/1000;
+  var newPOComp=Math.round(((po.completed_qty||0)+passQty)*1000)/1000;
   var {error:poErr2}=await sb.from('production_orders').update({
     completed_qty:newPOComp,
     status:newPOComp>=(po.planned_qty||0)?'Completed':'In Progress'
