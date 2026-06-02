@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Work Orders — CFC ERP v3.0.8.3.1.1</title>
+<title>Work Orders — CFC ERP v3.0.8.3.2.1</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -166,7 +166,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.8.3.1</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.8.3.2</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128230;</span><span class="gh-label">Masters</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a><a class="nav-item" href="warehouse.html"><span class="icon">&#127978;</span> Warehouse</a></div></div>
@@ -1240,7 +1240,8 @@ async function openCompleteModal(woId){
     completingWO._skuF=skuF;
   }
 
-  var remaining=Math.max(0,(w.planned_qty||0)-(w.completed_qty||0));
+  var priorProc=Math.round(((w.completed_qty||0)+(w.rejected_qty||0))*1000)/1000;
+  var remaining=Math.max(0,(w.planned_qty||0)-priorProc);
   var whOpts=allWarehouses.map(wh=>`<option value="${wh.id}">${wh.code} — ${wh.name}</option>`).join('');
 
   body.innerHTML=`
@@ -1248,12 +1249,12 @@ async function openCompleteModal(woId){
       <strong style="color:${stageColor}">${stageLabel}</strong><br>
       <strong>${w.wo_no}</strong> — ${po.order_no} | BOM v${bh.version}<br>
       ${outputItemInfo}<br>
-      Planned: ${w.planned_qty} ${w.uom||'KG/PCS'} | Done: ${w.completed_qty||0} | Remaining: ${remaining}
+      Planned: ${w.planned_qty} ${w.uom||'KG/PCS'} | Processed: ${priorProc} | Remaining: ${remaining}
     </div>
     <div class="form-row" style="margin-bottom:10px;">
       <div class="form-field">
         <label>Pass Qty <span style="font-size:10px;color:#5a6878;">${stageType==='mixing'?'(KG)':stageType==='final'?'(Sets)':'(Units)'}</span> <span class="req">*</span></label>
-        <input type="number" id="cmp-pass" value="${remaining||1}" min="0" step="1"
+        <input type="number" id="cmp-pass" value="${remaining>0?remaining:0}" min="0" step="1"
           oninput="updateEntryCalc()${stageType==='mixing'?';updateBOMPreview()':''}" style="font-size:16px;font-weight:700;"/>
       </div>
       <div class="form-field">
