@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Production Plan — CFC ERP v3.0.7.12</title>
+<title>Production Plan — CFC ERP v3.0.8.1</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -144,7 +144,7 @@ tr:last-child td{border-bottom:none;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7.12</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.8.1</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters">
@@ -774,7 +774,7 @@ async function releasePlan(planId){
 
   // Fetch active routing steps ordered by sequence
   var {data:steps}=await sb.from("routing_steps")
-    .select("id,sequence,process_name,step_type,output_item_id,machine_id,is_active")
+    .select("id,sequence,process_name,step_type,output_item_id,machine_id,is_active,parallel_track,depends_on_step_ids")
     .eq("routing_level_id",bom.routing_level_id)
     .eq("is_active",true)
     .order("sequence",{ascending:true});
@@ -786,71 +786,105 @@ async function releasePlan(planId){
   var now=new Date();
   var yymm=now.getFullYear().toString().slice(2)+String(now.getMonth()+1).padStart(2,"0");
 
+  // v3.0.8: generate batch_no before creating PO
+  var batchNo=await _generateBatchNo(fgItem.code);
+
   // Create production_orders
   var {data:po,error:poErr}=await sb.from("production_orders").insert([{
     order_no:"PO-"+yymm+"-"+String(Math.floor(Math.random()*9000)+1000),
     order_type:"MTS",             // constraint: MTS | MTO only
+    order_mode:"MTS",             // v3.0.8: MTS|MTO
+    batch_no:batchNo,             // v3.0.8: e.g. VO260602-001
     item_id:plan.item_id,
     planned_qty:plan.planned_qty,
     completed_qty:0,
     uom:plan.uom||fgItem.uom||"Set",
-    status:"Released",            // constraint: Draft|Planned|Released|In Progress|Stacked|Packed|Completed|Cancelled
-    bom_id:bom.id,       // confirmed column (ALTER done)
-    plan_id:plan.id,     // confirmed column (ALTER done)
+    status:"Released",
+    bom_id:bom.id,
+    plan_id:plan.id,
     planned_start:plan.estimated_start||null,
     planned_end:plan.estimated_end||null,
     notes:"Released from Plan PP-"+String(planId).padStart(4,"0")
   }]).select("id,order_no").single();
   if(poErr){showToast("Production Order create failed: "+poErr.message,"error");return;}
 
-  // Create one work_order per routing step
-  // work_orders confirmed columns: production_order_id, plan_id, routing_step_id,
-  //   process_name, planned_qty, completed_qty, uom, status, priority
-  // v3.0.7.2: machine_id now copied from routing_steps.machine_id during release
+  // D3: TEMP DIAGNOSTIC — verify parallel_track in steps (remove after testing)
+  steps.forEach(s=>console.log('D3 STEP',s.sequence,s.process_name,'parallel_track:',s.parallel_track,'deps:',s.depends_on_step_ids));
+
+  // v3.0.8: track and batch_no added
   var wos=steps.map((s,i)=>({
     wo_no:"WO-"+yymm+"-"+String(Math.floor(Math.random()*90000)+10000)+"-"+String(i+1).padStart(2,"0"),
-    production_order_id:po.id,   // no FK constraint but column confirmed
-    plan_id:plan.id,              // no FK constraint but column confirmed
-    routing_step_id:s.id,         // no FK constraint but column confirmed
+    production_order_id:po.id,
+    plan_id:plan.id,
+    routing_step_id:s.id,
     process_name:s.process_name,
     planned_qty:plan.planned_qty,
     completed_qty:0,
     uom:plan.uom||fgItem.uom||"Set",
     status:"Pending",
     priority:s.sequence,
-    machine_id:s.machine_id||null,  // v3.0.7.2: from routing_steps.machine_id
+    machine_id:s.machine_id||null,
+    track:s.parallel_track||null,  // v3.0.8: A/B/merge
+    batch_no:batchNo,              // v3.0.8: carry batch through all WOs
+    can_start:false,
+    blocked_reason:null,
     notes:"Auto: "+po.order_no+" | Step "+s.sequence
   }));
 
   var {error:woErr}=await sb.from("work_orders").insert(wos);
   if(woErr){
-    // Rollback: delete the production order we just created
     await sb.from("production_orders").delete().eq("id",po.id);
     showToast("Work Orders create failed: "+woErr.message,"error");return;
   }
 
-  // v3.0.7.3: Linear dependency — fetch created WOs, set can_start + blocked_reason
-  var {data:createdWOs}=await sb.from("work_orders")
-    .select("id,priority,process_name")
+  // v3.0.8: Dependency engine — build maps, insert wo_dependencies, set can_start
+  var {data:createdWOs,error:cwErr}=await sb.from("work_orders")
+    .select("id,priority,process_name,routing_step_id")
     .eq("production_order_id",po.id)
     .order("priority",{ascending:true});
+  if(cwErr){showToast("WO fetch failed: "+cwErr.message,"error");return;}
 
-  if(createdWOs&&createdWOs.length){
-    // WO-01: can_start = true (first step, no blocker)
-    await sb.from("work_orders").update({
-      can_start:true,
-      blocked_reason:null
-    }).eq("id",createdWOs[0].id);
+  var stepToWO={};
+  (createdWOs||[]).forEach(w=>{stepToWO[w.routing_step_id]=w.id;});
+  var stepToName={};
+  steps.forEach(s=>{stepToName[s.id]=s.process_name;});
 
-    // WO-02..14: can_start = false, blocked by previous step
-    for(var di=1;di<createdWOs.length;di++){
-      var prev=createdWOs[di-1];
-      var curr=createdWOs[di];
-      await sb.from("work_orders").update({
+  for(var cwo of (createdWOs||[])){
+    var step=steps.find(s=>s.id===cwo.routing_step_id);
+    var deps=(step&&step.depends_on_step_ids)||[];
+
+    if(deps.length===0){
+      // No dependencies → can start immediately (WO-01 Track A, WO-04 Track B)
+      var {error:csErr}=await sb.from("work_orders").update({
+        can_start:true,blocked_reason:null
+      }).eq("id",cwo.id);
+      if(csErr) console.error("can_start update failed WO",cwo.id,csErr.message);
+    } else {
+      // Insert wo_dependencies rows
+      var depRows=deps.filter(sid=>stepToWO[sid]).map(sid=>({
+        work_order_id:cwo.id,
+        depends_on_wo_id:stepToWO[sid],
+        production_order_id:po.id
+      }));
+      if(depRows.length){
+        // v3.0.8: TEST_DEP_FAIL flag for rollback simulation (remove before production)
+        var simErr = window.TEST_DEP_FAIL ? {message:'Simulated dependency failure'} : null;
+        var {error:depErr}=simErr ? {error:simErr} : await sb.from("wo_dependencies").insert(depRows);
+        if(depErr){
+          // BLOCKING: dependency creation is mandatory — rollback everything
+          console.error("wo_dependencies insert failed:",depErr.message);
+          await sb.from("work_orders").delete().eq("production_order_id",po.id);
+          await sb.from("production_orders").delete().eq("id",po.id);
+          showToast("Release failed: dependency creation error — "+depErr.message,"error");
+          return;
+        }
+      }
+      var blockerNames=deps.map(sid=>stepToName[sid]).filter(Boolean).join(", ");
+      var {error:brErr}=await sb.from("work_orders").update({
         can_start:false,
-        depends_on_wo_ids:[prev.id],
-        blocked_reason:"Waiting for previous step: "+prev.process_name
-      }).eq("id",curr.id);
+        blocked_reason:"Waiting for: "+blockerNames
+      }).eq("id",cwo.id);
+      if(brErr) console.error("blocked_reason update failed WO",cwo.id,brErr.message);
     }
   }
 
@@ -865,8 +899,23 @@ async function releasePlan(planId){
   setTimeout(()=>window.location.href="work_orders.html",2500);
 }
 
-// DEPRECATED — removed in v3.0.5 (was creating orphan WOs)
-// createWOsFromPlan() — replaced by releasePlan() above
+// v3.0.8: Generate batch_no — format [QC][YYMMDD]-[seq padded 3]
+// Sequence per day per quality code, counted from production_orders.batch_no
+async function _generateBatchNo(fgItemCode){
+  var qc=((fgItemCode||'').substring(0,2)).toUpperCase();
+  var now=new Date();
+  var yy=String(now.getFullYear()).slice(2);
+  var mm=String(now.getMonth()+1).padStart(2,'0');
+  var dd=String(now.getDate()).padStart(2,'0');
+  var prefix=qc+yy+mm+dd; // e.g. VO260602
+  var {count,error:cntErr}=await sb.from('production_orders')
+    .select('id',{count:'exact',head:true})
+    .like('batch_no',prefix+'-%');
+  if(cntErr) console.error('_generateBatchNo count error:',cntErr.message);
+  var seq=((count||0)+1);
+  return prefix+'-'+String(seq).padStart(3,'0');
+}
+
 
 function showToast(msg,type=""){
   const t=document.getElementById("toast");

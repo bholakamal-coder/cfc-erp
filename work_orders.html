@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Work Orders — CFC ERP v3.0.7.12</title>
+<title>Work Orders — CFC ERP v3.0.8.1</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -136,7 +136,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.7.12</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.8.1</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128230;</span><span class="gh-label">Masters</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a><a class="nav-item" href="warehouse.html"><span class="icon">&#127978;</span> Warehouse</a></div></div>
@@ -668,21 +668,81 @@ async function saveWO(){
 
 // ── STATUS UPDATES ──
 // v3.0.7.3: unlock next WO in linear dependency chain on completion
+// v3.0.7.3: linear unlock (kept as fallback — not called by completion functions in v3.0.8)
 async function unlockNextWO(completedWO){
   if(!completedWO.production_order_id) return;
-  // Find next WO by priority in same production order
   var {data:nextWOs}=await sb.from('work_orders')
     .select('id,priority,process_name,can_start,status')
     .eq('production_order_id', completedWO.production_order_id)
     .eq('priority', (completedWO.priority||0)+1)
     .limit(1);
-  if(!nextWOs||!nextWOs.length) return;  // no next step
+  if(!nextWOs||!nextWOs.length) return;
   var next=nextWOs[0];
-  if(next.status==='Done'||next.status==='Completed') return;  // already done
+  if(next.status==='Done'||next.status==='Completed') return;
   await sb.from('work_orders').update({
     can_start: true,
     blocked_reason: null
   }).eq('id', next.id);
+}
+
+// v3.0.8: Multi-dependency unlock via wo_dependencies table
+async function evaluateDependencies(completedWO){
+  if(!completedWO.production_order_id) return;
+
+  // Step 1: Find all WOs that depend on completedWO
+  var {data:depLinks,error:dlErr}=await sb.from('wo_dependencies')
+    .select('work_order_id')
+    .eq('depends_on_wo_id',completedWO.id);
+  if(dlErr){
+    console.error('evaluateDependencies: depLinks fetch failed',dlErr.message);
+    showToast('Dependency check failed: '+dlErr.message,'error');
+    return;
+  }
+  if(!depLinks||!depLinks.length) return;
+
+  // Step 2: For each dependent WO evaluate all its dependencies
+  for(var link of depLinks){
+    var depWoId=link.work_order_id;
+
+    var {data:allDeps,error:adErr}=await sb.from('wo_dependencies')
+      .select('depends_on_wo_id')
+      .eq('work_order_id',depWoId);
+    if(adErr){
+      console.error('evaluateDependencies: allDeps fetch failed for WO',depWoId,adErr.message);
+      continue;
+    }
+    if(!allDeps||!allDeps.length) continue;
+
+    var predIds=allDeps.map(d=>d.depends_on_wo_id);
+    var {data:predWOs,error:pwErr}=await sb.from('work_orders')
+      .select('id,process_name,status')
+      .in('id',predIds);
+    if(pwErr){
+      console.error('evaluateDependencies: predWOs fetch failed',pwErr.message);
+      continue;
+    }
+
+    var notDone=(predWOs||[]).filter(w=>w.status!=='Done');
+
+    if(notDone.length===0){
+      var {error:ulErr}=await sb.from('work_orders').update({
+        can_start:true,
+        blocked_reason:null
+      }).eq('id',depWoId);
+      if(ulErr){
+        console.error('evaluateDependencies: unlock failed for WO',depWoId,ulErr.message);
+        showToast('Unlock failed for WO '+depWoId+': '+ulErr.message,'error');
+      }
+    } else {
+      var waiting=notDone.map(w=>w.process_name).join(', ');
+      var {error:brErr}=await sb.from('work_orders').update({
+        blocked_reason:'Waiting for: '+waiting
+      }).eq('id',depWoId);
+      if(brErr){
+        console.error('evaluateDependencies: blocked_reason update failed for WO',depWoId,brErr.message);
+      }
+    }
+  }
 }
 
 async function updateStatus(id,status){
@@ -1163,7 +1223,7 @@ async function _completeMixing(actualQty,outWhId,notes){
   var woUp={completed_qty:newComp,status:newSt};
   if(newSt==='Done')woUp.actual_end=new Date().toISOString();
   await sb.from('work_orders').update(woUp).eq('id',wo.id);
-  if(newSt==='Done') await unlockNextWO(wo);  // v3.0.7.3: unlock next step
+  if(newSt==='Done') await evaluateDependencies(wo);  // v3.0.8: multi-dep unlock
 }
 
 // ── INTERMEDIATE STAGE COMPLETION ──
@@ -1316,7 +1376,7 @@ async function _completeIntermediate(actualQty,outWhId,notes){
   var woUp={completed_qty:newComp,status:newSt};
   if(newSt==='Done')woUp.actual_end=new Date().toISOString();
   await sb.from('work_orders').update(woUp).eq('id',wo.id);
-  if(newSt==='Done') await unlockNextWO(wo);
+  if(newSt==='Done') await evaluateDependencies(wo);  // v3.0.8
 }
 
 // ── FINAL STAGE COMPLETION ──
@@ -1410,7 +1470,7 @@ async function _completeFinal(actualQty,outWhId,notes){
   var woUp={completed_qty:newComp,status:newSt};
   if(newSt==='Done')woUp.actual_end=new Date().toISOString();
   await sb.from('work_orders').update(woUp).eq('id',wo.id);
-  if(newSt==='Done') await unlockNextWO(wo);  // v3.0.7.3: unlock next step (if any)
+  if(newSt==='Done') await evaluateDependencies(wo);  // v3.0.8: multi-dep unlock (if any)
 
   // Update production_orders — v3.0.7.12: status='Completed' (not 'Done' — wrong constraint)
   var newPOComp=Math.round(((po.completed_qty||0)+actualQty)*1000)/1000;
