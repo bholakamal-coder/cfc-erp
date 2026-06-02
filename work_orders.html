@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Work Orders — CFC ERP v3.0.8.3.4.1</title>
+<title>Work Orders — CFC ERP v3.0.8.4.1</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -166,7 +166,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.8.3.4</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.8.4</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128230;</span><span class="gh-label">Masters</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a><a class="nav-item" href="warehouse.html"><span class="icon">&#127978;</span> Warehouse</a></div></div>
@@ -466,7 +466,7 @@ async function loadWOs(){
   wrap.innerHTML='<div class="loading">Loading...</div>';
 
   var {data,error}=await sb.from('work_orders')
-    .select('id,wo_no,production_order_id,process_name,planned_qty,completed_qty,uom,status,machine_id,die_id,routing_step_id,priority,can_start,blocked_reason,depends_on_wo_ids,planned_start,planned_end,actual_start,actual_end,notes,created_at,track,batch_no,good_qty, machines(id,code,name), die:die_id(die_code)')
+    .select('id,wo_no,production_order_id,process_name,planned_qty,completed_qty,uom,status,machine_id,die_id,routing_step_id,priority,can_start,blocked_reason,depends_on_wo_ids,planned_start,planned_end,actual_start,actual_end,notes,created_at,track,batch_no,good_qty,available_input_qty, machines(id,code,name), die:die_id(die_code)')
     .order('priority',{ascending:true});
 
   if(error){
@@ -793,6 +793,10 @@ function _renderTrackSection(wlist,track,label,dotColor,isMerge){
     var sBadge=_statusBadge(w);
     var blocked=w.blocked_reason&&w.status==='Pending'&&!w.can_start
       ?`<div style="font-size:10px;color:#BA7517;margin-top:2px;">&#9200; ${w.blocked_reason}</div>`:'';
+    var feedQty=(w.available_input_qty>0&&w.can_start&&w.status==='Pending')
+      ?`<div style="font-size:10px;color:#3B6D11;margin-top:2px;">&#9989; Feed: ${Math.round(w.available_input_qty)} pcs available</div>`:'';
+    var feedBlock=(w.available_input_qty===0&&w.blocked_reason&&(w.blocked_reason.startsWith('No feed')))
+      ?`<div style="font-size:10px;color:#BA7517;margin-top:2px;">&#9200; ${w.blocked_reason}</div>`:'';
     return `<div class="mgr-card-2 ${slCls}">
       <div style="font-size:11px;color:#8a95a0;min-width:18px;padding-top:1px;">${w.priority||''}</div>
       <div style="flex:1;min-width:0;">
@@ -806,7 +810,7 @@ function _renderTrackSection(wlist,track,label,dotColor,isMerge){
           <span style="font-size:10px;color:#8a95a0;">${w.completed_qty||0}/${w.planned_qty||0} ${w.uom||''}</span>
           ${w.machines?`<span style="font-size:10px;color:#5a6878;">&#127981; ${w.machines.code}</span>`:''}
         </div>
-        ${blocked}
+        ${blocked}${feedQty}${feedBlock}
       </div>
       <div style="flex-shrink:0;">
         <button type="button" class="btn btn-secondary btn-xs" onclick="editWO(${w.id})" title="Edit">&#9998;</button>
@@ -993,10 +997,11 @@ async function evaluateDependencies(completedWO){
         showToast('Unlock failed for WO '+depWoId+': '+ulErr.message,'error');
       }
     } else {
-      // v3.0.8.3.3: inventory-based unlock for moulding; status-based for all others
+      // v3.0.8.4: WIP-driven unlock for all downstream processes; WO-driven only for mixing + shot_blasting
+      var WO_DRIVEN=['mixing','shot_blasting'];
       var depStep=await _getStepForWO(depWoId);
-      if(depStep&&depStep.step_type==='moulding'){
-        await _checkMouldingFeed(depWoId,allDeps,predWOs);
+      if(depStep&&!WO_DRIVEN.includes(depStep.step_type)){
+        await _checkWIPFeed(depWoId,depStep,allDeps,predWOs);
       } else {
         var waiting=notDone.map(w=>w.process_name).join(', ');
         var {error:brErr}=await sb.from('work_orders').update({
@@ -1011,42 +1016,64 @@ async function evaluateDependencies(completedWO){
 }
 
 // v3.0.8.3.3: Helper — get routing step for a WO
+// v3.0.8.4: get routing step for a WO — includes input_item_id for Path A
 async function _getStepForWO(woId){
   var {data:woRow}=await sb.from('work_orders')
     .select('routing_step_id').eq('id',woId).maybeSingle();
   if(!woRow?.routing_step_id) return null;
   var {data:step}=await sb.from('routing_steps')
-    .select('id,step_type,output_item_id')
+    .select('id,step_type,input_item_id,output_item_id')
     .eq('id',woRow.routing_step_id).maybeSingle();
   return step||null;
 }
 
 // v3.0.8.3.3: Inventory-based unlock for moulding step
 // maybeSingle() safe: inventory has UNIQUE(item_id) constraint
-async function _checkMouldingFeed(depWoId,allDeps,predWOs){
+// v3.0.8.4: Generalised WIP-driven unlock for all downstream processes (Phase M1-A)
+// Path B: predecessor output_item_id → WIP-FLOOR inventory
+// Path A (future M1-B): depStep.input_item_id if populated
+// Fallback: status-based if item mapping fails
+async function _checkWIPFeed(depWoId,depStep,allDeps,predWOs){
   var wipWh=allWarehouses.find(w=>w.code==='WIP-FLOOR');
   if(!wipWh){
-    console.error('_checkMouldingFeed: WIP-FLOOR not found');
-    return;
+    console.error('_checkWIPFeed: WIP-FLOOR not found');
+    return _fallbackStatusBlock(depWoId,predWOs);
   }
   var inputItems=[];
-  for(var dep of allDeps){
-    var predWO=(predWOs||[]).find(w=>w.id===dep.depends_on_wo_id);
-    if(!predWO) continue;
-    var {data:step}=await sb.from('routing_steps')
-      .select('output_item_id,items:output_item_id(code,name)')
-      .eq('id',predWO.routing_step_id).maybeSingle();
-    if(!step?.output_item_id){
-      console.warn('_checkMouldingFeed: no output_item_id for step',predWO.routing_step_id,'— fallback to status');
-      return _fallbackStatusBlock(depWoId,predWOs);
-    }
-    inputItems.push({
-      item_id:step.output_item_id,
-      item_code:step.items?.code||'?',
-      item_name:step.items?.name||''
-    });
+
+  // Path A: direct input_item_id on routing step (M1-B when populated)
+  if(depStep.input_item_id){
+    var {data:iItem}=await sb.from('items')
+      .select('id,code,name').eq('id',depStep.input_item_id).maybeSingle();
+    if(iItem) inputItems.push({item_id:iItem.id,item_code:iItem.code,item_name:iItem.name});
   }
-  if(!inputItems.length) return;
+
+  // Path B: predecessor output_item_id via wo_dependencies
+  if(!inputItems.length){
+    for(var dep of allDeps){
+      var predWO=(predWOs||[]).find(w=>w.id===dep.depends_on_wo_id);
+      if(!predWO?.routing_step_id) continue;
+      var {data:step}=await sb.from('routing_steps')
+        .select('output_item_id,items:output_item_id(code,name)')
+        .eq('id',predWO.routing_step_id).maybeSingle();
+      if(!step?.output_item_id){
+        console.warn('_checkWIPFeed: no output_item_id for step',predWO.routing_step_id,'— fallback');
+        return _fallbackStatusBlock(depWoId,predWOs);
+      }
+      inputItems.push({
+        item_id:step.output_item_id,
+        item_code:step.items?.code||'?',
+        item_name:step.items?.name||''
+      });
+    }
+  }
+
+  if(!inputItems.length){
+    console.warn('_checkWIPFeed: no input items resolved for WO',depWoId,'— fallback');
+    return _fallbackStatusBlock(depWoId,predWOs);
+  }
+
+  // Read WIP-FLOOR stock for each required input item
   var stocks=[];
   for(var item of inputItems){
     var {data:inv}=await sb.from('inventory')
@@ -1056,24 +1083,34 @@ async function _checkMouldingFeed(depWoId,allDeps,predWOs){
       .maybeSingle();
     stocks.push({...item,stock:parseFloat(inv?.current_stock||0)});
   }
-  var minStock=Math.min(...stocks.map(s=>s.stock));
-  var missing=stocks.filter(s=>s.stock<=0).map(s=>s.item_code);
-  if(minStock>0){
-    await sb.from('work_orders').update({
-      can_start:true,blocked_reason:null
+
+  var availableQty=Math.min(...stocks.map(s=>s.stock));
+  var missing=stocks.filter(s=>s.stock<=0).map(s=>s.item_code+' = 0');
+
+  if(availableQty>0){
+    var {error:ulErr}=await sb.from('work_orders').update({
+      can_start:true,
+      blocked_reason:null,
+      available_input_qty:availableQty
     }).eq('id',depWoId);
+    if(ulErr) console.error('_checkWIPFeed: unlock failed for WO',depWoId,ulErr.message);
   } else {
-    await sb.from('work_orders').update({
-      blocked_reason:'Waiting for moulding feed: '+missing.join(', ')
+    var {error:blErr}=await sb.from('work_orders').update({
+      can_start:false,
+      blocked_reason:'No feed: '+missing.join(', '),
+      available_input_qty:0
     }).eq('id',depWoId);
+    if(blErr) console.error('_checkWIPFeed: block update failed for WO',depWoId,blErr.message);
   }
 }
 
 // v3.0.8.3.3: Fallback to status-based block when output_item_id missing
+// v3.0.8.4: Fallback when WIP item cannot be resolved — status-based, never false-unlock
 async function _fallbackStatusBlock(depWoId,predWOs){
   var waiting=(predWOs||[]).filter(w=>w.status!=='Done').map(w=>w.process_name).join(', ');
+  var blockMsg=waiting?'Waiting for: '+waiting:'Waiting for previous step';
   await sb.from('work_orders').update({
-    blocked_reason:'Waiting for: '+waiting
+    blocked_reason:blockMsg
   }).eq('id',depWoId);
 }
 
