@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Work Orders — CFC ERP v3.0.8.4.1</title>
+<title>Work Orders — CFC ERP v3.0.8.4.1.1</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="shared.css"/>
 <style>
@@ -166,7 +166,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
 </head>
 <body>
 <aside class="sidebar">
-<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.8.4</strong>Ceradrive Brakes</div></div>
+<div class="sidebar-logo"><img src="cdlogo.png" alt=""/><div class="sidebar-logo-text"><strong>CFC ERP v3.0.8.4.1</strong>Ceradrive Brakes</div></div>
 <div class="sidebar-nav">
 <div class="sb-dashboard"><a href="dashboard.html">&#8862; Dashboard</a></div>
 <div class="sb-group" data-gid="masters"><div class="sb-group-header"><div class="gh-left"><span class="gh-icon">&#128230;</span><span class="gh-label">Masters</span></div><span class="gh-arrow">&#9658;</span></div><div class="sb-group-body"><a class="nav-item" href="item_master.html"><span class="icon">&#128230;</span> Item Master</a><a class="nav-item" href="warehouse.html"><span class="icon">&#127978;</span> Warehouse</a></div></div>
@@ -332,7 +332,7 @@ tr:last-child td{border-bottom:none;}tr:hover td{background:#fafbfc;}
     <div class="modal-body" id="cmp-body"></div>
     <div class="modal-footer" id="cmp-footer">
       <button type="button" class="btn btn-secondary" onclick="closeCompleteModal()">Cancel</button>
-      <button type="button" class="btn btn-secondary" id="cmp-record-btn" onclick="submitCompletion('record')" style="display:none;">&#128190; Record Production</button>
+      <button type="button" class="btn btn-secondary" id="cmp-record-btn" onclick="submitCompletion('record')" style="display:none;">&#128190; Save Production</button>
       <button type="button" class="btn btn-complete"  id="cmp-close-btn"  onclick="submitCompletion('close')"  style="display:none;">&#10003; Close WO</button>
     </div>
   </div>
@@ -1205,8 +1205,9 @@ async function openCompleteModal(woId){
   var recordBtn=document.getElementById('cmp-record-btn');
   var closeBtn=document.getElementById('cmp-close-btn');
   document.getElementById('cmp-title').textContent='Production Entry — '+(w.wo_no||'WO');
-  if(recordBtn){recordBtn.style.display='';recordBtn.disabled=false;recordBtn.innerHTML='&#128190; Record Production';}
-  if(closeBtn){closeBtn.style.display='';}
+  if(recordBtn){recordBtn.style.display='';recordBtn.disabled=false;recordBtn.innerHTML='&#128190; Save Production';}
+  // v3.0.8.4.1: Close WO hidden until first production entry; role-gated to supervisor+
+  if(closeBtn){closeBtn.style.display='none';}
 
   function block(msg){
     body.innerHTML=`<div class="block-box"><div class="block-box-title">&#10060; ${msg}</div></div>`;
@@ -1352,6 +1353,9 @@ async function openCompleteModal(woId){
 
   var priorProc=Math.round(((w.completed_qty||0)+(w.rejected_qty||0))*1000)/1000;
   var remaining=Math.max(0,(w.planned_qty||0)-priorProc);
+  // v3.0.8.4.1: feed-based auto-fill
+  var feed=parseFloat(w.available_input_qty||0);
+  var suggestedPass=feed>0?Math.min(feed,remaining):0;
   var whOpts=allWarehouses.map(wh=>`<option value="${wh.id}">${wh.code} — ${wh.name}</option>`).join('');
 
   body.innerHTML=`
@@ -1361,10 +1365,14 @@ async function openCompleteModal(woId){
       ${outputItemInfo}<br>
       Planned: ${w.planned_qty} ${w.uom||'KG/PCS'} | Processed: ${priorProc} | Remaining: ${remaining}
     </div>
+    ${feed>0
+      ?`<div style="font-size:11px;color:#3B6D11;margin-bottom:8px;">&#9989; Available Feed: ${Math.round(feed)} pcs &nbsp;·&nbsp; Suggested: ${suggestedPass} pcs</div>`
+      :`<div style="font-size:11px;color:#BA7517;margin-bottom:8px;">&#9888; Available Feed: 0 pcs &nbsp;&nbsp; Feed not detected — ERP data may be stale. Enter manually.</div>`
+    }
     <div class="form-row" style="margin-bottom:10px;">
       <div class="form-field">
         <label>Pass Qty <span style="font-size:10px;color:#5a6878;">${stageType==='mixing'?'(KG)':stageType==='final'?'(Sets)':'(Units)'}</span> <span class="req">*</span></label>
-        <input type="number" id="cmp-pass" value="${remaining>0?remaining:0}" min="0" step="1"
+        <input type="number" id="cmp-pass" value="${suggestedPass}" min="0" step="1"
           oninput="updateEntryCalc()${stageType==='mixing'?';updateBOMPreview()':''}" style="font-size:16px;font-weight:700;"/>
       </div>
       <div class="form-field">
@@ -1378,6 +1386,7 @@ async function openCompleteModal(woId){
       <span>Remaining: <strong id="cmp-remaining">${remaining}</strong></span>
       <span>Yield: <strong id="cmp-yield">—</strong></span>
     </div>
+    <div id="cmp-close-note" style="display:none;font-size:10px;color:#BA7517;margin-top:4px;"></div>
     <div class="form-row" style="margin-bottom:10px;">
       <div class="form-field">
         <label>Output Warehouse <span class="req">*</span></label>
@@ -1446,19 +1455,34 @@ function updateEntryCalc(){
   if(remEl)  remEl.textContent=remainAfter;
   if(yldEl)  yldEl.textContent=thisProc>0?(yieldPct+'%'):'—';
 
-  // Enable/disable Close WO button
+  // v3.0.8.4.1: Close WO — visible only after first production entry AND role >= Supervisor
   var closeBtn=document.getElementById('cmp-close-btn');
   if(closeBtn){
-    var canClose=cumProc>=planned&&passQty>=0&&thisProc>0;
-    closeBtn.disabled=!canClose;
-    closeBtn.title=canClose?'':'Remaining qty must be zero to close WO';
-    closeBtn.style.opacity=canClose?'1':'0.45';
+    var wo2=completingWO;
+    var priorProc2=Math.round(((wo2.completed_qty||0)+(wo2.rejected_qty||0))*1000)/1000;
+    var hasStarted=priorProc2>0 || (thisProc>0);
+    var allowedRoles=['Admin','Manager','Supervisor'];
+    var userCanClose=allowedRoles.includes(window.CFC_PERM&&CFC_PERM.role?CFC_PERM.role():'Admin');
+    closeBtn.style.display=(hasStarted&&userCanClose)?'':'none';
+    closeBtn.disabled=false;
+    // Confirmation note
+    var noteEl=document.getElementById('cmp-close-note');
+    if(noteEl){
+      var remAfter2=Math.max(0,(wo2.planned_qty||0)-priorProc2-thisProc);
+      noteEl.style.display=(hasStarted&&userCanClose&&remAfter2>0)?'':'none';
+      noteEl.textContent='Remaining: '+remAfter2+' '+(wo2.uom||'')+' will stay on this WO if you close early.';
+    }
   }
 }
 
 // v3.0.8.3: Two-action completion: action='record' or action='close'
 async function submitCompletion(action){
   if(!completingWO)return;
+  // v3.0.8.4.1: Cancelled WO guard
+  if(completingWO.status==='Cancelled'){
+    showToast('Cannot record production on a Cancelled WO.','error');
+    return;
+  }
   var recordBtn=document.getElementById('cmp-record-btn');
   var closeBtn =document.getElementById('cmp-close-btn');
   var disableAll=()=>{if(recordBtn)recordBtn.disabled=true;if(closeBtn)closeBtn.disabled=true;};
@@ -1482,9 +1506,19 @@ async function submitCompletion(action){
   }
   if(action==='close'){
     var cumProc=priorProc+passQty+rejQty;
-    if(cumProc<(wo.planned_qty||0)-0.001){
-      showToast('Cannot close WO — remaining qty is '+Math.round((wo.planned_qty||0)-cumProc)+'. Use Record Production first.','error');
-      return;
+    var remForClose=Math.max(0,(wo.planned_qty||0)-cumProc);
+    if(remForClose>0){
+      // v3.0.8.4.1: Confirm early close — WO continues across shifts, this is intentional
+      var confirmed=window.confirm(
+        'Close WO Early?\n' +
+        '────────────────────────\n' +
+        'Planned:    '+(wo.planned_qty||0)+' '+(wo.uom||'')+' \n' +
+        'Processed:  '+cumProc+' '+(wo.uom||'')+' \n' +
+        'Remaining:  '+remForClose+' '+(wo.uom||'')+' \n\n' +
+        'This WO can be continued later.\n' +
+        'Are you sure you want to close it?'
+      );
+      if(!confirmed){enableAll();return;}
     }
   }
 
